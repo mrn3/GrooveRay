@@ -21,7 +21,8 @@ export async function request(path, options = {}) {
 }
 
 export function streamUrl(songId) {
-  return `${API}/songs/${songId}/stream${getToken() ? `?token=${getToken()}` : ''}`;
+  const path = `${API}/songs/${songId}/stream${getToken() ? `?token=${getToken()}` : ''}`;
+  return typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
 }
 
 // Auth

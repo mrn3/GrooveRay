@@ -35,8 +35,17 @@ export function PlayerProvider({ children }) {
 
   const toggle = useCallback(() => {
     if (!current) return;
-    if (playing) pause();
-    else audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
+    if (playing) {
+      pause();
+      return;
+    }
+    const audio = audioRef.current;
+    const url = current.file_path?.startsWith('http') ? current.file_path : streamUrl(current.id);
+    if (audio.src !== url) {
+      audio.src = url;
+      audio.load();
+    }
+    audio.play().then(() => setPlaying(true)).catch(() => {});
   }, [current, playing, pause]);
 
   React.useEffect(() => {

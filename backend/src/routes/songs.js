@@ -20,6 +20,25 @@ const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } }); // 
 
 const router = Router();
 
+// Stream must allow query token (Audio element cannot send Authorization header)
+router.get('/:id/stream', (req, res) => {
+  const token = req.query.token || req.headers.authorization?.slice(7);
+  if (token) {
+    try {
+      jwt.verify(token, JWT_SECRET);
+    } catch {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+  } else {
+    return res.status(401).json({ error: 'Authorization required' });
+  }
+  const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(req.params.id);
+  if (!song?.file_path) return res.status(404).json({ error: 'Song not found' });
+  const filePath = path.join(uploadsDir, song.file_path);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  res.sendFile(filePath);
+});
+
 router.use(authMiddleware);
 
 router.post('/upload', upload.single('file'), (req, res) => {
@@ -50,24 +69,6 @@ router.get('/:id', (req, res) => {
   ).get(req.params.id);
   if (!song) return res.status(404).json({ error: 'Song not found' });
   res.json(song);
-});
-
-router.get('/:id/stream', (req, res) => {
-  const token = req.query.token || req.headers.authorization?.slice(7);
-  if (token) {
-    try {
-      jwt.verify(token, JWT_SECRET);
-    } catch {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-  } else {
-    return res.status(401).json({ error: 'Authorization required' });
-  }
-  const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(req.params.id);
-  if (!song?.file_path) return res.status(404).json({ error: 'Song not found' });
-  const filePath = path.join(uploadsDir, song.file_path);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
-  res.sendFile(filePath);
 });
 
 export default router;
