@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 64 64">
+  <defs>
+    <filter id="invert">
+      <feColorMatrix in="SourceGraphic" type="matrix" values="-1 0 0 0 1  0 -1 0 0 1  0 0 -1 0 1  0 0 0 1 0"/>
+    </filter>
+    <mask id="ray-mask">
+      <image href="/ray-logo.png" x="0" y="0" width="64" height="64" preserveAspectRatio="xMidYMid meet" filter="url(#invert)"/>
+    </mask>
+    <clipPath id="circle-clip">
+      <circle cx="32" cy="32" r="30"/>
+    </clipPath>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="#eb751a"/>
+  <g clip-path="url(#circle-clip)">
+    <rect x="0" y="0" width="64" height="64" fill="black" mask="url(#ray-mask)"/>
+  </g>
+</svg>

@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ray: #eb751a;
+  --groove-bg: #0a0a0f;
+}
+
+body {
+  @apply bg-groove-950 text-gray-100 font-sans antialiased min-h-screen;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-groove-900;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-groove-600 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-ray-600;
+}
+
+/* Focus ring */
+*:focus-visible {
+  @apply outline-none ring-2 ring-ray-500 ring-offset-2 ring-offset-groove-950;
+}

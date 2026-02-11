@@ -1,0 +1,41 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
+import Layout from './components/Layout';
+import PlayerBar from './components/PlayerBar';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Library from './pages/Library';
+import Upload from './pages/Upload';
+import Torrents from './pages/Torrents';
+import AIGenerate from './pages/AIGenerate';
+import Stations from './pages/Stations';
+import Station from './pages/Station';
+
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-ray-500 border-t-transparent" /></div>;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+export default function App() {
+  return (
+    <div className="flex min-h-screen flex-col pb-24">
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Navigate to="/library" replace />} />
+          <Route path="library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
+          <Route path="upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+          <Route path="torrents" element={<ProtectedRoute><Torrents /></ProtectedRoute>} />
+          <Route path="ai" element={<ProtectedRoute><AIGenerate /></ProtectedRoute>} />
+          <Route path="stations" element={<Stations />} />
+          <Route path="stations/:slugOrId" element={<ProtectedRoute><Station /></ProtectedRoute>} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <PlayerBar />
+    </div>
+  );
+}
