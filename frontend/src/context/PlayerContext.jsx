@@ -12,11 +12,7 @@ export function PlayerProvider({ children }) {
 
   const play = useCallback((song) => {
     if (!song?.id) return;
-    if (song.source === 'ai' && !song.file_path?.startsWith('http')) {
-      setCurrent(song);
-      setPlaying(false);
-      return;
-    }
+    // Use stream URL for all tracks (backend serves placeholder for AI demo tracks)
     const url = song.file_path?.startsWith('http') ? song.file_path : streamUrl(song.id);
     const audio = audioRef.current;
     if (audio.src !== url) {
