@@ -5,6 +5,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { v4 as uuid } from 'uuid';
 import jwt from 'jsonwebtoken';
+import { parseFile } from 'music-metadata';
 import db from '../db/schema.js';
 import { authMiddleware, JWT_SECRET } from '../middleware/auth.js';
 
@@ -54,14 +55,22 @@ router.get('/public', (req, res) => {
 
 router.use(authMiddleware);
 
-router.post('/upload', upload.single('file'), (req, res) => {
+router.post('/upload', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const { title, artist } = req.body || {};
   const id = uuid();
+  const filePath = path.join(uploadsDir, req.file.filename);
+  let durationSeconds = 0;
+  try {
+    const metadata = await parseFile(filePath);
+    durationSeconds = Math.round(Number(metadata.format?.duration) || 0);
+  } catch (_) {
+    // Keep 0 if metadata parsing fails (e.g. unsupported or corrupt file)
+  }
   db.prepare(
     `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public)
-     VALUES (?, ?, ?, ?, 'upload', ?, 0, 1)`
-  ).run(id, req.userId, title || req.file.originalname || 'Untitled', artist || 'Unknown', req.file.filename);
+     VALUES (?, ?, ?, ?, 'upload', ?, ?, 1)`
+  ).run(id, req.userId, title || req.file.originalname || 'Untitled', artist || 'Unknown', req.file.filename, durationSeconds);
   const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(id);
   res.status(201).json(song);
 });
