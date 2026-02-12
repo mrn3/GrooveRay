@@ -16,7 +16,7 @@ export default function Register() {
     setError('');
     try {
       await register(username, email, password);
-      navigate('/library');
+      navigate('/songs');
     } catch (err) {
       setError(err.message || 'Registration failed');
     }

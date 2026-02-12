@@ -79,8 +79,38 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_songs_user ON songs(user_id);
   CREATE INDEX IF NOT EXISTS idx_youtube_jobs_user ON youtube_jobs(user_id);
+  CREATE TABLE IF NOT EXISTS user_song_favorites (
+    user_id TEXT NOT NULL,
+    song_id TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, song_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (song_id) REFERENCES songs(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS user_song_ratings (
+    user_id TEXT NOT NULL,
+    song_id TEXT NOT NULL,
+    rating INTEGER NOT NULL,
+    updated_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, song_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (song_id) REFERENCES songs(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS user_song_listens (
+    user_id TEXT NOT NULL,
+    song_id TEXT NOT NULL,
+    listen_count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, song_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (song_id) REFERENCES songs(id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_station_queue_station ON station_queue(station_id);
   CREATE INDEX IF NOT EXISTS idx_station_queue_votes ON station_queue(station_id, votes DESC);
+  CREATE INDEX IF NOT EXISTS idx_user_song_favorites_user ON user_song_favorites(user_id);
+  CREATE INDEX IF NOT EXISTS idx_user_song_listens_user ON user_song_listens(user_id);
 
   CREATE TABLE IF NOT EXISTS station_now_playing (
     station_id TEXT PRIMARY KEY,

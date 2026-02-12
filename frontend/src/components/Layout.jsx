@@ -3,9 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import Logo from './Logo';
 
 const nav = [
-  { to: '/library', label: 'Library' },
-  { to: '/upload', label: 'Upload' },
-  { to: '/youtube', label: 'YouTube' },
+  { to: '/songs', label: 'Songs' },
   { to: '/stations', label: 'Stations' },
 ];
 
@@ -16,7 +14,7 @@ export default function Layout() {
     <>
       <header className="sticky top-0 z-40 border-b border-groove-700 bg-groove-950/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <NavLink to="/library" className="flex items-center font-semibold text-ray-400">
+          <NavLink to="/songs" className="flex items-center font-semibold text-ray-400">
             <Logo className="h-7 w-7" />
           </NavLink>
           <nav className="flex items-center gap-1">

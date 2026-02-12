@@ -46,6 +46,14 @@ export default function YouTube() {
             {message}
           </p>
         )}
+        {loading && (
+          <div className="mb-4 space-y-1">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-groove-700">
+              <div className="h-full w-1/3 rounded-full bg-ray-500 animate-progress-indeterminate" />
+            </div>
+            <p className="text-sm text-gray-400">Processing…</p>
+          </div>
+        )}
         <label className="mb-2 block text-sm text-gray-400">YouTube video URL</label>
         <div className="flex gap-2">
           <input

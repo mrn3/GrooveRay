@@ -37,6 +37,7 @@ export const auth = {
 // Songs
 export const songs = {
   list: () => request('/songs'),
+  listFavorites: () => request('/songs/favorites'),
   listPublic: () => request('/songs/public'),
   get: (id) => request(`/songs/${id}`),
   setPublic: (id, isPublic) =>
@@ -44,6 +45,11 @@ export const songs = {
   update: (id, payload) =>
     request(`/songs/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   delete: (id) => request(`/songs/${id}`, { method: 'DELETE' }),
+  recordPlay: (id) => request(`/songs/${id}/played`, { method: 'POST' }),
+  addFavorite: (id) => request(`/songs/${id}/favorite`, { method: 'POST' }),
+  removeFavorite: (id) => request(`/songs/${id}/favorite`, { method: 'DELETE' }),
+  setRating: (id, rating) =>
+    request(`/songs/${id}/rating`, { method: 'PATCH', body: JSON.stringify({ rating }) }),
   upload: (file, title, artist) => {
     const form = new FormData();
     form.append('file', file);
@@ -54,6 +60,43 @@ export const songs = {
       headers: { Authorization: `Bearer ${getToken()}` },
       body: form,
     }).then((r) => (r.ok ? r.json() : r.json().then((d) => Promise.reject(new Error(d.error || 'Upload failed')))));
+  },
+  /** Upload with progress callback: onProgress(percent 0-100) */
+  uploadWithProgress: (file, title, artist, onProgress) => {
+    const form = new FormData();
+    form.append('file', file);
+    if (title) form.append('title', title);
+    if (artist) form.append('artist', artist);
+    const token = getToken();
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && typeof onProgress === 'function') {
+          onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      });
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch {
+            reject(new Error('Upload failed'));
+          }
+        } else {
+          try {
+            const d = JSON.parse(xhr.responseText);
+            reject(new Error(d?.error || 'Upload failed'));
+          } catch {
+            reject(new Error(xhr.statusText || 'Upload failed'));
+          }
+        }
+      });
+      xhr.addEventListener('error', () => reject(new Error('Upload failed')));
+      xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+      xhr.open('POST', `${API}/songs/upload`);
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.send(form);
+    });
   },
 };
 

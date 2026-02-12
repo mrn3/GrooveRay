@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
-import { streamUrl } from '../api';
+import { streamUrl, songs as songsApi } from '../api';
 
 const PlayerContext = createContext(null);
 
@@ -24,6 +24,7 @@ export function PlayerProvider({ children }) {
 
   const play = useCallback((song) => {
     if (!song?.id) return;
+    songsApi.recordPlay(song.id).catch(() => {});
     // Use stream URL for all tracks
     const url = song.file_path?.startsWith('http') ? song.file_path : streamUrl(song.id);
     const audio = audioRef.current;

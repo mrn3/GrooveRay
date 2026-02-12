@@ -6,6 +6,7 @@ export default function Upload() {
   const [title, setTitle] = useState('');
   const [artist, setArtist] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null); // 0–100 or null
   const [message, setMessage] = useState('');
 
   const handleSubmit = async (e) => {
@@ -15,9 +16,15 @@ export default function Upload() {
       return;
     }
     setUploading(true);
+    setUploadProgress(0);
     setMessage('');
     try {
-      await songsApi.upload(file, title || file.name, artist || 'Unknown');
+      await songsApi.uploadWithProgress(
+        file,
+        title || file.name,
+        artist || 'Unknown',
+        (percent) => setUploadProgress(percent)
+      );
       setMessage('Uploaded successfully');
       setFile(null);
       setTitle('');
@@ -26,6 +33,7 @@ export default function Upload() {
       setMessage(err.message || 'Upload failed');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -67,6 +75,19 @@ export default function Upload() {
             className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500"
           />
         </div>
+        {uploading && (
+          <div className="space-y-1">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-groove-700">
+              <div
+                className="h-full rounded-full bg-ray-500 transition-all duration-300"
+                style={{ width: `${uploadProgress ?? 0}%` }}
+              />
+            </div>
+            <p className="text-center text-sm text-gray-400">
+              Uploading… {uploadProgress != null ? `${uploadProgress}%` : ''}
+            </p>
+          </div>
+        )}
         <button
           type="submit"
           disabled={uploading || !file}

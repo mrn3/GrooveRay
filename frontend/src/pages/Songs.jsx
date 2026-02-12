@@ -1,8 +1,16 @@
-import { useState, useEffect } from 'react';
-import { songs as songsApi, streamUrl, youtube as youtubeApi } from '../api';
+import { useState, useEffect, useCallback } from 'react';
+import { songs as songsApi, youtube as youtubeApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
+import { useAuth } from '../context/AuthContext';
 
-export default function Library() {
+const TABS = [
+  { id: 'mine', label: 'My Songs' },
+  { id: 'favorites', label: 'My Favorites' },
+  { id: 'all', label: 'All Songs' },
+];
+
+export default function Songs() {
+  const [activeTab, setActiveTab] = useState('mine');
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -12,7 +20,28 @@ export default function Library() {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [savingId, setSavingId] = useState(null);
+  const [favoritingId, setFavoritingId] = useState(null);
+  const [ratingId, setRatingId] = useState(null);
   const { play } = usePlayer();
+  const { user } = useAuth();
+
+  const fetchList = useCallback(() => {
+    setLoading(true);
+    setError('');
+    const promise = activeTab === 'mine'
+      ? songsApi.list()
+      : activeTab === 'favorites'
+        ? songsApi.listFavorites()
+        : songsApi.listPublic();
+    promise
+      .then(setList)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [activeTab]);
+
+  useEffect(() => {
+    fetchList();
+  }, [fetchList]);
 
   // Add song modal
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -21,6 +50,7 @@ export default function Library() {
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadArtist, setUploadArtist] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null); // 0–100 or null
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [youtubeLoading, setYoutubeLoading] = useState(false);
   const [addMessage, setAddMessage] = useState('');
@@ -103,6 +133,7 @@ export default function Library() {
     setUploadFile(null);
     setUploadTitle('');
     setUploadArtist('');
+    setUploadProgress(null);
     setYoutubeUrl('');
   };
 
@@ -119,15 +150,22 @@ export default function Library() {
       return;
     }
     setUploading(true);
+    setUploadProgress(0);
     setAddMessage('');
     try {
-      const newSong = await songsApi.upload(uploadFile, uploadTitle || uploadFile.name, uploadArtist || 'Unknown');
+      const newSong = await songsApi.uploadWithProgress(
+        uploadFile,
+        uploadTitle || uploadFile.name,
+        uploadArtist || 'Unknown',
+        (percent) => setUploadProgress(percent)
+      );
       setList((prev) => [newSong, ...prev]);
       closeAddModal();
     } catch (err) {
       setAddMessage(err.message || 'Upload failed');
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -140,6 +178,7 @@ export default function Library() {
       await youtubeApi.add(youtubeUrl.trim());
       setAddMessage('Download started — audio will be added to your library when ready.');
       setYoutubeUrl('');
+      if (activeTab === 'mine') fetchList();
     } catch (err) {
       setAddMessage(err.message || 'Failed to add YouTube link');
     } finally {
@@ -147,12 +186,41 @@ export default function Library() {
     }
   };
 
-  useEffect(() => {
-    songsApi.list()
-      .then(setList)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, []);
+  const handleToggleFavorite = async (e, song) => {
+    e.stopPropagation();
+    setFavoritingId(song.id);
+    try {
+      if (song.is_favorite) {
+        await songsApi.removeFavorite(song.id);
+        setList((prev) => prev.map((s) => (s.id === song.id ? { ...s, is_favorite: false } : s)));
+      } else {
+        await songsApi.addFavorite(song.id);
+        setList((prev) => prev.map((s) => (s.id === song.id ? { ...s, is_favorite: true } : s)));
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setFavoritingId(null);
+    }
+  };
+
+  const handleSetRating = async (e, song, rating) => {
+    e.stopPropagation();
+    setRatingId(song.id);
+    try {
+      await songsApi.setRating(song.id, rating);
+      setList((prev) => prev.map((s) => (s.id === song.id ? { ...s, rating } : s)));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRatingId(null);
+    }
+  };
+
+  const isOwnSong = (song) => user && song.user_id === user.id;
+  const showEditActions = (song) => activeTab === 'mine' || isOwnSong(song);
+  const showListenCount = activeTab === 'favorites' || activeTab === 'all';
+  const showFavoriteRating = activeTab === 'favorites' || activeTab === 'all';
 
   if (loading) return <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-ray-500 border-t-transparent" /></div>;
   if (error) return <p className="text-red-400">{error}</p>;
@@ -175,7 +243,7 @@ export default function Library() {
               Remove from library?
             </h2>
             <p className="mt-2 text-gray-400">
-              “{confirmSong.title}” will be removed from your library. This cannot be undone.
+              "{confirmSong.title}" will be removed from your library. This cannot be undone.
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button
@@ -201,18 +269,38 @@ export default function Library() {
           </div>
         </div>
       )}
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold text-white">Library</h1>
-        <button
-          type="button"
-          onClick={openAddModal}
-          aria-label="Add song"
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-ray-600 text-white transition hover:bg-ray-500 focus:outline-none focus:ring-2 focus:ring-ray-400 focus:ring-offset-2 focus:ring-offset-groove-900"
-        >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-semibold text-white">Songs</h1>
+        <div className="flex items-center gap-2">
+          <nav className="flex rounded-lg bg-groove-800/80 p-1" aria-label="Song tabs">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-ray-500 focus:ring-offset-2 focus:ring-offset-groove-900 ${
+                  activeTab === tab.id
+                    ? 'bg-groove-700 text-white'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+          {activeTab === 'mine' && (
+            <button
+              type="button"
+              onClick={openAddModal}
+              aria-label="Add song"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-ray-600 text-white transition hover:bg-ray-500 focus:outline-none focus:ring-2 focus:ring-ray-400 focus:ring-offset-2 focus:ring-offset-groove-900"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {addModalOpen && (
@@ -324,6 +412,19 @@ export default function Library() {
                     className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500"
                   />
                 </div>
+                {uploading && (
+                  <div className="space-y-1">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-groove-700">
+                      <div
+                        className="h-full rounded-full bg-ray-500 transition-all duration-300"
+                        style={{ width: `${uploadProgress ?? 0}%` }}
+                      />
+                    </div>
+                    <p className="text-center text-sm text-gray-400">
+                      Uploading… {uploadProgress != null ? `${uploadProgress}%` : ''}
+                    </p>
+                  </div>
+                )}
                 <button
                   type="submit"
                   disabled={uploading || !uploadFile}
@@ -338,6 +439,14 @@ export default function Library() {
                   <p className={`rounded-lg px-3 py-2 text-sm ${addMessage.includes('started') ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                     {addMessage}
                   </p>
+                )}
+                {youtubeLoading && (
+                  <div className="space-y-1">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-groove-700">
+                      <div className="h-full w-1/3 rounded-full bg-ray-500 animate-progress-indeterminate" />
+                    </div>
+                    <p className="text-center text-sm text-gray-400">Processing…</p>
+                  </div>
                 )}
                 <div>
                   <label className="mb-1 block text-sm text-gray-400">YouTube video URL</label>
@@ -364,12 +473,16 @@ export default function Library() {
 
       <div className="space-y-1 rounded-xl border border-groove-700 bg-groove-900/50">
         {list.length === 0 ? (
-          <p className="px-6 py-12 text-center text-gray-500">No songs yet. Upload or add a YouTube link.</p>
+          <p className="px-6 py-12 text-center text-gray-500">
+            {activeTab === 'mine' && 'No songs yet. Upload or add a YouTube link.'}
+            {activeTab === 'favorites' && 'No favorites yet. Heart or rate songs, or play them to see them here.'}
+            {activeTab === 'all' && 'No public songs yet.'}
+          </p>
         ) : (
           list.map((song) => (
             <div
               key={song.id}
-              className="flex cursor-pointer items-center gap-4 px-6 py-3 transition hover:bg-groove-800"
+              className="flex cursor-pointer items-center gap-3 px-6 py-3 transition hover:bg-groove-800"
               onClick={() => play(song)}
             >
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-groove-700 text-ray-400">
@@ -413,57 +526,118 @@ export default function Library() {
                 ) : (
                   <>
                     <p className="truncate font-medium text-white">{song.title}</p>
-                    <p className="truncate text-sm text-gray-400">{song.artist} · {song.source}</p>
+                    <p className="truncate text-sm text-gray-400">
+                      {song.artist} · {song.source}
+                      {song.uploader_name && song.user_id !== user?.id && (
+                        <span className="text-gray-500"> · {song.uploader_name}</span>
+                      )}
+                    </p>
                   </>
                 )}
               </div>
+              {showListenCount && (
+                <span className="flex-shrink-0 text-xs text-gray-400" title="Listens">
+                  {(song.listen_count ?? 0) > 0 ? (
+                    <span className="flex items-center gap-1">
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      {song.listen_count}
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </span>
+              )}
               <span className="rounded bg-groove-600 px-2 py-0.5 text-xs font-mono text-gray-400">
                 {song.duration_seconds ? `${Math.floor(song.duration_seconds / 60)}:${String(song.duration_seconds % 60).padStart(2, '0')}` : '--:--'}
               </span>
-              <button
-                type="button"
-                aria-label={song.is_public ? 'Make private' : 'Make public'}
-                title={song.is_public ? 'Public — visible to everyone. Click to make private.' : 'Private — only you can see this. Click to make public.'}
-                disabled={togglingId === song.id}
-                className="flex-shrink-0 rounded px-2 py-1 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-ray-500 disabled:opacity-50"
-                onClick={(e) => handleSetPublic(e, song)}
-              >
-                {togglingId === song.id ? (
-                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                ) : song.is_public ? (
-                  <span className="rounded bg-green-500/20 px-2 py-0.5 text-green-400">Public</span>
-                ) : (
-                  <span className="rounded bg-groove-600 px-2 py-0.5 text-gray-400">Private</span>
-                )}
-              </button>
-              {editingId !== song.id && (
-                <button
-                  type="button"
-                  aria-label="Rename song"
-                  title="Rename"
-                  className="flex-shrink-0 rounded p-1.5 text-gray-400 transition hover:bg-groove-700 hover:text-ray-400 focus:outline-none focus:ring-2 focus:ring-ray-500"
-                  onClick={(e) => startRename(e, song)}
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </button>
+              {showFavoriteRating && (
+                <div className="flex flex-shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    aria-label={song.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
+                    disabled={favoritingId === song.id}
+                    className={`rounded p-1.5 transition focus:outline-none focus:ring-2 focus:ring-ray-500 disabled:opacity-50 ${
+                      song.is_favorite ? 'text-red-400 hover:text-red-300' : 'text-gray-400 hover:text-red-400'
+                    }`}
+                    onClick={(e) => handleToggleFavorite(e, song)}
+                  >
+                    {favoritingId === song.id ? (
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    ) : (
+                      <svg className="h-4 w-4" fill={song.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    )}
+                  </button>
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                        disabled={ratingId === song.id}
+                        className="rounded p-0.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-ray-500 disabled:opacity-50"
+                        onClick={(e) => handleSetRating(e, song, star)}
+                      >
+                        <span className={((song.rating ?? 0) >= star ? 'text-amber-400' : 'text-gray-500 hover:text-amber-500')}>
+                          ★
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
-              <button
-                type="button"
-                aria-label="Delete song"
-                className="flex-shrink-0 rounded p-1.5 text-gray-400 transition hover:bg-groove-700 hover:text-red-400 focus:outline-none focus:ring-2 focus:ring-ray-500"
-                onClick={(e) => handleDelete(e, song)}
-                disabled={deletingId === song.id}
-              >
-                {deletingId === song.id ? (
-                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                ) : (
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                )}
-              </button>
+              {showEditActions(song) && (
+                <>
+                  <button
+                    type="button"
+                    aria-label={song.is_public ? 'Make private' : 'Make public'}
+                    title={song.is_public ? 'Public' : 'Private'}
+                    disabled={togglingId === song.id}
+                    className="flex-shrink-0 rounded px-2 py-1 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-ray-500 disabled:opacity-50"
+                    onClick={(e) => handleSetPublic(e, song)}
+                  >
+                    {togglingId === song.id ? (
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                    ) : song.is_public ? (
+                      <span className="rounded bg-green-500/20 px-2 py-0.5 text-green-400">Public</span>
+                    ) : (
+                      <span className="rounded bg-groove-600 px-2 py-0.5 text-gray-400">Private</span>
+                    )}
+                  </button>
+                  {editingId !== song.id && (
+                    <button
+                      type="button"
+                      aria-label="Rename song"
+                      title="Rename"
+                      className="flex-shrink-0 rounded p-1.5 text-gray-400 transition hover:bg-groove-700 hover:text-ray-400 focus:outline-none focus:ring-2 focus:ring-ray-500"
+                      onClick={(e) => startRename(e, song)}
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    aria-label="Delete song"
+                    className="flex-shrink-0 rounded p-1.5 text-gray-400 transition hover:bg-groove-700 hover:text-red-400 focus:outline-none focus:ring-2 focus:ring-ray-500"
+                    onClick={(e) => handleDelete(e, song)}
+                    disabled={deletingId === song.id}
+                  >
+                    {deletingId === song.id ? (
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                    ) : (
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           ))
         )}
