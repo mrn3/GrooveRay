@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { streamUrl } from '../api';
 
 const PlayerContext = createContext(null);
@@ -8,7 +8,19 @@ export function PlayerProvider({ children }) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [stationMode, setStationModeState] = useState(null);
+  const [, setTick] = useState(0);
   const audioRef = useRef(new Audio());
+
+  const setStationMode = useCallback((mode) => {
+    setStationModeState(mode);
+  }, []);
+
+  useEffect(() => {
+    if (!stationMode) return;
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [stationMode]);
 
   const play = useCallback((song) => {
     if (!song?.id) return;
@@ -67,17 +79,28 @@ export function PlayerProvider({ children }) {
     setProgress(t);
   }, []);
 
+  const effectiveProgress = stationMode ? (() => {
+    const start = new Date(stationMode.startedAt).getTime() / 1000;
+    const elapsed = Date.now() / 1000 - start;
+    const dur = Number(stationMode.durationSeconds) || 60;
+    return Math.min(Math.max(0, elapsed), dur);
+  })() : progress;
+
+  const effectiveDuration = stationMode ? (Number(stationMode.durationSeconds) || 60) : duration;
+
   return (
     <PlayerContext.Provider
       value={{
         current,
         playing,
-        progress,
-        duration,
+        progress: effectiveProgress,
+        duration: effectiveDuration,
+        stationMode,
         play,
         pause,
         toggle,
         seek,
+        setStationMode,
       }}
     >
       {children}

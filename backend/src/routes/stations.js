@@ -43,15 +43,75 @@ router.get('/:slugOrId', (req, res) => {
   res.json(station);
 });
 
-router.get('/:id/queue', (req, res) => {
-  const queue = db.prepare(
+function getQueue(stationId) {
+  return db.prepare(
     `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
      FROM station_queue q
      JOIN songs s ON s.id = q.song_id
      WHERE q.station_id = ? AND q.played_at IS NULL
      ORDER BY q.votes DESC, q.added_at ASC`
-  ).all(req.params.id);
-  res.json(queue);
+  ).all(stationId);
+}
+
+/** Advance station playback: ensure now_playing is set from queue head, or advance if current song ended. Returns { nowPlaying, queue }. */
+export function advanceStationPlayback(stationId) {
+  const now = new Date().toISOString();
+  const np = db.prepare('SELECT queue_id, started_at FROM station_now_playing WHERE station_id = ?').get(stationId);
+
+  if (np) {
+    const row = db.prepare(
+      `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
+       FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
+    ).get(np.queue_id);
+    const duration = (row?.duration_seconds ?? 0) || 60;
+    const endAt = new Date(new Date(np.started_at).getTime() + duration * 1000);
+    if (endAt <= new Date()) {
+      db.prepare('UPDATE station_queue SET played_at = datetime(\'now\') WHERE id = ? AND station_id = ?')
+        .run(np.queue_id, stationId);
+      db.prepare('DELETE FROM station_now_playing WHERE station_id = ?').run(stationId);
+      const queue = getQueue(stationId);
+      const next = queue[0];
+      if (next) {
+        db.prepare('INSERT INTO station_now_playing (station_id, queue_id, started_at) VALUES (?, ?, ?)')
+          .run(stationId, next.id, now);
+        emitStationUpdate(stationId, 'queue', queue);
+        const payload = { queueId: next.id, startedAt: now, item: next };
+        emitStationUpdate(stationId, 'nowPlaying', payload);
+        return { nowPlaying: payload, queue };
+      }
+      emitStationUpdate(stationId, 'queue', queue);
+      emitStationUpdate(stationId, 'nowPlaying', null);
+      return { nowPlaying: null, queue };
+    }
+    const queue = getQueue(stationId);
+    const current = db.prepare(
+      `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
+       FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
+    ).get(np.queue_id);
+    return { nowPlaying: { queueId: np.queue_id, startedAt: np.started_at, item: current }, queue };
+  }
+
+  const queue = getQueue(stationId);
+  const first = queue[0];
+  if (first) {
+    db.prepare('INSERT INTO station_now_playing (station_id, queue_id, started_at) VALUES (?, ?, ?)')
+      .run(stationId, first.id, now);
+    const payload = { queueId: first.id, startedAt: now, item: first };
+    emitStationUpdate(stationId, 'nowPlaying', payload);
+    return { nowPlaying: payload, queue };
+  }
+  return { nowPlaying: null, queue };
+}
+
+router.get('/:id/queue', (req, res) => {
+  res.json(getQueue(req.params.id));
+});
+
+router.get('/:id/now-playing', (req, res) => {
+  const station = db.prepare('SELECT id FROM stations WHERE id = ?').get(req.params.id);
+  if (!station) return res.status(404).json({ error: 'Station not found' });
+  const { nowPlaying } = advanceStationPlayback(req.params.id);
+  res.json(nowPlaying);
 });
 
 router.post('/:id/queue', authMiddleware, (req, res) => {
@@ -75,11 +135,7 @@ router.post('/:id/queue', authMiddleware, (req, res) => {
     `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
      FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
   ).get(queueId);
-  const queue = db.prepare(
-    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
-     FROM station_queue q JOIN songs s ON s.id = q.song_id
-     WHERE q.station_id = ? AND q.played_at IS NULL ORDER BY q.votes DESC, q.added_at ASC`
-  ).all(req.params.id);
+  const queue = getQueue(req.params.id);
   emitStationUpdate(req.params.id, 'queue', queue);
   res.status(201).json(row);
 });
@@ -105,11 +161,7 @@ router.post('/:id/vote/:queueId', authMiddleware, (req, res) => {
     `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
      FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
   ).get(queueId);
-  const queue = db.prepare(
-    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
-     FROM station_queue q JOIN songs s ON s.id = q.song_id
-     WHERE q.station_id = ? AND q.played_at IS NULL ORDER BY q.votes DESC, q.added_at ASC`
-  ).all(stationId);
+  const queue = getQueue(stationId);
   emitStationUpdate(stationId, 'queue', queue);
   res.json(updated);
 });
@@ -126,29 +178,9 @@ router.delete('/:id/vote/:queueId', authMiddleware, (req, res) => {
     `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
      FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
   ).get(queueId);
-  const queue = db.prepare(
-    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
-     FROM station_queue q JOIN songs s ON s.id = q.song_id
-     WHERE q.station_id = ? AND q.played_at IS NULL ORDER BY q.votes DESC, q.added_at ASC`
-  ).all(req.params.id);
+  const queue = getQueue(req.params.id);
   emitStationUpdate(req.params.id, 'queue', queue);
   res.json(updated || {});
-});
-
-router.post('/:id/played', authMiddleware, (req, res) => {
-  const { queueId } = req.body || {};
-  if (!queueId) return res.status(400).json({ error: 'queueId required' });
-  db.prepare(
-    'UPDATE station_queue SET played_at = datetime(\'now\') WHERE id = ? AND station_id = ?'
-  ).run(queueId, req.params.id);
-  const queue = db.prepare(
-    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
-     FROM station_queue q JOIN songs s ON s.id = q.song_id
-     WHERE q.station_id = ? AND q.played_at IS NULL ORDER BY q.votes DESC, q.added_at ASC`
-  ).all(req.params.id);
-  emitStationUpdate(req.params.id, 'queue', queue);
-  emitStationUpdate(req.params.id, 'nowPlaying', { queueId });
-  res.json({ ok: true });
 });
 
 export default router;

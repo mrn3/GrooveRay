@@ -4,6 +4,13 @@ import { io } from 'socket.io-client';
 import { stations as stationsApi, songs as songsApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 
+function serverPosition(startedAt, durationSeconds) {
+  const start = new Date(startedAt).getTime() / 1000;
+  const elapsed = Date.now() / 1000 - start;
+  const duration = Number(durationSeconds) || 60;
+  return Math.min(Math.max(0, elapsed), duration);
+}
+
 export default function Station() {
   const { slugOrId } = useParams();
   const [station, setStation] = useState(null);
@@ -11,14 +18,18 @@ export default function Station() {
   const [songs, setSongs] = useState([]);
   const [addSongId, setAddSongId] = useState('');
   const [loading, setLoading] = useState(true);
+  const [nowPlaying, setNowPlaying] = useState(null);
   const socketRef = useRef(null);
-  const { play } = usePlayer();
+  const { play, seek, setStationMode } = usePlayer();
 
   useEffect(() => {
     stationsApi.get(slugOrId).then((s) => {
       setStation(s);
-      return stationsApi.queue(s.id);
-    }).then(setQueue).catch(() => setStation(null)).finally(() => setLoading(false));
+      return Promise.all([stationsApi.queue(s.id), stationsApi.nowPlaying(s.id)]);
+    }).then(([q, np]) => {
+      setQueue(q);
+      setNowPlaying(np);
+    }).catch(() => setStation(null)).finally(() => setLoading(false));
   }, [slugOrId]);
 
   useEffect(() => {
@@ -31,11 +42,26 @@ export default function Station() {
     socketRef.current = socket;
     socket.emit('station:subscribe', station.id);
     socket.on('queue', setQueue);
+    socket.on('nowPlaying', setNowPlaying);
     return () => {
       socket.emit('station:unsubscribe', station.id);
       socket.close();
+      setStationMode(null);
     };
-  }, [station?.id]);
+  }, [station?.id, setStationMode]);
+
+  useEffect(() => {
+    if (!nowPlaying?.item) {
+      setStationMode(null);
+      return;
+    }
+    const item = nowPlaying.item;
+    const song = { id: item.song_id, title: item.title, artist: item.artist, source: item.source, file_path: item.file_path };
+    const pos = serverPosition(nowPlaying.startedAt, item.duration_seconds);
+    setStationMode({ startedAt: nowPlaying.startedAt, durationSeconds: item.duration_seconds ?? 60 });
+    play(song);
+    seek(pos);
+  }, [nowPlaying?.queueId, nowPlaying?.startedAt, play, seek, setStationMode]);
 
   const handleVote = (queueId) => {
     if (!station) return;
@@ -55,18 +81,6 @@ export default function Station() {
     } catch (err) {
       console.error(err);
     }
-  };
-
-  const handlePlayNext = (item) => {
-    const song = { id: item.song_id, title: item.title, artist: item.artist, source: item.source, file_path: item.file_path };
-    play(song);
-  };
-
-  const handleMarkPlayed = (queueId) => {
-    if (!station) return;
-    stationsApi.markPlayed(station.id, queueId).then(() => {
-      setQueue((prev) => prev.filter((q) => q.id !== queueId));
-    }).catch(() => {});
   };
 
   if (loading) return <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-ray-500 border-t-transparent" /></div>;
@@ -126,20 +140,9 @@ export default function Station() {
                   <p className="font-medium text-white">{item.title}</p>
                   <p className="text-sm text-gray-400">{item.artist}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handlePlayNext(item)}
-                  className="rounded-lg bg-groove-600 px-3 py-1.5 text-sm text-white hover:bg-groove-500"
-                >
-                  Play
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMarkPlayed(item.id)}
-                  className="rounded-lg bg-groove-600 px-3 py-1.5 text-sm text-gray-400 hover:bg-groove-500 hover:text-white"
-                >
-                  Mark played
-                </button>
+                {nowPlaying?.queueId === item.id && (
+                  <span className="rounded-lg bg-ray-500/20 px-3 py-1.5 text-sm text-ray-400">Now playing</span>
+                )}
               </div>
             ))
           )}

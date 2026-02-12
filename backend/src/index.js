@@ -8,8 +8,9 @@ import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.js';
 import songRoutes from './routes/songs.js';
 import youtubeRoutes from './routes/youtube.js';
-import stationRoutes from './routes/stations.js';
+import stationRoutes, { advanceStationPlayback } from './routes/stations.js';
 import { setIO } from './socket.js';
+import db from './db/schema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -40,6 +41,12 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`GrooveRay API running at http://localhost:${PORT}`);
+  setInterval(() => {
+    try {
+      const rows = db.prepare('SELECT station_id FROM station_now_playing').all();
+      for (const { station_id } of rows) advanceStationPlayback(station_id);
+    } catch (_) {}
+  }, 5000);
 });
 
 export { io };

@@ -74,6 +74,5 @@ export const stations = {
     request(`/stations/${stationId}/vote/${queueId}`, { method: 'POST' }),
   unvote: (stationId, queueId) =>
     request(`/stations/${stationId}/vote/${queueId}`, { method: 'DELETE' }),
-  markPlayed: (stationId, queueId) =>
-    request(`/stations/${stationId}/played`, { method: 'POST', body: JSON.stringify({ queueId }) }),
+  nowPlaying: (id) => request(`/stations/${id}/now-playing`),
 };

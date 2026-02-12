@@ -81,6 +81,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_youtube_jobs_user ON youtube_jobs(user_id);
   CREATE INDEX IF NOT EXISTS idx_station_queue_station ON station_queue(station_id);
   CREATE INDEX IF NOT EXISTS idx_station_queue_votes ON station_queue(station_id, votes DESC);
+
+  CREATE TABLE IF NOT EXISTS station_now_playing (
+    station_id TEXT PRIMARY KEY,
+    queue_id TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    FOREIGN KEY (station_id) REFERENCES stations(id),
+    FOREIGN KEY (queue_id) REFERENCES station_queue(id)
+  );
 `);
 
 try {
