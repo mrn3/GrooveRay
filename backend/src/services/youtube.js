@@ -48,17 +48,22 @@ export function addYouTube(userId, url) {
   let stderr = '';
   proc.stderr?.on('data', (chunk) => { stderr += chunk; });
 
+  function setFailed(msg) {
+    const truncated = typeof msg === 'string' && msg.length > 500 ? msg.slice(0, 497) + '...' : (msg || null);
+    db.prepare('UPDATE youtube_jobs SET status = ?, error_message = ? WHERE id = ?').run('failed', truncated, jobId);
+  }
+
   proc.on('close', (code) => {
     try {
       if (code !== 0) {
-        db.prepare('UPDATE youtube_jobs SET status = ? WHERE id = ?').run('failed', jobId);
+        setFailed(stderr.trim() || `yt-dlp exited with code ${code}`);
         return;
       }
       const files = fs.readdirSync(jobDir);
       const audioFile = files.find((f) => /\.(mp3|m4a|opus|ogg|webm)$/i.test(f));
       const jsonFile = files.find((f) => f.endsWith('.info.json'));
       if (!audioFile) {
-        db.prepare('UPDATE youtube_jobs SET status = ? WHERE id = ?').run('failed', jobId);
+        setFailed(stderr.trim() || 'No audio file produced');
         return;
       }
       const srcPath = path.join(jobDir, audioFile);
@@ -95,7 +100,10 @@ export function addYouTube(userId, url) {
 
   proc.on('error', (err) => {
     if (err?.code === 'ENOENT') {
-      db.prepare('UPDATE youtube_jobs SET status = ? WHERE id = ?').run('failed', jobId);
+      db.prepare('UPDATE youtube_jobs SET status = ?, error_message = ? WHERE id = ?')
+        .run('failed', 'yt-dlp not found. Install it (and ffmpeg for MP3): e.g. brew install yt-dlp ffmpeg', jobId);
+    } else {
+      setFailed(err?.message || 'Unknown error');
     }
   });
 

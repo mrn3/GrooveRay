@@ -81,6 +81,7 @@ db.exec(`
     url TEXT NOT NULL,
     status TEXT DEFAULT 'pending',
     song_id TEXT,
+    error_message TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (song_id) REFERENCES songs(id)
@@ -91,5 +92,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_station_queue_station ON station_queue(station_id);
   CREATE INDEX IF NOT EXISTS idx_station_queue_votes ON station_queue(station_id, votes DESC);
 `);
+
+try {
+  db.exec('ALTER TABLE youtube_jobs ADD COLUMN error_message TEXT');
+} catch (_) {}
 
 export default db;

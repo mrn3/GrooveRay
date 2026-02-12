@@ -38,7 +38,7 @@ export default function YouTube() {
     <div>
       <h1 className="mb-6 text-2xl font-semibold text-white">YouTube</h1>
       <p className="mb-4 text-gray-400">
-        Paste a YouTube music video link. We’ll extract the audio and add it to your library.
+        Paste a YouTube music video link. We’ll extract the audio and add it to your library. The server needs <strong className="text-gray-300">yt-dlp</strong> and <strong className="text-gray-300">ffmpeg</strong> installed (e.g. <code className="rounded bg-groove-700 px-1 text-xs">brew install yt-dlp ffmpeg</code>).
       </p>
       <form onSubmit={handleAdd} className="mb-8 max-w-2xl">
         {message && (
@@ -72,16 +72,21 @@ export default function YouTube() {
           jobs.map((job) => (
             <div
               key={job.id}
-              className="flex items-center justify-between rounded-lg border border-groove-600 bg-groove-800 px-4 py-3"
+              className="rounded-lg border border-groove-600 bg-groove-800 px-4 py-3"
             >
-              <code className="max-w-md truncate text-sm text-gray-400">{job.url}</code>
-              <span className={`rounded px-2 py-1 text-xs font-medium ${
-                job.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                job.status === 'failed' ? 'bg-red-500/20 text-red-400' :
-                'bg-ray-500/20 text-ray-400'
-              }`}>
-                {job.status}
-              </span>
+              <div className="flex items-center justify-between gap-3">
+                <code className="max-w-md truncate text-sm text-gray-400">{job.url}</code>
+                <span className={`shrink-0 rounded px-2 py-1 text-xs font-medium ${
+                  job.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                  job.status === 'failed' ? 'bg-red-500/20 text-red-400' :
+                  'bg-ray-500/20 text-ray-400'
+                }`}>
+                  {job.status}
+                </span>
+              </div>
+              {job.status === 'failed' && job.error_message && (
+                <p className="mt-2 text-sm text-red-400/90">{job.error_message}</p>
+              )}
             </div>
           ))
         )}
