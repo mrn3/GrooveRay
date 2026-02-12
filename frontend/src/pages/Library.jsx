@@ -23,7 +23,7 @@ export default function Library() {
       <h1 className="mb-6 text-2xl font-semibold text-white">Library</h1>
       <div className="space-y-1 rounded-xl border border-groove-700 bg-groove-900/50">
         {list.length === 0 ? (
-          <p className="px-6 py-12 text-center text-gray-500">No songs yet. Upload, add a YouTube link, or add a torrent.</p>
+          <p className="px-6 py-12 text-center text-gray-500">No songs yet. Upload or add a YouTube link.</p>
         ) : (
           list.map((song) => (
             <div

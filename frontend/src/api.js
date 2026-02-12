@@ -51,12 +51,6 @@ export const songs = {
   },
 };
 
-// Torrents
-export const torrents = {
-  add: (magnet) => request('/torrents/add', { method: 'POST', body: JSON.stringify({ magnet }) }),
-  jobs: () => request('/torrents/jobs'),
-};
-
 // YouTube
 export const youtube = {
   add: (url) => request('/youtube/add', { method: 'POST', body: JSON.stringify({ url }) }),

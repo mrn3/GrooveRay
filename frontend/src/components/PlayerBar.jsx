@@ -41,7 +41,6 @@ export default function PlayerBar() {
         </div>
         <div className="w-32 flex-shrink-0 text-right text-sm text-gray-500">
           {current.source === 'upload' && 'Upload'}
-          {current.source === 'torrent' && 'Torrent'}
         </div>
       </div>
     </div>

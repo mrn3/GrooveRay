@@ -1,17 +1,16 @@
 # GrooveRay
 
-A GrooveShark-style music app: upload songs, add torrents to download media, and run crowd-sourced radio stations where the most upvoted tracks play next.
+A GrooveShark-style music app: upload songs and run crowd-sourced radio stations where the most upvoted tracks play next.
 
 ## Features
 
 - **Upload** — Upload your own audio files (MP3, etc.)
 - **YouTube** — Paste a YouTube music video URL; GrooveRay extracts the audio and adds it to your library (requires **yt-dlp** and **ffmpeg** on the server)
-- **Torrents** — Paste a magnet link; GrooveRay downloads the content and adds the largest audio file to your library
 - **Stations** — Create a station, add songs to the queue, and upvote. The queue is sorted by votes; most upvoted plays next. Real-time updates via WebSockets.
 
 ## Stack
 
-- **Backend:** Node.js, Express, SQLite (better-sqlite3), Socket.io, Multer, WebTorrent
+- **Backend:** Node.js, Express, SQLite (better-sqlite3), Socket.io, Multer
 - **Frontend:** React, Vite, Tailwind CSS, React Router, Socket.io client
 
 ## Setup
@@ -41,7 +40,7 @@ Runs at `http://localhost:5173` and proxies `/api` and `/socket.io` to the backe
 ### First run
 
 1. Start backend, then frontend.
-2. Open `http://localhost:5173`, sign up, then use Upload, YouTube, or Torrents to add tracks.
+2. Open `http://localhost:5173`, sign up, then use Upload or YouTube to add tracks.
 3. Create a station under Stations, add songs to the queue, and upvote to reorder. Play from the queue; the bar at the bottom is the global player.
 
 ## Environment (optional)

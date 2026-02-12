@@ -64,17 +64,6 @@ db.exec(`
     FOREIGN KEY (queue_id) REFERENCES station_queue(id)
   );
 
-  CREATE TABLE IF NOT EXISTS torrent_jobs (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    magnet_or_torrent TEXT NOT NULL,
-    status TEXT DEFAULT 'pending',
-    song_id TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (song_id) REFERENCES songs(id)
-  );
-
   CREATE TABLE IF NOT EXISTS youtube_jobs (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,

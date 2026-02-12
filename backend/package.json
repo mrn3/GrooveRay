@@ -1,7 +1,7 @@
 {
   "name": "grooveray-backend",
   "version": "1.0.0",
-  "description": "GrooveRay API - music uploads, torrents, crowd-sourced radio",
+  "description": "GrooveRay API - music uploads, crowd-sourced radio",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -16,7 +16,6 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "socket.io": "^4.8.1",
-    "uuid": "^10.0.0",
-    "webtorrent": "^2.2.0"
+    "uuid": "^10.0.0"
   }
 }

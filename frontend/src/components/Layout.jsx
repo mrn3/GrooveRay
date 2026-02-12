@@ -6,7 +6,6 @@ const nav = [
   { to: '/library', label: 'Library' },
   { to: '/upload', label: 'Upload' },
   { to: '/youtube', label: 'YouTube' },
-  { to: '/torrents', label: 'Torrents' },
   { to: '/stations', label: 'Stations' },
 ];
 

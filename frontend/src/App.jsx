@@ -6,7 +6,6 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Library from './pages/Library';
 import Upload from './pages/Upload';
-import Torrents from './pages/Torrents';
 import YouTube from './pages/YouTube';
 import Stations from './pages/Stations';
 import Station from './pages/Station';
@@ -29,7 +28,6 @@ export default function App() {
           <Route path="library" element={<ProtectedRoute><Library /></ProtectedRoute>} />
           <Route path="upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
           <Route path="youtube" element={<ProtectedRoute><YouTube /></ProtectedRoute>} />
-          <Route path="torrents" element={<ProtectedRoute><Torrents /></ProtectedRoute>} />
           <Route path="stations" element={<Stations />} />
           <Route path="stations/:slugOrId" element={<ProtectedRoute><Station /></ProtectedRoute>} />
         </Route>
