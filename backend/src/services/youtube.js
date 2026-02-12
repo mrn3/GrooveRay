@@ -86,8 +86,8 @@ export function addYouTube(userId, url) {
 
       const songId = uuid();
       db.prepare(
-        `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds)
-         VALUES (?, ?, ?, ?, 'youtube', ?, ?)`
+        `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public)
+         VALUES (?, ?, ?, ?, 'youtube', ?, ?, 1)`
       ).run(songId, userId, title, artist, destName, durationSeconds);
       db.prepare('UPDATE youtube_jobs SET status = ?, song_id = ? WHERE id = ?')
         .run('completed', songId, jobId);

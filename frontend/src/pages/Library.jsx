@@ -8,7 +8,22 @@ export default function Library() {
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState(null);
   const [confirmSong, setConfirmSong] = useState(null);
+  const [togglingId, setTogglingId] = useState(null);
   const { play } = usePlayer();
+
+  const handleSetPublic = async (e, song) => {
+    e.stopPropagation();
+    const next = !song.is_public;
+    setTogglingId(song.id);
+    try {
+      const updated = await songsApi.setPublic(song.id, next);
+      setList((prev) => prev.map((s) => (s.id === song.id ? { ...s, is_public: updated.is_public } : s)));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   const openDeleteConfirm = (e, song) => {
     e.stopPropagation();
@@ -111,6 +126,22 @@ export default function Library() {
               <span className="rounded bg-groove-600 px-2 py-0.5 text-xs font-mono text-gray-400">
                 {song.duration_seconds ? `${Math.floor(song.duration_seconds / 60)}:${String(song.duration_seconds % 60).padStart(2, '0')}` : '--:--'}
               </span>
+              <button
+                type="button"
+                aria-label={song.is_public ? 'Make private' : 'Make public'}
+                title={song.is_public ? 'Public — visible to everyone. Click to make private.' : 'Private — only you can see this. Click to make public.'}
+                disabled={togglingId === song.id}
+                className="flex-shrink-0 rounded px-2 py-1 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-ray-500 disabled:opacity-50"
+                onClick={(e) => handleSetPublic(e, song)}
+              >
+                {togglingId === song.id ? (
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                ) : song.is_public ? (
+                  <span className="rounded bg-green-500/20 px-2 py-0.5 text-green-400">Public</span>
+                ) : (
+                  <span className="rounded bg-groove-600 px-2 py-0.5 text-gray-400">Private</span>
+                )}
+              </button>
               <button
                 type="button"
                 aria-label="Delete song"

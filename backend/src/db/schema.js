@@ -28,6 +28,7 @@ db.exec(`
     source TEXT NOT NULL,
     file_path TEXT,
     duration_seconds INTEGER,
+    is_public INTEGER NOT NULL DEFAULT 1,
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
@@ -84,6 +85,9 @@ db.exec(`
 
 try {
   db.exec('ALTER TABLE youtube_jobs ADD COLUMN error_message TEXT');
+} catch (_) {}
+try {
+  db.exec('ALTER TABLE songs ADD COLUMN is_public INTEGER DEFAULT 1');
 } catch (_) {}
 
 export default db;

@@ -40,6 +40,18 @@ router.get('/:id/stream', (req, res) => {
   res.sendFile(filePath);
 });
 
+// Public songs (for everyone) — no auth required for listing
+router.get('/public', (req, res) => {
+  const list = db.prepare(
+    `SELECT s.*, u.username as uploader_name
+     FROM songs s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.is_public = 1
+     ORDER BY s.created_at DESC`
+  ).all();
+  res.json(list);
+});
+
 router.use(authMiddleware);
 
 router.post('/upload', upload.single('file'), (req, res) => {
@@ -47,20 +59,22 @@ router.post('/upload', upload.single('file'), (req, res) => {
   const { title, artist } = req.body || {};
   const id = uuid();
   db.prepare(
-    `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds)
-     VALUES (?, ?, ?, ?, 'upload', ?, 0)`
+    `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public)
+     VALUES (?, ?, ?, ?, 'upload', ?, 0, 1)`
   ).run(id, req.userId, title || req.file.originalname || 'Untitled', artist || 'Unknown', req.file.filename);
   const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(id);
   res.status(201).json(song);
 });
 
+// My library (authenticated) — only songs owned by current user
 router.get('/', (req, res) => {
   const list = db.prepare(
     `SELECT s.*, u.username as uploader_name
      FROM songs s
      JOIN users u ON u.id = s.user_id
+     WHERE s.user_id = ?
      ORDER BY s.created_at DESC`
-  ).all();
+  ).all(req.userId);
   res.json(list);
 });
 
@@ -70,6 +84,19 @@ router.get('/:id', (req, res) => {
   ).get(req.params.id);
   if (!song) return res.status(404).json({ error: 'Song not found' });
   res.json(song);
+});
+
+router.patch('/:id', (req, res) => {
+  const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(req.params.id);
+  if (!song) return res.status(404).json({ error: 'Song not found' });
+  if (song.user_id !== req.userId) return res.status(403).json({ error: 'You can only update your own songs' });
+  const { is_public } = req.body || {};
+  if (typeof is_public !== 'boolean') return res.status(400).json({ error: 'is_public must be a boolean' });
+  db.prepare('UPDATE songs SET is_public = ? WHERE id = ?').run(is_public ? 1 : 0, req.params.id);
+  const updated = db.prepare(
+    `SELECT s.*, u.username as uploader_name FROM songs s JOIN users u ON u.id = s.user_id WHERE s.id = ?`
+  ).get(req.params.id);
+  res.json(updated);
 });
 
 router.delete('/:id', (req, res) => {

@@ -37,7 +37,10 @@ export const auth = {
 // Songs
 export const songs = {
   list: () => request('/songs'),
+  listPublic: () => request('/songs/public'),
   get: (id) => request(`/songs/${id}`),
+  setPublic: (id, isPublic) =>
+    request(`/songs/${id}`, { method: 'PATCH', body: JSON.stringify({ is_public: isPublic }) }),
   delete: (id) => request(`/songs/${id}`, { method: 'DELETE' }),
   upload: (file, title, artist) => {
     const form = new FormData();

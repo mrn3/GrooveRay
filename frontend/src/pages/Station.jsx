@@ -22,7 +22,7 @@ export default function Station() {
   }, [slugOrId]);
 
   useEffect(() => {
-    songsApi.list().then(setSongs).catch(() => setSongs([]));
+    songsApi.listPublic().then(setSongs).catch(() => setSongs([]));
   }, []);
 
   useEffect(() => {
