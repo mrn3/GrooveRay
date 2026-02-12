@@ -218,7 +218,7 @@ export default function Songs() {
   };
 
   const isOwnSong = (song) => user && song.user_id === user.id;
-  const showEditActions = (song) => activeTab === 'mine' || isOwnSong(song);
+  const showEditActions = (song) => activeTab === 'mine' || (activeTab === 'favorites' && isOwnSong(song));
   const showListenCount = activeTab === 'favorites' || activeTab === 'all';
   const showFavoriteRating = activeTab === 'favorites' || activeTab === 'all';
 
