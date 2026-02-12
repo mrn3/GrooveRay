@@ -11,6 +11,25 @@ import { authMiddleware, optionalAuth, JWT_SECRET } from '../middleware/auth.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Helper: attach community average rating and count to each song
+function attachCommunityRatings(list) {
+  if (!list?.length) return list;
+  const ids = list.map((s) => s.id);
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = db.prepare(
+    `SELECT song_id, AVG(rating) as avg_rating, COUNT(*) as rating_count
+     FROM user_song_ratings
+     WHERE song_id IN (${placeholders})
+     GROUP BY song_id`
+  ).all(...ids);
+  const map = Object.fromEntries(rows.map((r) => [r.song_id, { avg_rating: r.avg_rating, rating_count: r.rating_count }]));
+  return list.map((s) => ({
+    ...s,
+    community_avg_rating: map[s.id]?.avg_rating ?? null,
+    community_rating_count: map[s.id]?.rating_count ?? 0,
+  }));
+}
+
 // Helper: attach current user's rating and listen_count to each song
 function attachUserStats(list, userId) {
   if (!userId || !list?.length) return list;
@@ -83,14 +102,30 @@ router.get('/public', optionalAuth, (req, res) => {
       s.total_listen_count = totalMap[s.id] ?? 0;
     });
   }
-  res.json(attachUserStats(list, req.userId));
+  const withCommunity = attachCommunityRatings(list);
+  res.json(attachUserStats(withCommunity, req.userId));
 });
 
 router.use(authMiddleware);
 
+async function fetchThumbnailForTrack(artist, title) {
+  const term = encodeURIComponent(`${artist} ${title}`.trim());
+  const url = `https://itunes.apple.com/search?term=${term}&media=music&entity=song&limit=1`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const track = data?.results?.[0];
+    return track?.artworkUrl100 || track?.artworkUrl60 || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 router.post('/upload', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const { title, artist } = req.body || {};
+  const finalTitle = title || req.file.originalname || 'Untitled';
+  const finalArtist = artist || 'Unknown';
   const id = uuid();
   const filePath = path.join(uploadsDir, req.file.filename);
   let durationSeconds = 0;
@@ -101,9 +136,16 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     // Keep 0 if metadata parsing fails (e.g. unsupported or corrupt file)
   }
   db.prepare(
-    `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public)
-     VALUES (?, ?, ?, ?, 'upload', ?, ?, 1)`
-  ).run(id, req.userId, title || req.file.originalname || 'Untitled', artist || 'Unknown', req.file.filename, durationSeconds);
+    `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public, thumbnail_url)
+     VALUES (?, ?, ?, ?, 'upload', ?, ?, 1, ?)`
+  ).run(id, req.userId, finalTitle, finalArtist, req.file.filename, durationSeconds, null);
+  let thumbnailUrl = null;
+  try {
+    thumbnailUrl = await fetchThumbnailForTrack(finalArtist, finalTitle);
+    if (thumbnailUrl) {
+      db.prepare('UPDATE songs SET thumbnail_url = ? WHERE id = ?').run(thumbnailUrl, id);
+    }
+  } catch (_) {}
   const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(id);
   res.status(201).json(song);
 });
@@ -140,7 +182,8 @@ router.get('/favorites', (req, res) => {
      JOIN users u ON u.id = s.user_id
      WHERE s.id IN (${placeholders})`
   ).all(...allIds);
-  const withStats = attachUserStats(list, userId);
+  const withCommunity = attachCommunityRatings(list);
+  const withStats = attachUserStats(withCommunity, userId);
   const byId = Object.fromEntries(withStats.map((s) => [s.id, s]));
   const ordered = allIds
     .map((id) => byId[id])

@@ -45,7 +45,7 @@ router.get('/:slugOrId', (req, res) => {
 
 function getQueue(stationId) {
   return db.prepare(
-    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
+    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
      FROM station_queue q
      JOIN songs s ON s.id = q.song_id
      WHERE q.station_id = ? AND q.played_at IS NULL
@@ -60,7 +60,7 @@ export function advanceStationPlayback(stationId) {
 
   if (np) {
     const row = db.prepare(
-      `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
+      `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
        FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
     ).get(np.queue_id);
     const duration = (row?.duration_seconds ?? 0) || 60;
@@ -85,7 +85,7 @@ export function advanceStationPlayback(stationId) {
     }
     const queue = getQueue(stationId);
     const current = db.prepare(
-      `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
+      `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
        FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
     ).get(np.queue_id);
     return { nowPlaying: { queueId: np.queue_id, startedAt: np.started_at, item: current }, queue };
@@ -132,7 +132,7 @@ router.post('/:id/queue', authMiddleware, (req, res) => {
     'INSERT INTO station_queue (id, station_id, song_id, votes, position) VALUES (?, ?, ?, 0, ?)'
   ).run(queueId, req.params.id, songId, maxPos + 1);
   const row = db.prepare(
-    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
+    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
      FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
   ).get(queueId);
   const queue = getQueue(req.params.id);
@@ -158,7 +158,7 @@ router.post('/:id/vote/:queueId', authMiddleware, (req, res) => {
     throw e;
   }
   const updated = db.prepare(
-    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
+    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
      FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
   ).get(queueId);
   const queue = getQueue(stationId);
@@ -175,7 +175,7 @@ router.delete('/:id/vote/:queueId', authMiddleware, (req, res) => {
     db.prepare('UPDATE station_queue SET votes = votes - 1 WHERE id = ?').run(queueId);
   }
   const updated = db.prepare(
-    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds
+    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
      FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
   ).get(queueId);
   const queue = getQueue(req.params.id);

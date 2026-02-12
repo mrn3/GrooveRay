@@ -127,5 +127,8 @@ try {
 try {
   db.exec('ALTER TABLE songs ADD COLUMN is_public INTEGER DEFAULT 1');
 } catch (_) {}
+try {
+  db.exec('ALTER TABLE songs ADD COLUMN thumbnail_url TEXT');
+} catch (_) {}
 
 export default db;

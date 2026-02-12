@@ -75,20 +75,22 @@ export function addYouTube(userId, url) {
       let title = path.basename(audioFile, ext);
       let artist = 'YouTube';
       let durationSeconds = 0;
+      let thumbnailUrl = null;
       if (jsonFile) {
         try {
           const info = JSON.parse(fs.readFileSync(path.join(jobDir, jsonFile), 'utf8'));
           title = info.title || title;
           artist = info.uploader || info.channel || artist;
           durationSeconds = Math.round(Number(info.duration) || 0);
+          thumbnailUrl = info.thumbnail && typeof info.thumbnail === 'string' ? info.thumbnail : null;
         } catch (_) {}
       }
 
       const songId = uuid();
       db.prepare(
-        `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public)
-         VALUES (?, ?, ?, ?, 'youtube', ?, ?, 1)`
-      ).run(songId, userId, title, artist, destName, durationSeconds);
+        `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public, thumbnail_url)
+         VALUES (?, ?, ?, ?, 'youtube', ?, ?, 1, ?)`
+      ).run(songId, userId, title, artist, destName, durationSeconds, thumbnailUrl);
       db.prepare('UPDATE youtube_jobs SET status = ?, song_id = ? WHERE id = ?')
         .run('completed', songId, jobId);
     } finally {

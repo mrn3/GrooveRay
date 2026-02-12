@@ -198,8 +198,7 @@ export default function Songs() {
     }
   };
 
-  const isOwnSong = (song) => user && song.user_id === user.id;
-  const showEditActions = (song) => activeTab === 'mine' || (activeTab === 'favorites' && isOwnSong(song));
+  const showEditActions = () => activeTab === 'mine';
   const showListenCount = activeTab === 'favorites' || activeTab === 'all';
   const showRating = activeTab === 'favorites' || activeTab === 'all';
 
@@ -466,8 +465,12 @@ export default function Songs() {
               className="flex cursor-pointer items-center gap-3 px-6 py-3 transition hover:bg-groove-800"
               onClick={() => play(song)}
             >
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-groove-700 text-ray-400">
-                <span className="text-lg">◇</span>
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
+                {song.thumbnail_url ? (
+                  <img src={song.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-lg">◇</span>
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 {editingId === song.id ? (
@@ -516,9 +519,12 @@ export default function Songs() {
                   </>
                 )}
               </div>
+              <span className="flex-shrink-0 rounded bg-groove-600 px-2 py-0.5 text-xs font-mono text-gray-400">
+                {song.duration_seconds ? `${Math.floor(song.duration_seconds / 60)}:${String(song.duration_seconds % 60).padStart(2, '0')}` : '--:--'}
+              </span>
               {showListenCount && (
                 <span className="flex-shrink-0 text-xs text-gray-400" title="Listens">
-                  {activeTab === 'all' ? (
+                  {(activeTab === 'all' || activeTab === 'favorites') ? (
                     <span className="flex items-center gap-2">
                       <span className="flex items-center gap-1" title="Listens by everyone">
                         <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -548,28 +554,39 @@ export default function Songs() {
                   )}
                 </span>
               )}
-              <span className="rounded bg-groove-600 px-2 py-0.5 text-xs font-mono text-gray-400">
-                {song.duration_seconds ? `${Math.floor(song.duration_seconds / 60)}:${String(song.duration_seconds % 60).padStart(2, '0')}` : '--:--'}
-              </span>
               {showRating && (
-                <div className="flex flex-shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-0.5">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
-                        disabled={ratingId === song.id}
-                        className="rounded p-0.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-ray-500 disabled:opacity-50"
-                        onClick={(e) => handleSetRating(e, song, star)}
-                      >
-                        <span className={((song.rating ?? 0) >= star ? 'text-amber-400' : 'text-gray-500 hover:text-amber-500')}>
-                          ★
+                <>
+                  <span className="flex-shrink-0 text-xs text-gray-400" title="Community rating">
+                    {song.community_rating_count > 0 ? (
+                      <span className="flex items-center gap-1">
+                        <span className="text-amber-400">
+                          {Number(song.community_avg_rating).toFixed(1)} ★
                         </span>
-                      </button>
-                    ))}
+                        <span className="text-gray-500">({song.community_rating_count})</span>
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </span>
+                  <div className="flex flex-shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()} title="My rating">
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                          disabled={ratingId === song.id}
+                          className="rounded p-0.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-ray-500 disabled:opacity-50"
+                          onClick={(e) => handleSetRating(e, song, star)}
+                        >
+                          <span className={((song.rating ?? 0) >= star ? 'text-amber-400' : 'text-gray-500 hover:text-amber-500')}>
+                            ★
+                          </span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                </>
               )}
               {showEditActions(song) && (
                 <>

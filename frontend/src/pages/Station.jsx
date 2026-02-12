@@ -59,7 +59,7 @@ export default function Station() {
       return;
     }
     const item = nowPlaying.item;
-    const song = { id: item.song_id, title: item.title, artist: item.artist, source: item.source, file_path: item.file_path };
+    const song = { id: item.song_id, title: item.title, artist: item.artist, source: item.source, file_path: item.file_path, thumbnail_url: item.thumbnail_url, duration_seconds: item.duration_seconds };
     const pos = serverPosition(nowPlaying.startedAt, item.duration_seconds);
     setStationMode({ startedAt: nowPlaying.startedAt, durationSeconds: item.duration_seconds ?? 60 });
     play(song);
@@ -184,6 +184,13 @@ export default function Station() {
                   <span className="font-semibold">↑</span>
                 </button>
                 <span className="w-8 flex-shrink-0 text-center font-mono text-gray-400">{item.votes ?? 0}</span>
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
+                  {item.thumbnail_url ? (
+                    <img src={item.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-lg">◇</span>
+                  )}
+                </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-white">{item.title}</p>
                   <p className="text-sm text-gray-400">{item.artist}</p>
