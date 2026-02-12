@@ -66,7 +66,7 @@ router.get('/:id/stream', (req, res) => {
   res.sendFile(filePath);
 });
 
-// Public songs — optional auth to attach user's favorite/rating/listen_count
+// Public songs — optional auth to attach user's favorite/rating/listen_count + total listens
 router.get('/public', optionalAuth, (req, res) => {
   const list = db.prepare(
     `SELECT s.*, u.username as uploader_name
@@ -75,6 +75,19 @@ router.get('/public', optionalAuth, (req, res) => {
      WHERE s.is_public = 1
      ORDER BY s.created_at DESC`
   ).all();
+  if (list.length > 0) {
+    const placeholders = list.map(() => '?').join(',');
+    const totals = db.prepare(
+      `SELECT song_id, SUM(listen_count) as total_listen_count
+       FROM user_song_listens
+       WHERE song_id IN (${placeholders})
+       GROUP BY song_id`
+    ).all(...list.map((s) => s.id));
+    const totalMap = Object.fromEntries(totals.map((r) => [r.song_id, r.total_listen_count]));
+    list.forEach((s) => {
+      s.total_listen_count = totalMap[s.id] ?? 0;
+    });
+  }
   res.json(attachUserStats(list, req.userId));
 });
 
