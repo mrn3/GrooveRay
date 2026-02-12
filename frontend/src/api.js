@@ -38,6 +38,7 @@ export const auth = {
 export const songs = {
   list: () => request('/songs'),
   get: (id) => request(`/songs/${id}`),
+  delete: (id) => request(`/songs/${id}`, { method: 'DELETE' }),
   upload: (file, title, artist) => {
     const form = new FormData();
     form.append('file', file);

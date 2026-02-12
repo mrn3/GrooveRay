@@ -72,4 +72,20 @@ router.get('/:id', (req, res) => {
   res.json(song);
 });
 
+router.delete('/:id', (req, res) => {
+  const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(req.params.id);
+  if (!song) return res.status(404).json({ error: 'Song not found' });
+  if (song.user_id !== req.userId) return res.status(403).json({ error: 'You can only delete your own songs' });
+
+  db.prepare('DELETE FROM station_queue WHERE song_id = ?').run(req.params.id);
+  db.prepare('DELETE FROM songs WHERE id = ?').run(req.params.id);
+
+  if (song.file_path) {
+    const filePath = path.join(uploadsDir, song.file_path);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  }
+
+  res.status(204).send();
+});
+
 export default router;
