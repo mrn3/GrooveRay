@@ -11,26 +11,21 @@ import { authMiddleware, optionalAuth, JWT_SECRET } from '../middleware/auth.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Helper: attach current user's favorite, rating, listen_count to each song
+// Helper: attach current user's rating and listen_count to each song
 function attachUserStats(list, userId) {
   if (!userId || !list?.length) return list;
   const ids = list.map((s) => s.id);
   const placeholders = ids.map(() => '?').join(',');
-  const favorites = db.prepare(
-    `SELECT song_id FROM user_song_favorites WHERE user_id = ? AND song_id IN (${placeholders})`
-  ).all(userId, ...ids);
   const ratings = db.prepare(
     `SELECT song_id, rating FROM user_song_ratings WHERE user_id = ? AND song_id IN (${placeholders})`
   ).all(userId, ...ids);
   const listens = db.prepare(
     `SELECT song_id, listen_count FROM user_song_listens WHERE user_id = ? AND song_id IN (${placeholders})`
   ).all(userId, ...ids);
-  const favSet = new Set(favorites.map((r) => r.song_id));
   const ratingMap = Object.fromEntries(ratings.map((r) => [r.song_id, r.rating]));
   const listenMap = Object.fromEntries(listens.map((r) => [r.song_id, r.listen_count]));
   return list.map((s) => ({
     ...s,
-    is_favorite: !!favSet.has(s.id),
     rating: ratingMap[s.id] ?? null,
     listen_count: listenMap[s.id] ?? 0,
   }));
@@ -125,19 +120,16 @@ router.get('/', (req, res) => {
   res.json(attachUserStats(list, req.userId));
 });
 
-// My favorites — hearted, rated, or listened; with listen_count
+// My songs — rated or listened; with listen_count
 router.get('/favorites', (req, res) => {
   const userId = req.userId;
-  const favSongIds = db.prepare(
-    'SELECT song_id FROM user_song_favorites WHERE user_id = ?'
-  ).all(userId).map((r) => r.song_id);
   const ratedSongIds = db.prepare(
     'SELECT song_id FROM user_song_ratings WHERE user_id = ? AND rating > 0'
   ).all(userId).map((r) => r.song_id);
   const listenedSongIds = db.prepare(
     'SELECT song_id FROM user_song_listens WHERE user_id = ? AND listen_count > 0'
   ).all(userId).map((r) => r.song_id);
-  const allIds = [...new Set([...favSongIds, ...ratedSongIds, ...listenedSongIds])];
+  const allIds = [...new Set([...ratedSongIds, ...listenedSongIds])];
   if (allIds.length === 0) {
     return res.json(attachUserStats([], userId));
   }
@@ -154,8 +146,6 @@ router.get('/favorites', (req, res) => {
     .map((id) => byId[id])
     .filter(Boolean)
     .sort((a, b) => {
-      if (a.is_favorite && !b.is_favorite) return -1;
-      if (!a.is_favorite && b.is_favorite) return 1;
       const ra = a.rating ?? 0;
       const rb = b.rating ?? 0;
       if (ra !== rb) return rb - ra;
@@ -171,22 +161,6 @@ router.post('/:id/played', (req, res) => {
     `INSERT INTO user_song_listens (user_id, song_id, listen_count)
      VALUES (?, ?, 1)
      ON CONFLICT(user_id, song_id) DO UPDATE SET listen_count = listen_count + 1`
-  ).run(req.userId, req.params.id);
-  res.status(204).send();
-});
-
-router.post('/:id/favorite', (req, res) => {
-  const song = db.prepare('SELECT id FROM songs WHERE id = ?').get(req.params.id);
-  if (!song) return res.status(404).json({ error: 'Song not found' });
-  db.prepare(
-    'INSERT OR IGNORE INTO user_song_favorites (user_id, song_id) VALUES (?, ?)'
-  ).run(req.userId, req.params.id);
-  res.status(204).send();
-});
-
-router.delete('/:id/favorite', (req, res) => {
-  db.prepare(
-    'DELETE FROM user_song_favorites WHERE user_id = ? AND song_id = ?'
   ).run(req.userId, req.params.id);
   res.status(204).send();
 });

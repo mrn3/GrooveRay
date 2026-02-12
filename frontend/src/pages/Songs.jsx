@@ -4,8 +4,8 @@ import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
 
 const TABS = [
-  { id: 'mine', label: 'My Songs' },
-  { id: 'favorites', label: 'My Favorites' },
+  { id: 'mine', label: 'My Contributions' },
+  { id: 'favorites', label: 'My Songs' },
   { id: 'all', label: 'All Songs' },
 ];
 
@@ -20,7 +20,6 @@ export default function Songs() {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [savingId, setSavingId] = useState(null);
-  const [favoritingId, setFavoritingId] = useState(null);
   const [ratingId, setRatingId] = useState(null);
   const { play } = usePlayer();
   const { user } = useAuth();
@@ -186,24 +185,6 @@ export default function Songs() {
     }
   };
 
-  const handleToggleFavorite = async (e, song) => {
-    e.stopPropagation();
-    setFavoritingId(song.id);
-    try {
-      if (song.is_favorite) {
-        await songsApi.removeFavorite(song.id);
-        setList((prev) => prev.map((s) => (s.id === song.id ? { ...s, is_favorite: false } : s)));
-      } else {
-        await songsApi.addFavorite(song.id);
-        setList((prev) => prev.map((s) => (s.id === song.id ? { ...s, is_favorite: true } : s)));
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setFavoritingId(null);
-    }
-  };
-
   const handleSetRating = async (e, song, rating) => {
     e.stopPropagation();
     setRatingId(song.id);
@@ -220,7 +201,7 @@ export default function Songs() {
   const isOwnSong = (song) => user && song.user_id === user.id;
   const showEditActions = (song) => activeTab === 'mine' || (activeTab === 'favorites' && isOwnSong(song));
   const showListenCount = activeTab === 'favorites' || activeTab === 'all';
-  const showFavoriteRating = activeTab === 'favorites' || activeTab === 'all';
+  const showRating = activeTab === 'favorites' || activeTab === 'all';
 
   if (loading) return <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-ray-500 border-t-transparent" /></div>;
   if (error) return <p className="text-red-400">{error}</p>;
@@ -475,7 +456,7 @@ export default function Songs() {
         {list.length === 0 ? (
           <p className="px-6 py-12 text-center text-gray-500">
             {activeTab === 'mine' && 'No songs yet. Upload or add a YouTube link.'}
-            {activeTab === 'favorites' && 'No favorites yet. Heart or rate songs, or play them to see them here.'}
+            {activeTab === 'favorites' && 'No songs yet. Rate songs or play them to see them here.'}
             {activeTab === 'all' && 'No public songs yet.'}
           </p>
         ) : (
@@ -570,25 +551,8 @@ export default function Songs() {
               <span className="rounded bg-groove-600 px-2 py-0.5 text-xs font-mono text-gray-400">
                 {song.duration_seconds ? `${Math.floor(song.duration_seconds / 60)}:${String(song.duration_seconds % 60).padStart(2, '0')}` : '--:--'}
               </span>
-              {showFavoriteRating && (
+              {showRating && (
                 <div className="flex flex-shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    aria-label={song.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
-                    disabled={favoritingId === song.id}
-                    className={`rounded p-1.5 transition focus:outline-none focus:ring-2 focus:ring-ray-500 disabled:opacity-50 ${
-                      song.is_favorite ? 'text-red-400 hover:text-red-300' : 'text-gray-400 hover:text-red-400'
-                    }`}
-                    onClick={(e) => handleToggleFavorite(e, song)}
-                  >
-                    {favoritingId === song.id ? (
-                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    ) : (
-                      <svg className="h-4 w-4" fill={song.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                    )}
-                  </button>
                   <div className="flex items-center gap-0.5">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button

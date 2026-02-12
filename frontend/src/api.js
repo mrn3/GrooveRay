@@ -46,8 +46,6 @@ export const songs = {
     request(`/songs/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   delete: (id) => request(`/songs/${id}`, { method: 'DELETE' }),
   recordPlay: (id) => request(`/songs/${id}/played`, { method: 'POST' }),
-  addFavorite: (id) => request(`/songs/${id}/favorite`, { method: 'POST' }),
-  removeFavorite: (id) => request(`/songs/${id}/favorite`, { method: 'DELETE' }),
   setRating: (id, rating) =>
     request(`/songs/${id}/rating`, { method: 'PATCH', body: JSON.stringify({ rating }) }),
   upload: (file, title, artist) => {
