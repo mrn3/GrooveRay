@@ -29,6 +29,13 @@ app.use('/api/songs', songRoutes);
 app.use('/api/youtube', youtubeRoutes);
 app.use('/api/stations', stationRoutes);
 
+// Production: serve built frontend from ../frontend/dist
+const frontendDist = path.join(__dirname, '../../frontend/dist');
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(frontendDist));
+  app.get('*', (_, res) => res.sendFile(path.join(frontendDist, 'index.html')));
+}
+
 io.on('connection', (socket) => {
   socket.on('station:subscribe', (stationId) => {
     socket.join(`station:${stationId}`);
