@@ -99,9 +99,28 @@ router.patch('/:id', (req, res) => {
   const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(req.params.id);
   if (!song) return res.status(404).json({ error: 'Song not found' });
   if (song.user_id !== req.userId) return res.status(403).json({ error: 'You can only update your own songs' });
-  const { is_public } = req.body || {};
-  if (typeof is_public !== 'boolean') return res.status(400).json({ error: 'is_public must be a boolean' });
-  db.prepare('UPDATE songs SET is_public = ? WHERE id = ?').run(is_public ? 1 : 0, req.params.id);
+  const { is_public, title, artist } = req.body || {};
+
+  const updates = [];
+  const values = [];
+  if (typeof is_public === 'boolean') {
+    updates.push('is_public = ?');
+    values.push(is_public ? 1 : 0);
+  }
+  if (typeof title === 'string') {
+    const t = title.trim();
+    if (t.length === 0) return res.status(400).json({ error: 'Title cannot be empty' });
+    updates.push('title = ?');
+    values.push(t);
+  }
+  if (typeof artist === 'string') {
+    updates.push('artist = ?');
+    values.push(artist.trim());
+  }
+  if (updates.length === 0) return res.status(400).json({ error: 'Provide at least one of: is_public, title, artist' });
+
+  values.push(req.params.id);
+  db.prepare(`UPDATE songs SET ${updates.join(', ')} WHERE id = ?`).run(...values);
   const updated = db.prepare(
     `SELECT s.*, u.username as uploader_name FROM songs s JOIN users u ON u.id = s.user_id WHERE s.id = ?`
   ).get(req.params.id);
