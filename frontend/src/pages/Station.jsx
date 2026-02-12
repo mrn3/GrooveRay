@@ -17,7 +17,10 @@ export default function Station() {
   const [queue, setQueue] = useState([]);
   const [songs, setSongs] = useState([]);
   const [addSongId, setAddSongId] = useState('');
+  const [addSongInput, setAddSongInput] = useState('');
+  const [addSongOpen, setAddSongOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const addSongRef = useRef(null);
   const [nowPlaying, setNowPlaying] = useState(null);
   const socketRef = useRef(null);
   const { play, seek, setStationMode } = usePlayer();
@@ -78,10 +81,30 @@ export default function Station() {
       const q = await stationsApi.queue(station.id);
       setQueue(q);
       setAddSongId('');
+      setAddSongInput('');
     } catch (err) {
       console.error(err);
     }
   };
+
+  const query = addSongInput.trim().toLowerCase();
+  const suggestions = query
+    ? songs.filter(
+        (s) =>
+          (s.title || '').toLowerCase().includes(query) ||
+          (s.artist || '').toLowerCase().includes(query)
+      ).slice(0, 8)
+    : [];
+
+  useEffect(() => {
+    function handleClickOutside(ev) {
+      if (addSongRef.current && !addSongRef.current.contains(ev.target)) {
+        setAddSongOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (loading) return <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-ray-500 border-t-transparent" /></div>;
   if (!station) return <p className="text-red-400">Station not found</p>;
@@ -100,17 +123,42 @@ export default function Station() {
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-medium text-white">Add song to queue</h2>
         <form onSubmit={handleAddToQueue} className="flex gap-2">
-          <select
-            value={addSongId}
-            onChange={(e) => setAddSongId(e.target.value)}
-            className="rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white"
-          >
-            <option value="">Select a song…</option>
-            {songs.map((s) => (
-              <option key={s.id} value={s.id}>{s.title} — {s.artist}</option>
-            ))}
-          </select>
-          <button type="submit" disabled={!addSongId} className="rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50">
+          <div ref={addSongRef} className="relative flex-1 min-w-0 max-w-md">
+            <input
+              type="text"
+              value={addSongInput}
+              onChange={(e) => {
+                setAddSongInput(e.target.value);
+                setAddSongOpen(true);
+                setAddSongId('');
+              }}
+              onFocus={() => setAddSongOpen(true)}
+              placeholder="Search by song or artist…"
+              className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+              autoComplete="off"
+            />
+            {addSongOpen && suggestions.length > 0 && (
+              <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-groove-600 bg-groove-800 py-1 shadow-lg">
+                {suggestions.map((s) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddSongId(s.id);
+                        setAddSongInput(`${s.title} — ${s.artist}`);
+                        setAddSongOpen(false);
+                      }}
+                      className="w-full px-4 py-2 text-left text-white hover:bg-groove-600 focus:bg-groove-600 focus:outline-none"
+                    >
+                      <span className="font-medium">{s.title}</span>
+                      <span className="text-gray-400"> — {s.artist}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <button type="submit" disabled={!addSongId} className="rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50 shrink-0">
             Add to queue
           </button>
         </form>
