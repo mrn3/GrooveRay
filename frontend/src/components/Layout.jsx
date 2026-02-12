@@ -5,8 +5,8 @@ import Logo from './Logo';
 const nav = [
   { to: '/library', label: 'Library' },
   { to: '/upload', label: 'Upload' },
+  { to: '/youtube', label: 'YouTube' },
   { to: '/torrents', label: 'Torrents' },
-  { to: '/ai', label: 'AI Music' },
   { to: '/stations', label: 'Stations' },
 ];
 

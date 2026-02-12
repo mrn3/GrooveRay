@@ -1,7 +1,7 @@
 {
   "name": "grooveray-backend",
   "version": "1.0.0",
-  "description": "GrooveRay API - music uploads, torrents, AI generation, crowd-sourced radio",
+  "description": "GrooveRay API - music uploads, torrents, crowd-sourced radio",
   "main": "src/index.js",
   "type": "module",
   "scripts": {

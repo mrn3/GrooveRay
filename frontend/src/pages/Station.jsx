@@ -92,7 +92,7 @@ export default function Station() {
             className="rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white"
           >
             <option value="">Select a song…</option>
-            {songs.filter((s) => s.source !== 'ai' || s.file_path?.startsWith('http')).map((s) => (
+            {songs.map((s) => (
               <option key={s.id} value={s.id}>{s.title} — {s.artist}</option>
             ))}
           </select>

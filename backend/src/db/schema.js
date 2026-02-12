@@ -75,7 +75,19 @@ db.exec(`
     FOREIGN KEY (song_id) REFERENCES songs(id)
   );
 
+  CREATE TABLE IF NOT EXISTS youtube_jobs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    song_id TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (song_id) REFERENCES songs(id)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_songs_user ON songs(user_id);
+  CREATE INDEX IF NOT EXISTS idx_youtube_jobs_user ON youtube_jobs(user_id);
   CREATE INDEX IF NOT EXISTS idx_station_queue_station ON station_queue(station_id);
   CREATE INDEX IF NOT EXISTS idx_station_queue_votes ON station_queue(station_id, votes DESC);
 `);

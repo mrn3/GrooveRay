@@ -57,9 +57,10 @@ export const torrents = {
   jobs: () => request('/torrents/jobs'),
 };
 
-// AI
-export const ai = {
-  generate: (body) => request('/ai/generate', { method: 'POST', body: JSON.stringify(body) }),
+// YouTube
+export const youtube = {
+  add: (url) => request('/youtube/add', { method: 'POST', body: JSON.stringify({ url }) }),
+  jobs: () => request('/youtube/jobs'),
 };
 
 // Stations

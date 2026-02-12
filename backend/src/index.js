@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.js';
 import songRoutes from './routes/songs.js';
 import torrentRoutes from './routes/torrents.js';
-import aiRoutes from './routes/ai.js';
+import youtubeRoutes from './routes/youtube.js';
 import stationRoutes from './routes/stations.js';
 import { setIO } from './socket.js';
 
@@ -27,7 +27,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/songs', songRoutes);
 app.use('/api/torrents', torrentRoutes);
-app.use('/api/ai', aiRoutes);
+app.use('/api/youtube', youtubeRoutes);
 app.use('/api/stations', stationRoutes);
 
 io.on('connection', (socket) => {
