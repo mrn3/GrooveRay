@@ -7,20 +7,33 @@ export default function Library() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState(null);
+  const [confirmSong, setConfirmSong] = useState(null);
   const { play } = usePlayer();
 
-  const handleDelete = async (e, song) => {
+  const openDeleteConfirm = (e, song) => {
     e.stopPropagation();
-    if (!window.confirm(`Remove "${song.title}" from your library?`)) return;
-    setDeletingId(song.id);
+    setConfirmSong(song);
+  };
+
+  const closeDeleteConfirm = () => setConfirmSong(null);
+
+  const handleDeleteConfirm = async () => {
+    if (!confirmSong) return;
+    setDeletingId(confirmSong.id);
     try {
-      await songsApi.delete(song.id);
-      setList((prev) => prev.filter((s) => s.id !== song.id));
+      await songsApi.delete(confirmSong.id);
+      setList((prev) => prev.filter((s) => s.id !== confirmSong.id));
+      setConfirmSong(null);
     } catch (err) {
       setError(err.message);
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const handleDelete = (e, song) => {
+    e.stopPropagation();
+    openDeleteConfirm(e, song);
   };
 
   useEffect(() => {
@@ -35,6 +48,48 @@ export default function Library() {
 
   return (
     <div>
+      {confirmSong && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={closeDeleteConfirm}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-confirm-title"
+        >
+          <div
+            className="w-full max-w-sm rounded-xl border border-groove-700 bg-groove-900 p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="delete-confirm-title" className="text-lg font-semibold text-white">
+              Remove from library?
+            </h2>
+            <p className="mt-2 text-gray-400">
+              “{confirmSong.title}” will be removed from your library. This cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                className="rounded-lg bg-groove-700 px-4 py-2 text-sm font-medium text-gray-300 transition hover:bg-groove-600 focus:outline-none focus:ring-2 focus:ring-ray-500"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                disabled={deletingId === confirmSong.id}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+              >
+                {deletingId === confirmSong.id ? (
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  'Remove'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <h1 className="mb-6 text-2xl font-semibold text-white">Library</h1>
       <div className="space-y-1 rounded-xl border border-groove-700 bg-groove-900/50">
         {list.length === 0 ? (
