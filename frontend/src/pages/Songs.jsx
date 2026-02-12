@@ -53,6 +53,9 @@ export default function Songs() {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [youtubeLoading, setYoutubeLoading] = useState(false);
   const [addMessage, setAddMessage] = useState('');
+  // Shown in list while upload/YouTube is in progress (progress bar in row)
+  const [uploadingItem, setUploadingItem] = useState(null); // { title, artist, progress: 0-100 } | null
+  const [youtubePendingItem, setYoutubePendingItem] = useState(null); // { title: string } | null
 
   const startRename = (e, song) => {
     e.stopPropagation();
@@ -148,40 +151,44 @@ export default function Songs() {
       setAddMessage('Choose a file first');
       return;
     }
+    const title = uploadTitle || uploadFile.name;
+    const artist = uploadArtist || 'Unknown';
+    setUploadingItem({ title, artist, progress: 0 });
     setUploading(true);
-    setUploadProgress(0);
     setAddMessage('');
+    closeAddModal();
     try {
       const newSong = await songsApi.uploadWithProgress(
         uploadFile,
-        uploadTitle || uploadFile.name,
-        uploadArtist || 'Unknown',
-        (percent) => setUploadProgress(percent)
+        title,
+        artist,
+        (percent) => setUploadingItem((prev) => (prev ? { ...prev, progress: percent } : null))
       );
       setList((prev) => [newSong, ...prev]);
-      closeAddModal();
     } catch (err) {
-      setAddMessage(err.message || 'Upload failed');
+      setError(err.message || 'Upload failed');
     } finally {
       setUploading(false);
-      setUploadProgress(null);
+      setUploadingItem(null);
     }
   };
 
   const handleYoutubeAdd = async (e) => {
     e.preventDefault();
     if (!youtubeUrl.trim()) return;
+    const url = youtubeUrl.trim();
+    setYoutubePendingItem({ title: url.length > 50 ? url.slice(0, 47) + '…' : url });
     setYoutubeLoading(true);
     setAddMessage('');
+    closeAddModal();
     try {
-      await youtubeApi.add(youtubeUrl.trim());
-      setAddMessage('Download started — audio will be added to your library when ready.');
-      setYoutubeUrl('');
+      await youtubeApi.add(url);
       if (activeTab === 'mine') fetchList();
     } catch (err) {
-      setAddMessage(err.message || 'Failed to add YouTube link');
+      setError(err.message || 'Failed to add YouTube link');
     } finally {
       setYoutubeLoading(false);
+      setYoutubePendingItem(null);
     }
   };
 
@@ -452,14 +459,60 @@ export default function Songs() {
       )}
 
       <div className="space-y-1 rounded-xl border border-groove-700 bg-groove-900/50">
-        {list.length === 0 ? (
+        {list.length === 0 && !uploadingItem && !youtubePendingItem ? (
           <p className="px-6 py-12 text-center text-gray-500">
             {activeTab === 'mine' && 'No songs yet. Upload or add a YouTube link.'}
             {activeTab === 'favorites' && 'No songs yet. Rate songs or play them to see them here.'}
             {activeTab === 'all' && 'No public songs yet.'}
           </p>
         ) : (
-          list.map((song) => (
+          <>
+            {activeTab === 'mine' && uploadingItem && (
+              <div
+                className="flex cursor-default items-center gap-3 px-6 py-3 text-gray-400"
+                aria-busy="true"
+                aria-valuenow={uploadingItem.progress}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                role="progressbar"
+                aria-label={`Uploading ${uploadingItem.title}`}
+              >
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
+                  <span className="text-lg">◇</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-white">{uploadingItem.title}</p>
+                  <p className="truncate text-sm text-gray-400">{uploadingItem.artist} · Uploading</p>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-groove-700">
+                    <div
+                      className="h-full rounded-full bg-ray-500 transition-all duration-300"
+                      style={{ width: `${uploadingItem.progress}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="flex-shrink-0 text-sm text-gray-500">{uploadingItem.progress}%</span>
+              </div>
+            )}
+            {activeTab === 'mine' && youtubePendingItem && (
+              <div
+                className="flex cursor-default items-center gap-3 px-6 py-3 text-gray-400"
+                aria-busy="true"
+                aria-label={`Adding from YouTube: ${youtubePendingItem.title}`}
+              >
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
+                  <span className="text-lg">◇</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-white">{youtubePendingItem.title}</p>
+                  <p className="truncate text-sm text-gray-400">YouTube · Processing…</p>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-groove-700">
+                    <div className="h-full w-1/3 rounded-full bg-ray-500 animate-progress-indeterminate" />
+                  </div>
+                </div>
+                <span className="flex-shrink-0 text-sm text-gray-500">—</span>
+              </div>
+            )}
+            {list.map((song) => (
             <div
               key={song.id}
               className="flex cursor-pointer items-center gap-3 px-6 py-3 transition hover:bg-groove-800"
@@ -637,7 +690,8 @@ export default function Songs() {
                 </>
               )}
             </div>
-          ))
+          ))}
+          </>
         )}
       </div>
     </div>
