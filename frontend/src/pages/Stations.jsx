@@ -11,7 +11,14 @@ export default function Stations() {
   const [createDesc, setCreateDesc] = useState('');
   const [creating, setCreating] = useState(false);
 
-  const load = () => stationsApi.list().then(setList).catch(() => setList([]));
+  const load = () => {
+    setLoading(true);
+    return stationsApi
+      .list()
+      .then(setList)
+      .catch(() => setList([]))
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
     load();
