@@ -149,6 +149,46 @@ const DDL = `
     FOREIGN KEY (station_id) REFERENCES stations(id),
     FOREIGN KEY (queue_id) REFERENCES station_queue(id)
   );
+
+  CREATE TABLE IF NOT EXISTS playlists (
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    is_public TINYINT NOT NULL DEFAULT 0,
+    slug VARCHAR(255) UNIQUE NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS playlist_tracks (
+    playlist_id VARCHAR(36) NOT NULL,
+    song_id VARCHAR(36) NOT NULL,
+    position INT NOT NULL DEFAULT 0,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (playlist_id, song_id),
+    FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
+    FOREIGN KEY (song_id) REFERENCES songs(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS user_playlist_ratings (
+    user_id VARCHAR(36) NOT NULL,
+    playlist_id VARCHAR(36) NOT NULL,
+    rating INT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, playlist_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (playlist_id) REFERENCES playlists(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS user_playlist_listens (
+    user_id VARCHAR(36) NOT NULL,
+    playlist_id VARCHAR(36) NOT NULL,
+    listen_count INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, playlist_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (playlist_id) REFERENCES playlists(id)
+  );
 `;
 
 // MySQL doesn't support "IF NOT EXISTS" for indexes in older versions; use separate statements and ignore errors
@@ -159,6 +199,12 @@ const indexStatements = [
   'CREATE INDEX idx_station_queue_votes ON station_queue(station_id, votes DESC)',
   'CREATE INDEX idx_user_song_favorites_user ON user_song_favorites(user_id)',
   'CREATE INDEX idx_user_song_listens_user ON user_song_listens(user_id)',
+  'CREATE INDEX idx_playlists_user ON playlists(user_id)',
+  'CREATE INDEX idx_playlists_slug ON playlists(slug)',
+  'CREATE INDEX idx_playlists_public ON playlists(is_public)',
+  'CREATE INDEX idx_playlist_tracks_playlist ON playlist_tracks(playlist_id)',
+  'CREATE INDEX idx_user_playlist_ratings_playlist ON user_playlist_ratings(playlist_id)',
+  'CREATE INDEX idx_user_playlist_listens_playlist ON user_playlist_listens(playlist_id)',
 ];
 
 async function ensureSchema() {

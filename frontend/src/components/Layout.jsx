@@ -4,6 +4,7 @@ import Logo from './Logo';
 
 const nav = [
   { to: '/songs', label: 'Songs' },
+  { to: '/playlists', label: 'Playlists' },
   { to: '/stations', label: 'Stations' },
 ];
 

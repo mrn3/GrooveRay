@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.js';
 import songRoutes from './routes/songs.js';
 import youtubeRoutes from './routes/youtube.js';
 import stationRoutes, { advanceStationPlayback } from './routes/stations.js';
+import playlistRoutes from './routes/playlists.js';
 import { setIO } from './socket.js';
 import db from './db/schema.js';
 
@@ -29,6 +30,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/songs', songRoutes);
 app.use('/api/youtube', youtubeRoutes);
 app.use('/api/stations', stationRoutes);
+app.use('/api/playlists', playlistRoutes);
 
 // Production: serve built frontend from ../frontend/dist
 const frontendDist = path.join(__dirname, '../../frontend/dist');

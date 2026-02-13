@@ -303,6 +303,7 @@ router.delete('/:id', async (req, res) => {
 
   // Remove all references so we can delete the song (FK constraints)
   await db.run('DELETE FROM station_queue WHERE song_id = ?', [songId]);
+  await db.run('DELETE FROM playlist_tracks WHERE song_id = ?', [songId]);
   await db.run('DELETE FROM user_song_favorites WHERE song_id = ?', [songId]);
   await db.run('DELETE FROM user_song_ratings WHERE song_id = ?', [songId]);
   await db.run('DELETE FROM user_song_listens WHERE song_id = ?', [songId]);

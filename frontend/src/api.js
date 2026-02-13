@@ -131,3 +131,38 @@ export const stations = {
     request(`/stations/${stationId}/vote/${queueId}`, { method: 'DELETE' }),
   nowPlaying: (id) => request(`/stations/${id}/now-playing`),
 };
+
+// Playlists
+export const playlists = {
+  list: () => request('/playlists'),
+  listPublic: () => request('/playlists/public'),
+  get: (id) => request(`/playlists/${id}`),
+  getBySlug: (slug) => request(`/playlists/by-slug/${slug}`),
+  create: (name, description, isPublic) =>
+    request('/playlists', {
+      method: 'POST',
+      body: JSON.stringify({ name, description: description || '', is_public: !!isPublic }),
+    }),
+  update: (id, payload) =>
+    request(`/playlists/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  share: (id) => request(`/playlists/${id}/share`, { method: 'POST' }),
+  delete: (id) => request(`/playlists/${id}`, { method: 'DELETE' }),
+  tracks: (id) => request(`/playlists/${id}/tracks`),
+  addTrack: (playlistId, songId) =>
+    request(`/playlists/${playlistId}/tracks`, {
+      method: 'POST',
+      body: JSON.stringify({ songId }),
+    }),
+  removeTrack: (playlistId, songId) =>
+    request(`/playlists/${playlistId}/tracks/${songId}`, { method: 'DELETE' }),
+  reorderTracks: (playlistId, songIds) =>
+    request(`/playlists/${playlistId}/tracks/reorder`, {
+      method: 'PATCH',
+      body: JSON.stringify({ songIds }),
+    }),
+  setRating: (id, rating) =>
+    request(`/playlists/${id}/rating`, { method: 'PATCH', body: JSON.stringify({ rating }) }),
+  ratings: (id) => request(`/playlists/${id}/ratings`),
+  recordPlay: (id) => request(`/playlists/${id}/played`, { method: 'POST' }),
+  listens: (id) => request(`/playlists/${id}/listens`),
+};
