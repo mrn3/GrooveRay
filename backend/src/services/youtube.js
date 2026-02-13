@@ -31,18 +31,33 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 if (!fs.existsSync(youtubeDir)) fs.mkdirSync(youtubeDir, { recursive: true });
 
 const YOUTUBE_URL_REGEX = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/)|youtu\.be\/)[\w-]+/i;
+const YOUTUBE_ID_REGEX = /(?:youtube\.com\/watch\?v=|youtube\.com\/shorts\/|youtu\.be\/)([\w-]{10,12})/i;
 
 export function isValidYouTubeUrl(url) {
   return typeof url === 'string' && YOUTUBE_URL_REGEX.test(url.trim());
+}
+
+/** Extract YouTube video ID from a URL (e.g. watch?v=ID, youtu.be/ID, shorts/ID). */
+export function extractYouTubeVideoId(url) {
+  if (!url || typeof url !== 'string') return null;
+  const m = url.trim().match(YOUTUBE_ID_REGEX);
+  return m ? m[1] : null;
 }
 
 export async function addYouTube(userId, url) {
   if (!isValidYouTubeUrl(url)) {
     throw new Error('Invalid YouTube URL. Use a youtube.com or youtu.be link.');
   }
+  const normalizedUrl = url.trim();
+  const youtubeId = extractYouTubeVideoId(normalizedUrl);
+  if (youtubeId) {
+    const existing = await db.get('SELECT id FROM songs WHERE user_id = ? AND youtube_id = ?', [userId, youtubeId]);
+    if (existing) {
+      throw new Error('This video is already in your library.');
+    }
+  }
   ensureYouTubeDeps();
   const jobId = uuid();
-  const normalizedUrl = url.trim();
   await db.run(
     'INSERT INTO youtube_jobs (id, user_id, url, status) VALUES (?, ?, ?, ?)',
     [jobId, userId, normalizedUrl, 'downloading']
@@ -126,6 +141,7 @@ export async function addYouTube(userId, url) {
       let artist = 'YouTube';
       let durationSeconds = 0;
       let thumbnailUrl = null;
+      let youtubeId = null;
       if (jsonFile) {
         try {
           const info = JSON.parse(fs.readFileSync(path.join(jobDir, jsonFile), 'utf8'));
@@ -133,14 +149,15 @@ export async function addYouTube(userId, url) {
           artist = info.uploader || info.channel || artist;
           durationSeconds = Math.round(Number(info.duration) || 0);
           thumbnailUrl = info.thumbnail && typeof info.thumbnail === 'string' ? info.thumbnail : null;
+          if (info.id && typeof info.id === 'string') youtubeId = info.id;
         } catch (_) {}
       }
 
       const songId = uuid();
       await db.run(
-        `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public, thumbnail_url)
-         VALUES (?, ?, ?, ?, 'youtube', ?, ?, 1, ?)`,
-        [songId, userId, title, artist, destName, durationSeconds, thumbnailUrl]
+        `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public, thumbnail_url, youtube_id)
+         VALUES (?, ?, ?, ?, 'youtube', ?, ?, 1, ?, ?)`,
+        [songId, userId, title, artist, destName, durationSeconds, thumbnailUrl, youtubeId]
       );
       await db.run('UPDATE youtube_jobs SET status = ?, song_id = ? WHERE id = ?', ['completed', songId, jobId]);
     } finally {

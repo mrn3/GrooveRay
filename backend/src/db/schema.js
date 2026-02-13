@@ -64,8 +64,10 @@ const DDL = `
     duration_seconds INT,
     is_public TINYINT NOT NULL DEFAULT 1,
     thumbnail_url TEXT,
+    youtube_id VARCHAR(20) NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE KEY (user_id, youtube_id)
   );
 
   CREATE TABLE IF NOT EXISTS stations (
@@ -187,6 +189,12 @@ async function ensureSchema() {
   } catch (_) {}
   try {
     await exec('ALTER TABLE users MODIFY COLUMN password_hash VARCHAR(255) NULL');
+  } catch (_) {}
+  try {
+    await exec('ALTER TABLE songs ADD COLUMN youtube_id VARCHAR(20) NULL');
+  } catch (_) {}
+  try {
+    await exec('CREATE UNIQUE INDEX idx_songs_user_youtube ON songs (user_id, youtube_id)');
   } catch (_) {}
 }
 
