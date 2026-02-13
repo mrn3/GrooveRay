@@ -196,6 +196,9 @@ async function ensureSchema() {
   try {
     await exec('CREATE UNIQUE INDEX idx_songs_user_youtube ON songs (user_id, youtube_id)');
   } catch (_) {}
+  try {
+    await exec('ALTER TABLE stations ADD COLUMN image_url TEXT');
+  } catch (_) {}
 }
 
 let schemaReady = null;

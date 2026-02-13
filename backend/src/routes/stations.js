@@ -113,6 +113,35 @@ router.get('/:slugOrId', async (req, res) => {
   res.json(station);
 });
 
+router.patch('/:id', authMiddleware, async (req, res) => {
+  const station = await db.get('SELECT id, owner_id FROM stations WHERE id = ?', [req.params.id]);
+  if (!station) return res.status(404).json({ error: 'Station not found' });
+  if (station.owner_id !== req.userId) return res.status(403).json({ error: 'Only the station creator can edit' });
+  const { image_url, name, description } = req.body || {};
+  const updates = [];
+  const params = [];
+  if (typeof image_url !== 'undefined') {
+    updates.push('image_url = ?');
+    params.push(image_url === null || image_url === '' ? null : String(image_url));
+  }
+  if (typeof name === 'string' && name.trim()) {
+    updates.push('name = ?');
+    params.push(name.trim());
+  }
+  if (typeof description !== 'undefined') {
+    updates.push('description = ?');
+    params.push(description === null || description === '' ? null : String(description).trim());
+  }
+  if (updates.length === 0) return res.status(400).json({ error: 'No valid fields to update' });
+  params.push(req.params.id);
+  await db.run(`UPDATE stations SET ${updates.join(', ')} WHERE id = ?`, params);
+  const updated = await db.get(
+    `SELECT s.*, u.username as owner_name FROM stations s JOIN users u ON u.id = s.owner_id WHERE s.id = ?`,
+    [req.params.id]
+  );
+  res.json(updated);
+});
+
 router.get('/:id/queue', async (req, res) => {
   res.json(await getQueue(req.params.id));
 });

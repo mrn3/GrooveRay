@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { stations as stationsApi, songs as songsApi } from '../api';
+import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 
 function serverPosition(startedAt, durationSeconds) {
@@ -24,8 +25,13 @@ export default function Station() {
   const [nowPlaying, setNowPlaying] = useState(null);
   const [nowPlayingDetails, setNowPlayingDetails] = useState(null);
   const [ratingId, setRatingId] = useState(null);
+  const [editImageOpen, setEditImageOpen] = useState(false);
+  const [editImageUrl, setEditImageUrl] = useState('');
+  const [savingImage, setSavingImage] = useState(false);
   const socketRef = useRef(null);
+  const { user } = useAuth();
   const { play, setStationMode } = usePlayer();
+  const isOwner = user?.id === station?.owner_id;
 
   useEffect(() => {
     stationsApi.get(slugOrId).then((s) => {
@@ -141,13 +147,74 @@ export default function Station() {
       <div className="mb-8 flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="mb-8 flex items-center gap-4">
-            <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-groove-700 text-3xl text-ray-500">◇</div>
+            <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-groove-700 text-3xl text-ray-500">
+              {station.image_url ? (
+                <img src={station.image_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span>◇</span>
+              )}
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditImageUrl(station.image_url || '');
+                    setEditImageOpen(true);
+                  }}
+                  className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/60 text-sm font-medium text-white opacity-0 transition hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ray-500"
+                  title="Edit image"
+                >
+                  Edit image
+                </button>
+            )}
+            </div>
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold text-white">{station.name}</h1>
               {station.description && <p className="text-gray-400">{station.description}</p>}
               <p className="text-sm text-gray-500">by {station.owner_name}</p>
             </div>
           </div>
+          {editImageOpen && isOwner && (
+            <div className="mb-6 rounded-xl border border-groove-700 bg-groove-900/50 p-4">
+              <h3 className="mb-2 text-sm font-medium text-white">Station image</h3>
+              <p className="mb-3 text-xs text-gray-400">Enter an image URL (e.g. from Imgur, or a direct link to an image).</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="url"
+                  value={editImageUrl}
+                  onChange={(e) => setEditImageUrl(e.target.value)}
+                  placeholder="https://…"
+                  className="min-w-0 flex-1 rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setSavingImage(true);
+                    try {
+                      const updated = await stationsApi.update(station.id, { image_url: editImageUrl || null });
+                      setStation(updated);
+                      setEditImageOpen(false);
+                    } finally {
+                      setSavingImage(false);
+                    }
+                  }}
+                  disabled={savingImage}
+                  className="rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50"
+                >
+                  {savingImage ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditImageOpen(false);
+                    setEditImageUrl(station.image_url || '');
+                  }}
+                  className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           <section>
             <h2 className="mb-3 text-lg font-medium text-white">Add song to queue</h2>

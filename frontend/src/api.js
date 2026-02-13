@@ -117,6 +117,8 @@ export const stations = {
   get: (slugOrId) => request(`/stations/${slugOrId}`),
   create: (name, description) =>
     request('/stations', { method: 'POST', body: JSON.stringify({ name, description }) }),
+  update: (id, payload) =>
+    request(`/stations/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   queue: (id) => request(`/stations/${id}/queue`),
   addToQueue: (stationId, songId) =>
     request(`/stations/${stationId}/queue`, { method: 'POST', body: JSON.stringify({ songId }) }),
