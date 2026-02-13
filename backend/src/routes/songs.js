@@ -11,17 +11,17 @@ import { authMiddleware, optionalAuth, JWT_SECRET } from '../middleware/auth.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Helper: attach community average rating and count to each song
-function attachCommunityRatings(list) {
+async function attachCommunityRatings(list) {
   if (!list?.length) return list;
   const ids = list.map((s) => s.id);
   const placeholders = ids.map(() => '?').join(',');
-  const rows = db.prepare(
+  const rows = await db.all(
     `SELECT song_id, AVG(rating) as avg_rating, COUNT(*) as rating_count
      FROM user_song_ratings
      WHERE song_id IN (${placeholders})
-     GROUP BY song_id`
-  ).all(...ids);
+     GROUP BY song_id`,
+    ids
+  );
   const map = Object.fromEntries(rows.map((r) => [r.song_id, { avg_rating: r.avg_rating, rating_count: r.rating_count }]));
   return list.map((s) => ({
     ...s,
@@ -30,17 +30,18 @@ function attachCommunityRatings(list) {
   }));
 }
 
-// Helper: attach current user's rating and listen_count to each song
-function attachUserStats(list, userId) {
+async function attachUserStats(list, userId) {
   if (!userId || !list?.length) return list;
   const ids = list.map((s) => s.id);
   const placeholders = ids.map(() => '?').join(',');
-  const ratings = db.prepare(
-    `SELECT song_id, rating FROM user_song_ratings WHERE user_id = ? AND song_id IN (${placeholders})`
-  ).all(userId, ...ids);
-  const listens = db.prepare(
-    `SELECT song_id, listen_count FROM user_song_listens WHERE user_id = ? AND song_id IN (${placeholders})`
-  ).all(userId, ...ids);
+  const ratings = await db.all(
+    `SELECT song_id, rating FROM user_song_ratings WHERE user_id = ? AND song_id IN (${placeholders})`,
+    [userId, ...ids]
+  );
+  const listens = await db.all(
+    `SELECT song_id, listen_count FROM user_song_listens WHERE user_id = ? AND song_id IN (${placeholders})`,
+    [userId, ...ids]
+  );
   const ratingMap = Object.fromEntries(ratings.map((r) => [r.song_id, r.rating]));
   const listenMap = Object.fromEntries(listens.map((r) => [r.song_id, r.listen_count]));
   return list.map((s) => ({
@@ -49,6 +50,7 @@ function attachUserStats(list, userId) {
     listen_count: listenMap[s.id] ?? 0,
   }));
 }
+
 const uploadsDir = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
@@ -60,8 +62,7 @@ const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } }); // 
 
 const router = Router();
 
-// Stream must allow query token (Audio element cannot send Authorization header)
-router.get('/:id/stream', (req, res) => {
+router.get('/:id/stream', async (req, res) => {
   const token = req.query.token || req.headers.authorization?.slice(7);
   if (token) {
     try {
@@ -72,7 +73,7 @@ router.get('/:id/stream', (req, res) => {
   } else {
     return res.status(401).json({ error: 'Authorization required' });
   }
-  const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(req.params.id);
+  const song = await db.get('SELECT * FROM songs WHERE id = ?', [req.params.id]);
   if (!song) return res.status(404).json({ error: 'Song not found' });
   if (!song.file_path) return res.status(404).json({ error: 'Song not found' });
   const filePath = path.join(uploadsDir, song.file_path);
@@ -80,30 +81,30 @@ router.get('/:id/stream', (req, res) => {
   res.sendFile(filePath);
 });
 
-// Public songs — optional auth to attach user's favorite/rating/listen_count + total listens
-router.get('/public', optionalAuth, (req, res) => {
-  const list = db.prepare(
+router.get('/public', optionalAuth, async (req, res) => {
+  const list = await db.all(
     `SELECT s.*, u.username as uploader_name
      FROM songs s
      JOIN users u ON u.id = s.user_id
      WHERE s.is_public = 1
      ORDER BY s.created_at DESC`
-  ).all();
+  );
   if (list.length > 0) {
     const placeholders = list.map(() => '?').join(',');
-    const totals = db.prepare(
+    const totals = await db.all(
       `SELECT song_id, SUM(listen_count) as total_listen_count
        FROM user_song_listens
        WHERE song_id IN (${placeholders})
-       GROUP BY song_id`
-    ).all(...list.map((s) => s.id));
+       GROUP BY song_id`,
+      list.map((s) => s.id)
+    );
     const totalMap = Object.fromEntries(totals.map((r) => [r.song_id, r.total_listen_count]));
     list.forEach((s) => {
       s.total_listen_count = totalMap[s.id] ?? 0;
     });
   }
-  const withCommunity = attachCommunityRatings(list);
-  res.json(attachUserStats(withCommunity, req.userId));
+  const withCommunity = await attachCommunityRatings(list);
+  res.json(await attachUserStats(withCommunity, req.userId));
 });
 
 router.use(authMiddleware);
@@ -132,58 +133,55 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   try {
     const metadata = await parseFile(filePath);
     durationSeconds = Math.round(Number(metadata.format?.duration) || 0);
-  } catch (_) {
-    // Keep 0 if metadata parsing fails (e.g. unsupported or corrupt file)
-  }
-  db.prepare(
+  } catch (_) {}
+  await db.run(
     `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public, thumbnail_url)
-     VALUES (?, ?, ?, ?, 'upload', ?, ?, 1, ?)`
-  ).run(id, req.userId, finalTitle, finalArtist, req.file.filename, durationSeconds, null);
+     VALUES (?, ?, ?, ?, 'upload', ?, ?, 1, ?)`,
+    [id, req.userId, finalTitle, finalArtist, req.file.filename, durationSeconds, null]
+  );
   let thumbnailUrl = null;
   try {
     thumbnailUrl = await fetchThumbnailForTrack(finalArtist, finalTitle);
     if (thumbnailUrl) {
-      db.prepare('UPDATE songs SET thumbnail_url = ? WHERE id = ?').run(thumbnailUrl, id);
+      await db.run('UPDATE songs SET thumbnail_url = ? WHERE id = ?', [thumbnailUrl, id]);
     }
   } catch (_) {}
-  const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(id);
+  const song = await db.get('SELECT * FROM songs WHERE id = ?', [id]);
   res.status(201).json(song);
 });
 
-// My library (authenticated) — only songs owned by current user
-router.get('/', (req, res) => {
-  const list = db.prepare(
+router.get('/', async (req, res) => {
+  const list = await db.all(
     `SELECT s.*, u.username as uploader_name
      FROM songs s
      JOIN users u ON u.id = s.user_id
      WHERE s.user_id = ?
-     ORDER BY s.created_at DESC`
-  ).all(req.userId);
-  res.json(attachUserStats(list, req.userId));
+     ORDER BY s.created_at DESC`,
+    [req.userId]
+  );
+  res.json(await attachUserStats(list, req.userId));
 });
 
-// My songs — rated or listened; with listen_count
-router.get('/favorites', (req, res) => {
+router.get('/favorites', async (req, res) => {
   const userId = req.userId;
-  const ratedSongIds = db.prepare(
-    'SELECT song_id FROM user_song_ratings WHERE user_id = ? AND rating > 0'
-  ).all(userId).map((r) => r.song_id);
-  const listenedSongIds = db.prepare(
-    'SELECT song_id FROM user_song_listens WHERE user_id = ? AND listen_count > 0'
-  ).all(userId).map((r) => r.song_id);
+  const ratedRows = await db.all('SELECT song_id FROM user_song_ratings WHERE user_id = ? AND rating > 0', [userId]);
+  const listenedRows = await db.all('SELECT song_id FROM user_song_listens WHERE user_id = ? AND listen_count > 0', [userId]);
+  const ratedSongIds = ratedRows.map((r) => r.song_id);
+  const listenedSongIds = listenedRows.map((r) => r.song_id);
   const allIds = [...new Set([...ratedSongIds, ...listenedSongIds])];
   if (allIds.length === 0) {
-    return res.json(attachUserStats([], userId));
+    return res.json(await attachUserStats([], userId));
   }
   const placeholders = allIds.map(() => '?').join(',');
-  const list = db.prepare(
+  const list = await db.all(
     `SELECT s.*, u.username as uploader_name
      FROM songs s
      JOIN users u ON u.id = s.user_id
-     WHERE s.id IN (${placeholders})`
-  ).all(...allIds);
-  const withCommunity = attachCommunityRatings(list);
-  const withStats = attachUserStats(withCommunity, userId);
+     WHERE s.id IN (${placeholders})`,
+    allIds
+  );
+  const withCommunity = await attachCommunityRatings(list);
+  const withStats = await attachUserStats(withCommunity, userId);
   const byId = Object.fromEntries(withStats.map((s) => [s.id, s]));
   const ordered = allIds
     .map((id) => byId[id])
@@ -197,40 +195,43 @@ router.get('/favorites', (req, res) => {
   res.json(ordered);
 });
 
-router.post('/:id/played', (req, res) => {
-  const song = db.prepare('SELECT id FROM songs WHERE id = ?').get(req.params.id);
+router.post('/:id/played', async (req, res) => {
+  const song = await db.get('SELECT id FROM songs WHERE id = ?', [req.params.id]);
   if (!song) return res.status(404).json({ error: 'Song not found' });
-  db.prepare(
+  await db.run(
     `INSERT INTO user_song_listens (user_id, song_id, listen_count)
      VALUES (?, ?, 1)
-     ON CONFLICT(user_id, song_id) DO UPDATE SET listen_count = listen_count + 1`
-  ).run(req.userId, req.params.id);
+     ON DUPLICATE KEY UPDATE listen_count = listen_count + 1`,
+    [req.userId, req.params.id]
+  );
   res.status(204).send();
 });
 
-router.patch('/:id/rating', (req, res) => {
-  const song = db.prepare('SELECT id FROM songs WHERE id = ?').get(req.params.id);
+router.patch('/:id/rating', async (req, res) => {
+  const song = await db.get('SELECT id FROM songs WHERE id = ?', [req.params.id]);
   if (!song) return res.status(404).json({ error: 'Song not found' });
   const { rating } = req.body || {};
   const r = typeof rating === 'number' ? Math.max(0, Math.min(5, Math.round(rating))) : null;
   if (r === null) return res.status(400).json({ error: 'Provide rating (1-5)' });
-  db.prepare(
+  await db.run(
     `INSERT INTO user_song_ratings (user_id, song_id, rating) VALUES (?, ?, ?)
-     ON CONFLICT(user_id, song_id) DO UPDATE SET rating = excluded.rating`
-  ).run(req.userId, req.params.id, r);
+     ON DUPLICATE KEY UPDATE rating = VALUES(rating)`,
+    [req.userId, req.params.id, r]
+  );
   res.status(204).send();
 });
 
-router.get('/:id', (req, res) => {
-  const song = db.prepare(
-    `SELECT s.*, u.username as uploader_name FROM songs s JOIN users u ON u.id = s.user_id WHERE s.id = ?`
-  ).get(req.params.id);
+router.get('/:id', async (req, res) => {
+  const song = await db.get(
+    `SELECT s.*, u.username as uploader_name FROM songs s JOIN users u ON u.id = s.user_id WHERE s.id = ?`,
+    [req.params.id]
+  );
   if (!song) return res.status(404).json({ error: 'Song not found' });
   res.json(song);
 });
 
-router.patch('/:id', (req, res) => {
-  const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(req.params.id);
+router.patch('/:id', async (req, res) => {
+  const song = await db.get('SELECT * FROM songs WHERE id = ?', [req.params.id]);
   if (!song) return res.status(404).json({ error: 'Song not found' });
   if (song.user_id !== req.userId) return res.status(403).json({ error: 'You can only update your own songs' });
   const { is_public, title, artist } = req.body || {};
@@ -254,20 +255,21 @@ router.patch('/:id', (req, res) => {
   if (updates.length === 0) return res.status(400).json({ error: 'Provide at least one of: is_public, title, artist' });
 
   values.push(req.params.id);
-  db.prepare(`UPDATE songs SET ${updates.join(', ')} WHERE id = ?`).run(...values);
-  const updated = db.prepare(
-    `SELECT s.*, u.username as uploader_name FROM songs s JOIN users u ON u.id = s.user_id WHERE s.id = ?`
-  ).get(req.params.id);
+  await db.run(`UPDATE songs SET ${updates.join(', ')} WHERE id = ?`, values);
+  const updated = await db.get(
+    `SELECT s.*, u.username as uploader_name FROM songs s JOIN users u ON u.id = s.user_id WHERE s.id = ?`,
+    [req.params.id]
+  );
   res.json(updated);
 });
 
-router.delete('/:id', (req, res) => {
-  const song = db.prepare('SELECT * FROM songs WHERE id = ?').get(req.params.id);
+router.delete('/:id', async (req, res) => {
+  const song = await db.get('SELECT * FROM songs WHERE id = ?', [req.params.id]);
   if (!song) return res.status(404).json({ error: 'Song not found' });
   if (song.user_id !== req.userId) return res.status(403).json({ error: 'You can only delete your own songs' });
 
-  db.prepare('DELETE FROM station_queue WHERE song_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM songs WHERE id = ?').run(req.params.id);
+  await db.run('DELETE FROM station_queue WHERE song_id = ?', [req.params.id]);
+  await db.run('DELETE FROM songs WHERE id = ?', [req.params.id]);
 
   if (song.file_path) {
     const filePath = path.join(uploadsDir, song.file_path);

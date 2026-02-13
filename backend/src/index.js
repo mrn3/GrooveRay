@@ -46,14 +46,23 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, () => {
-  console.log(`GrooveRay API running at http://localhost:${PORT}`);
-  setInterval(() => {
-    try {
-      const rows = db.prepare('SELECT station_id FROM station_now_playing').all();
-      for (const { station_id } of rows) advanceStationPlayback(station_id);
-    } catch (_) {}
-  }, 5000);
+
+async function start() {
+  await db.ensureDb();
+  httpServer.listen(PORT, () => {
+    console.log(`GrooveRay API running at http://localhost:${PORT}`);
+    setInterval(async () => {
+      try {
+        const rows = await db.all('SELECT station_id FROM station_now_playing');
+        for (const { station_id } of rows) await advanceStationPlayback(station_id);
+      } catch (_) {}
+    }, 5000);
+  });
+}
+
+start().catch((err) => {
+  console.error('Failed to start:', err);
+  process.exit(1);
 });
 
 export { io };

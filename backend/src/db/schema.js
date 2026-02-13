@@ -1,64 +1,98 @@
-import Database from 'better-sqlite3';
-import { fileURLToPath } from 'url';
-import path from 'path';
-import fs from 'fs';
+import mysql from 'mysql2/promise';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, '../../data/grooveray.db');
-const dataDir = path.dirname(dbPath);
+const pool = mysql.createPool({
+  host: process.env.MYSQL_HOST || 'localhost',
+  port: process.env.MYSQL_PORT || 3306,
+  user: process.env.MYSQL_USER || 'grooveray',
+  password: process.env.MYSQL_PASSWORD || 'grooveray',
+  database: process.env.MYSQL_DATABASE || 'grooveray',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
 
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+/** Run a query and return first row or null (like SQLite .get()) */
+export async function get(sql, params = []) {
+  const [rows] = await pool.execute(sql, Array.isArray(params) ? params : [params]);
+  return rows[0] ?? null;
+}
 
-const db = new Database(dbPath);
+/** Run a query and return all rows (like SQLite .all()) */
+export async function all(sql, params = []) {
+  const [rows] = await pool.execute(sql, Array.isArray(params) ? params : [params]);
+  return rows;
+}
 
-db.exec(`
+/** Run INSERT/UPDATE/DELETE; returns { affectedRows, insertId } (like SQLite .run() with .changes) */
+export async function run(sql, params = []) {
+  const [result] = await pool.execute(sql, Array.isArray(params) ? params : [params]);
+  return {
+    affectedRows: result.affectedRows ?? 0,
+    insertId: result.insertId,
+    changes: result.affectedRows ?? 0,
+  };
+}
+
+/** Run multiple statements (e.g. DDL). No prepared params. */
+export async function exec(sql) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.query(sql);
+  } finally {
+    conn.release();
+  }
+}
+
+// --- Schema (MariaDB/MySQL) ---
+const DDL = `
   CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now'))
+    id VARCHAR(36) PRIMARY KEY,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
   CREATE TABLE IF NOT EXISTS songs (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    title TEXT NOT NULL,
-    artist TEXT,
-    source TEXT NOT NULL,
-    file_path TEXT,
-    duration_seconds INTEGER,
-    is_public INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT DEFAULT (datetime('now')),
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
+    title VARCHAR(500) NOT NULL,
+    artist VARCHAR(500),
+    source VARCHAR(50) NOT NULL,
+    file_path VARCHAR(500),
+    duration_seconds INT,
+    is_public TINYINT NOT NULL DEFAULT 1,
+    thumbnail_url TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
   CREATE TABLE IF NOT EXISTS stations (
-    id TEXT PRIMARY KEY,
-    owner_id TEXT NOT NULL,
-    name TEXT NOT NULL,
-    slug TEXT UNIQUE NOT NULL,
+    id VARCHAR(36) PRIMARY KEY,
+    owner_id VARCHAR(36) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL,
     description TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES users(id)
   );
 
   CREATE TABLE IF NOT EXISTS station_queue (
-    id TEXT PRIMARY KEY,
-    station_id TEXT NOT NULL,
-    song_id TEXT NOT NULL,
-    votes INTEGER DEFAULT 0,
-    played_at TEXT,
-    position INTEGER DEFAULT 0,
-    added_at TEXT DEFAULT (datetime('now')),
+    id VARCHAR(36) PRIMARY KEY,
+    station_id VARCHAR(36) NOT NULL,
+    song_id VARCHAR(36) NOT NULL,
+    votes INT DEFAULT 0,
+    played_at DATETIME NULL,
+    position INT DEFAULT 0,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (station_id) REFERENCES stations(id),
     FOREIGN KEY (song_id) REFERENCES songs(id)
   );
 
   CREATE TABLE IF NOT EXISTS station_votes (
-    station_id TEXT NOT NULL,
-    user_id TEXT NOT NULL,
-    queue_id TEXT NOT NULL,
+    station_id VARCHAR(36) NOT NULL,
+    user_id VARCHAR(36) NOT NULL,
+    queue_id VARCHAR(36) NOT NULL,
     PRIMARY KEY (station_id, user_id, queue_id),
     FOREIGN KEY (station_id) REFERENCES stations(id),
     FOREIGN KEY (user_id) REFERENCES users(id),
@@ -66,69 +100,104 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS youtube_jobs (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
+    id VARCHAR(36) PRIMARY KEY,
+    user_id VARCHAR(36) NOT NULL,
     url TEXT NOT NULL,
-    status TEXT DEFAULT 'pending',
-    song_id TEXT,
+    status VARCHAR(50) DEFAULT 'pending',
+    song_id VARCHAR(36),
     error_message TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (song_id) REFERENCES songs(id)
   );
 
-  CREATE INDEX IF NOT EXISTS idx_songs_user ON songs(user_id);
-  CREATE INDEX IF NOT EXISTS idx_youtube_jobs_user ON youtube_jobs(user_id);
   CREATE TABLE IF NOT EXISTS user_song_favorites (
-    user_id TEXT NOT NULL,
-    song_id TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now')),
+    user_id VARCHAR(36) NOT NULL,
+    song_id VARCHAR(36) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, song_id),
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (song_id) REFERENCES songs(id)
   );
 
   CREATE TABLE IF NOT EXISTS user_song_ratings (
-    user_id TEXT NOT NULL,
-    song_id TEXT NOT NULL,
-    rating INTEGER NOT NULL,
-    updated_at TEXT DEFAULT (datetime('now')),
+    user_id VARCHAR(36) NOT NULL,
+    song_id VARCHAR(36) NOT NULL,
+    rating INT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, song_id),
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (song_id) REFERENCES songs(id)
   );
 
   CREATE TABLE IF NOT EXISTS user_song_listens (
-    user_id TEXT NOT NULL,
-    song_id TEXT NOT NULL,
-    listen_count INTEGER NOT NULL DEFAULT 0,
+    user_id VARCHAR(36) NOT NULL,
+    song_id VARCHAR(36) NOT NULL,
+    listen_count INT NOT NULL DEFAULT 0,
     PRIMARY KEY (user_id, song_id),
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (song_id) REFERENCES songs(id)
   );
 
-  CREATE INDEX IF NOT EXISTS idx_station_queue_station ON station_queue(station_id);
-  CREATE INDEX IF NOT EXISTS idx_station_queue_votes ON station_queue(station_id, votes DESC);
-  CREATE INDEX IF NOT EXISTS idx_user_song_favorites_user ON user_song_favorites(user_id);
-  CREATE INDEX IF NOT EXISTS idx_user_song_listens_user ON user_song_listens(user_id);
-
   CREATE TABLE IF NOT EXISTS station_now_playing (
-    station_id TEXT PRIMARY KEY,
-    queue_id TEXT NOT NULL,
-    started_at TEXT NOT NULL,
+    station_id VARCHAR(36) PRIMARY KEY,
+    queue_id VARCHAR(36) NOT NULL,
+    started_at DATETIME NOT NULL,
     FOREIGN KEY (station_id) REFERENCES stations(id),
     FOREIGN KEY (queue_id) REFERENCES station_queue(id)
   );
-`);
+`;
 
-try {
-  db.exec('ALTER TABLE youtube_jobs ADD COLUMN error_message TEXT');
-} catch (_) {}
-try {
-  db.exec('ALTER TABLE songs ADD COLUMN is_public INTEGER DEFAULT 1');
-} catch (_) {}
-try {
-  db.exec('ALTER TABLE songs ADD COLUMN thumbnail_url TEXT');
-} catch (_) {}
+// MySQL doesn't support "IF NOT EXISTS" for indexes in older versions; use separate statements and ignore errors
+const indexStatements = [
+  'CREATE INDEX idx_songs_user ON songs(user_id)',
+  'CREATE INDEX idx_youtube_jobs_user ON youtube_jobs(user_id)',
+  'CREATE INDEX idx_station_queue_station ON station_queue(station_id)',
+  'CREATE INDEX idx_station_queue_votes ON station_queue(station_id, votes DESC)',
+  'CREATE INDEX idx_user_song_favorites_user ON user_song_favorites(user_id)',
+  'CREATE INDEX idx_user_song_listens_user ON user_song_listens(user_id)',
+];
+
+async function ensureSchema() {
+  const ddlBlocks = DDL.split(';').map((s) => s.trim()).filter(Boolean);
+  for (const block of ddlBlocks) {
+    if (block.startsWith('CREATE INDEX IF NOT EXISTS')) continue;
+    await exec(block);
+  }
+  for (const sql of indexStatements) {
+    try {
+      await exec(sql);
+    } catch (_) {
+      // index may already exist
+    }
+  }
+  // Optional columns (migrations)
+  try {
+    await exec('ALTER TABLE youtube_jobs ADD COLUMN error_message TEXT');
+  } catch (_) {}
+  try {
+    await exec('ALTER TABLE songs ADD COLUMN is_public TINYINT DEFAULT 1');
+  } catch (_) {}
+  try {
+    await exec('ALTER TABLE songs ADD COLUMN thumbnail_url TEXT');
+  } catch (_) {}
+}
+
+let schemaReady = null;
+export async function ensureDb() {
+  if (schemaReady) return schemaReady;
+  schemaReady = ensureSchema();
+  await schemaReady;
+  return schemaReady;
+}
+
+// Default export: db-like object with get, all, run for drop-in async usage
+const db = {
+  get,
+  all,
+  run,
+  exec,
+  ensureDb,
+};
 
 export default db;

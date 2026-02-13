@@ -18,15 +18,16 @@ export function isValidYouTubeUrl(url) {
   return typeof url === 'string' && YOUTUBE_URL_REGEX.test(url.trim());
 }
 
-export function addYouTube(userId, url) {
+export async function addYouTube(userId, url) {
   if (!isValidYouTubeUrl(url)) {
     throw new Error('Invalid YouTube URL. Use a youtube.com or youtu.be link.');
   }
   const jobId = uuid();
   const normalizedUrl = url.trim();
-  db.prepare(
-    'INSERT INTO youtube_jobs (id, user_id, url, status) VALUES (?, ?, ?, ?)'
-  ).run(jobId, userId, normalizedUrl, 'downloading');
+  await db.run(
+    'INSERT INTO youtube_jobs (id, user_id, url, status) VALUES (?, ?, ?, ?)',
+    [jobId, userId, normalizedUrl, 'downloading']
+  );
 
   const jobDir = path.join(youtubeDir, jobId);
   fs.mkdirSync(jobDir, { recursive: true });
@@ -48,22 +49,22 @@ export function addYouTube(userId, url) {
   let stderr = '';
   proc.stderr?.on('data', (chunk) => { stderr += chunk; });
 
-  function setFailed(msg) {
+  async function setFailed(msg) {
     const truncated = typeof msg === 'string' && msg.length > 500 ? msg.slice(0, 497) + '...' : (msg || null);
-    db.prepare('UPDATE youtube_jobs SET status = ?, error_message = ? WHERE id = ?').run('failed', truncated, jobId);
+    await db.run('UPDATE youtube_jobs SET status = ?, error_message = ? WHERE id = ?', ['failed', truncated, jobId]);
   }
 
-  proc.on('close', (code) => {
+  proc.on('close', async (code) => {
     try {
       if (code !== 0) {
-        setFailed(stderr.trim() || `yt-dlp exited with code ${code}`);
+        await setFailed(stderr.trim() || `yt-dlp exited with code ${code}`);
         return;
       }
       const files = fs.readdirSync(jobDir);
       const audioFile = files.find((f) => /\.(mp3|m4a|opus|ogg|webm)$/i.test(f));
       const jsonFile = files.find((f) => f.endsWith('.info.json'));
       if (!audioFile) {
-        setFailed(stderr.trim() || 'No audio file produced');
+        await setFailed(stderr.trim() || 'No audio file produced');
         return;
       }
       const srcPath = path.join(jobDir, audioFile);
@@ -87,12 +88,12 @@ export function addYouTube(userId, url) {
       }
 
       const songId = uuid();
-      db.prepare(
+      await db.run(
         `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public, thumbnail_url)
-         VALUES (?, ?, ?, ?, 'youtube', ?, ?, 1, ?)`
-      ).run(songId, userId, title, artist, destName, durationSeconds, thumbnailUrl);
-      db.prepare('UPDATE youtube_jobs SET status = ?, song_id = ? WHERE id = ?')
-        .run('completed', songId, jobId);
+         VALUES (?, ?, ?, ?, 'youtube', ?, ?, 1, ?)`,
+        [songId, userId, title, artist, destName, durationSeconds, thumbnailUrl]
+      );
+      await db.run('UPDATE youtube_jobs SET status = ?, song_id = ? WHERE id = ?', ['completed', songId, jobId]);
     } finally {
       try {
         fs.rmSync(jobDir, { recursive: true, force: true });
@@ -100,19 +101,21 @@ export function addYouTube(userId, url) {
     }
   });
 
-  proc.on('error', (err) => {
+  proc.on('error', async (err) => {
     if (err?.code === 'ENOENT') {
-      db.prepare('UPDATE youtube_jobs SET status = ?, error_message = ? WHERE id = ?')
-        .run('failed', 'yt-dlp not found. Install it (and ffmpeg for MP3): e.g. brew install yt-dlp ffmpeg', jobId);
+      await db.run('UPDATE youtube_jobs SET status = ?, error_message = ? WHERE id = ?', [
+        'failed',
+        'yt-dlp not found. Install it (and ffmpeg for MP3): e.g. brew install yt-dlp ffmpeg',
+        jobId,
+      ]);
     } else {
-      setFailed(err?.message || 'Unknown error');
+      await setFailed(err?.message || 'Unknown error');
     }
   });
 
   return jobId;
 }
 
-export function getYouTubeJobs(userId) {
-  return db.prepare('SELECT * FROM youtube_jobs WHERE user_id = ? ORDER BY created_at DESC')
-    .all(userId);
+export async function getYouTubeJobs(userId) {
+  return db.all('SELECT * FROM youtube_jobs WHERE user_id = ? ORDER BY created_at DESC', [userId]);
 }

@@ -10,70 +10,41 @@ function slugify(s) {
   return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
 }
 
-router.post('/', authMiddleware, (req, res) => {
-  const { name, description } = req.body || {};
-  if (!name?.trim()) return res.status(400).json({ error: 'Station name required' });
-  const id = uuid();
-  let slug = slugify(name);
-  const existing = db.prepare('SELECT id FROM stations WHERE slug = ?').get(slug);
-  if (existing) slug = `${slug}-${id.slice(0, 8)}`;
-  db.prepare(
-    'INSERT INTO stations (id, owner_id, name, slug, description) VALUES (?, ?, ?, ?, ?)'
-  ).run(id, req.userId, name.trim(), slug, description?.trim() || '');
-  const station = db.prepare('SELECT * FROM stations WHERE id = ?').get(id);
-  res.status(201).json(station);
-});
-
-router.get('/', (req, res) => {
-  const list = db.prepare(
-    `SELECT s.*, u.username as owner_name
-     FROM stations s JOIN users u ON u.id = s.owner_id
-     ORDER BY s.created_at DESC`
-  ).all();
-  res.json(list);
-});
-
-router.get('/:slugOrId', (req, res) => {
-  const station = db.prepare(
-    `SELECT s.*, u.username as owner_name
-     FROM stations s JOIN users u ON u.id = s.owner_id
-     WHERE s.id = ? OR s.slug = ?`
-  ).get(req.params.slugOrId, req.params.slugOrId);
-  if (!station) return res.status(404).json({ error: 'Station not found' });
-  res.json(station);
-});
-
-function getQueue(stationId) {
-  return db.prepare(
+async function getQueue(stationId) {
+  return db.all(
     `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
      FROM station_queue q
      JOIN songs s ON s.id = q.song_id
      WHERE q.station_id = ? AND q.played_at IS NULL
-     ORDER BY q.votes DESC, q.added_at ASC`
-  ).all(stationId);
+     ORDER BY q.votes DESC, q.added_at ASC`,
+    [stationId]
+  );
 }
 
 /** Advance station playback: ensure now_playing is set from queue head, or advance if current song ended. Returns { nowPlaying, queue }. */
-export function advanceStationPlayback(stationId) {
-  const now = new Date().toISOString();
-  const np = db.prepare('SELECT queue_id, started_at FROM station_now_playing WHERE station_id = ?').get(stationId);
+export async function advanceStationPlayback(stationId) {
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const np = await db.get('SELECT queue_id, started_at FROM station_now_playing WHERE station_id = ?', [stationId]);
 
   if (np) {
-    const row = db.prepare(
+    const row = await db.get(
       `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
-       FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
-    ).get(np.queue_id);
+       FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`,
+      [np.queue_id]
+    );
     const duration = (row?.duration_seconds ?? 0) || 60;
     const endAt = new Date(new Date(np.started_at).getTime() + duration * 1000);
     if (endAt <= new Date()) {
-      db.prepare('UPDATE station_queue SET played_at = datetime(\'now\') WHERE id = ? AND station_id = ?')
-        .run(np.queue_id, stationId);
-      db.prepare('DELETE FROM station_now_playing WHERE station_id = ?').run(stationId);
-      const queue = getQueue(stationId);
+      await db.run('UPDATE station_queue SET played_at = NOW() WHERE id = ? AND station_id = ?', [np.queue_id, stationId]);
+      await db.run('DELETE FROM station_now_playing WHERE station_id = ?', [stationId]);
+      const queue = await getQueue(stationId);
       const next = queue[0];
       if (next) {
-        db.prepare('INSERT INTO station_now_playing (station_id, queue_id, started_at) VALUES (?, ?, ?)')
-          .run(stationId, next.id, now);
+        await db.run('INSERT INTO station_now_playing (station_id, queue_id, started_at) VALUES (?, ?, ?)', [
+          stationId,
+          next.id,
+          now,
+        ]);
         emitStationUpdate(stationId, 'queue', queue);
         const payload = { queueId: next.id, startedAt: now, item: next };
         emitStationUpdate(stationId, 'nowPlaying', payload);
@@ -83,19 +54,23 @@ export function advanceStationPlayback(stationId) {
       emitStationUpdate(stationId, 'nowPlaying', null);
       return { nowPlaying: null, queue };
     }
-    const queue = getQueue(stationId);
-    const current = db.prepare(
+    const queue = await getQueue(stationId);
+    const current = await db.get(
       `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
-       FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
-    ).get(np.queue_id);
+       FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`,
+      [np.queue_id]
+    );
     return { nowPlaying: { queueId: np.queue_id, startedAt: np.started_at, item: current }, queue };
   }
 
-  const queue = getQueue(stationId);
+  const queue = await getQueue(stationId);
   const first = queue[0];
   if (first) {
-    db.prepare('INSERT INTO station_now_playing (station_id, queue_id, started_at) VALUES (?, ?, ?)')
-      .run(stationId, first.id, now);
+    await db.run('INSERT INTO station_now_playing (station_id, queue_id, started_at) VALUES (?, ?, ?)', [
+      stationId,
+      first.id,
+      now,
+    ]);
     const payload = { queueId: first.id, startedAt: now, item: first };
     emitStationUpdate(stationId, 'nowPlaying', payload);
     return { nowPlaying: payload, queue };
@@ -103,82 +78,131 @@ export function advanceStationPlayback(stationId) {
   return { nowPlaying: null, queue };
 }
 
-router.get('/:id/queue', (req, res) => {
-  res.json(getQueue(req.params.id));
+router.post('/', authMiddleware, async (req, res) => {
+  const { name, description } = req.body || {};
+  if (!name?.trim()) return res.status(400).json({ error: 'Station name required' });
+  const id = uuid();
+  let slug = slugify(name);
+  const existing = await db.get('SELECT id FROM stations WHERE slug = ?', [slug]);
+  if (existing) slug = `${slug}-${id.slice(0, 8)}`;
+  await db.run(
+    'INSERT INTO stations (id, owner_id, name, slug, description) VALUES (?, ?, ?, ?, ?)',
+    [id, req.userId, name.trim(), slug, description?.trim() || '']
+  );
+  const station = await db.get('SELECT * FROM stations WHERE id = ?', [id]);
+  res.status(201).json(station);
 });
 
-router.get('/:id/now-playing', (req, res) => {
-  const station = db.prepare('SELECT id FROM stations WHERE id = ?').get(req.params.id);
+router.get('/', async (req, res) => {
+  const list = await db.all(
+    `SELECT s.*, u.username as owner_name
+     FROM stations s JOIN users u ON u.id = s.owner_id
+     ORDER BY s.created_at DESC`
+  );
+  res.json(list);
+});
+
+router.get('/:slugOrId', async (req, res) => {
+  const station = await db.get(
+    `SELECT s.*, u.username as owner_name
+     FROM stations s JOIN users u ON u.id = s.owner_id
+     WHERE s.id = ? OR s.slug = ?`,
+    [req.params.slugOrId, req.params.slugOrId]
+  );
   if (!station) return res.status(404).json({ error: 'Station not found' });
-  const { nowPlaying } = advanceStationPlayback(req.params.id);
+  res.json(station);
+});
+
+router.get('/:id/queue', async (req, res) => {
+  res.json(await getQueue(req.params.id));
+});
+
+router.get('/:id/now-playing', async (req, res) => {
+  const station = await db.get('SELECT id FROM stations WHERE id = ?', [req.params.id]);
+  if (!station) return res.status(404).json({ error: 'Station not found' });
+  const { nowPlaying } = await advanceStationPlayback(req.params.id);
   res.json(nowPlaying);
 });
 
-router.post('/:id/queue', authMiddleware, (req, res) => {
+router.post('/:id/queue', authMiddleware, async (req, res) => {
   const { songId } = req.body || {};
   if (!songId) return res.status(400).json({ error: 'songId required' });
-  const song = db.prepare('SELECT id FROM songs WHERE id = ?').get(songId);
+  const song = await db.get('SELECT id FROM songs WHERE id = ?', [songId]);
   if (!song) return res.status(404).json({ error: 'Song not found' });
-  const station = db.prepare('SELECT id FROM stations WHERE id = ?').get(req.params.id);
+  const station = await db.get('SELECT id FROM stations WHERE id = ?', [req.params.id]);
   if (!station) return res.status(404).json({ error: 'Station not found' });
-  const existing = db.prepare(
-    'SELECT id FROM station_queue WHERE station_id = ? AND song_id = ? AND played_at IS NULL'
-  ).get(req.params.id, songId);
+  const existing = await db.get(
+    'SELECT id FROM station_queue WHERE station_id = ? AND song_id = ? AND played_at IS NULL',
+    [req.params.id, songId]
+  );
   if (existing) return res.status(409).json({ error: 'Song already in queue' });
   const queueId = uuid();
-  const maxPos = db.prepare('SELECT COALESCE(MAX(position), 0) as m FROM station_queue WHERE station_id = ?')
-    .get(req.params.id).m;
-  db.prepare(
-    'INSERT INTO station_queue (id, station_id, song_id, votes, position) VALUES (?, ?, ?, 0, ?)'
-  ).run(queueId, req.params.id, songId, maxPos + 1);
-  const row = db.prepare(
+  const maxRow = await db.get('SELECT COALESCE(MAX(position), 0) as m FROM station_queue WHERE station_id = ?', [
+    req.params.id,
+  ]);
+  const maxPos = maxRow?.m ?? 0;
+  await db.run(
+    'INSERT INTO station_queue (id, station_id, song_id, votes, position) VALUES (?, ?, ?, 0, ?)',
+    [queueId, req.params.id, songId, maxPos + 1]
+  );
+  const row = await db.get(
     `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
-     FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
-  ).get(queueId);
-  const queue = getQueue(req.params.id);
+     FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`,
+    [queueId]
+  );
+  const queue = await getQueue(req.params.id);
   emitStationUpdate(req.params.id, 'queue', queue);
   res.status(201).json(row);
 });
 
-router.post('/:id/vote/:queueId', authMiddleware, (req, res) => {
+router.post('/:id/vote/:queueId', authMiddleware, async (req, res) => {
   const { id: stationId, queueId } = req.params;
-  const station = db.prepare('SELECT id FROM stations WHERE id = ?').get(stationId);
+  const station = await db.get('SELECT id FROM stations WHERE id = ?', [stationId]);
   if (!station) return res.status(404).json({ error: 'Station not found' });
-  const row = db.prepare('SELECT id, votes FROM station_queue WHERE id = ? AND station_id = ? AND played_at IS NULL')
-    .get(queueId, stationId);
+  const row = await db.get(
+    'SELECT id, votes FROM station_queue WHERE id = ? AND station_id = ? AND played_at IS NULL',
+    [queueId, stationId]
+  );
   if (!row) return res.status(404).json({ error: 'Queue item not found' });
   try {
-    db.prepare('INSERT INTO station_votes (station_id, user_id, queue_id) VALUES (?, ?, ?)')
-      .run(stationId, req.userId, queueId);
-    db.prepare('UPDATE station_queue SET votes = votes + 1 WHERE id = ?').run(queueId);
+    await db.run('INSERT INTO station_votes (station_id, user_id, queue_id) VALUES (?, ?, ?)', [
+      stationId,
+      req.userId,
+      queueId,
+    ]);
+    await db.run('UPDATE station_queue SET votes = votes + 1 WHERE id = ?', [queueId]);
   } catch (e) {
-    if (e.message.includes('UNIQUE')) {
+    if (e.code === 'ER_DUP_ENTRY' || e.message?.includes('Duplicate')) {
       return res.status(409).json({ error: 'Already voted' });
     }
     throw e;
   }
-  const updated = db.prepare(
+  const updated = await db.get(
     `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
-     FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
-  ).get(queueId);
-  const queue = getQueue(stationId);
+     FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`,
+    [queueId]
+  );
+  const queue = await getQueue(stationId);
   emitStationUpdate(stationId, 'queue', queue);
   res.json(updated);
 });
 
-router.delete('/:id/vote/:queueId', authMiddleware, (req, res) => {
+router.delete('/:id/vote/:queueId', authMiddleware, async (req, res) => {
   const { id: stationId, queueId } = req.params;
-  const r = db.prepare(
-    'DELETE FROM station_votes WHERE station_id = ? AND user_id = ? AND queue_id = ?'
-  ).run(stationId, req.userId, queueId);
-  if (r.changes) {
-    db.prepare('UPDATE station_queue SET votes = votes - 1 WHERE id = ?').run(queueId);
+  const r = await db.run('DELETE FROM station_votes WHERE station_id = ? AND user_id = ? AND queue_id = ?', [
+    stationId,
+    req.userId,
+    queueId,
+  ]);
+  if (r.affectedRows > 0) {
+    await db.run('UPDATE station_queue SET votes = votes - 1 WHERE id = ?', [queueId]);
   }
-  const updated = db.prepare(
+  const updated = await db.get(
     `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
-     FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`
-  ).get(queueId);
-  const queue = getQueue(req.params.id);
+     FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`,
+    [queueId]
+  );
+  const queue = await getQueue(req.params.id);
   emitStationUpdate(req.params.id, 'queue', queue);
   res.json(updated || {});
 });
