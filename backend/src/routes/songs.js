@@ -81,13 +81,107 @@ router.get('/:id/stream', async (req, res) => {
   res.sendFile(filePath);
 });
 
+function parseSearchSort(query) {
+  const title = typeof query.title === 'string' ? query.title.trim() : '';
+  const artist = typeof query.artist === 'string' ? query.artist.trim() : '';
+  const durationMin = query.durationMin != null ? parseInt(query.durationMin, 10) : null;
+  const durationMax = query.durationMax != null ? parseInt(query.durationMax, 10) : null;
+  const minListensMe = query.minListensMe != null ? parseInt(query.minListensMe, 10) : null;
+  const minListensEveryone = query.minListensEveryone != null ? parseInt(query.minListensEveryone, 10) : null;
+  const minRatingMe = query.minRatingMe != null ? parseInt(query.minRatingMe, 10) : null;
+  const minRatingCommunity = query.minRatingCommunity != null ? parseFloat(query.minRatingCommunity) : null;
+  const sortBy = ['title', 'artist', 'duration_seconds', 'listen_count', 'total_listen_count', 'rating', 'community_avg_rating'].includes(query.sortBy)
+    ? query.sortBy
+    : null;
+  const sortOrder = query.sortOrder === 'asc' || query.sortOrder === 'desc' ? query.sortOrder : 'desc';
+  return {
+    title: title || null,
+    artist: artist || null,
+    durationMin: Number.isFinite(durationMin) ? durationMin : null,
+    durationMax: Number.isFinite(durationMax) ? durationMax : null,
+    minListensMe: Number.isFinite(minListensMe) && minListensMe >= 0 ? minListensMe : null,
+    minListensEveryone: Number.isFinite(minListensEveryone) && minListensEveryone >= 0 ? minListensEveryone : null,
+    minRatingMe: Number.isFinite(minRatingMe) && minRatingMe >= 1 && minRatingMe <= 5 ? minRatingMe : null,
+    minRatingCommunity: Number.isFinite(minRatingCommunity) && minRatingCommunity >= 0 && minRatingCommunity <= 5 ? minRatingCommunity : null,
+    sortBy,
+    sortOrder,
+  };
+}
+
+function applyFilterSort(list, opts) {
+  let out = list;
+  if (opts.title) {
+    const t = opts.title.toLowerCase();
+    out = out.filter((s) => (s.title || '').toLowerCase().includes(t));
+  }
+  if (opts.artist) {
+    const a = opts.artist.toLowerCase();
+    out = out.filter((s) => (s.artist || '').toLowerCase().includes(a));
+  }
+  if (opts.durationMin != null) {
+    out = out.filter((s) => (s.duration_seconds ?? 0) >= opts.durationMin);
+  }
+  if (opts.durationMax != null) {
+    out = out.filter((s) => (s.duration_seconds ?? 0) <= opts.durationMax);
+  }
+  if (opts.minListensMe != null) {
+    out = out.filter((s) => (s.listen_count ?? 0) >= opts.minListensMe);
+  }
+  if (opts.minListensEveryone != null) {
+    out = out.filter((s) => (s.total_listen_count ?? 0) >= opts.minListensEveryone);
+  }
+  if (opts.minRatingMe != null) {
+    out = out.filter((s) => (s.rating ?? 0) >= opts.minRatingMe);
+  }
+  if (opts.minRatingCommunity != null) {
+    out = out.filter((s) => (Number(s.community_avg_rating) ?? 0) >= opts.minRatingCommunity);
+  }
+  if (opts.sortBy) {
+    const key = opts.sortBy;
+    const order = opts.sortOrder === 'asc' ? 1 : -1;
+    out = [...out].sort((a, b) => {
+      let va = a[key];
+      let vb = b[key];
+      if (key === 'title' || key === 'artist') {
+        va = (va ?? '').toLowerCase();
+        vb = (vb ?? '').toLowerCase();
+        return order * (va < vb ? -1 : va > vb ? 1 : 0);
+      }
+      va = Number(va) ?? 0;
+      vb = Number(vb) ?? 0;
+      return order * (va - vb);
+    });
+  }
+  return out;
+}
+
 router.get('/public', optionalAuth, async (req, res) => {
+  const opts = parseSearchSort(req.query);
+  const where = ['s.is_public = 1'];
+  const params = [];
+  if (opts.title) {
+    where.push('s.title LIKE ?');
+    params.push(`%${opts.title}%`);
+  }
+  if (opts.artist) {
+    where.push('s.artist LIKE ?');
+    params.push(`%${opts.artist}%`);
+  }
+  if (opts.durationMin != null) {
+    where.push('(s.duration_seconds IS NULL OR s.duration_seconds >= ?)');
+    params.push(opts.durationMin);
+  }
+  if (opts.durationMax != null) {
+    where.push('(s.duration_seconds IS NULL OR s.duration_seconds <= ?)');
+    params.push(opts.durationMax);
+  }
   const list = await db.all(
     `SELECT s.*, u.username as uploader_name
      FROM songs s
      JOIN users u ON u.id = s.user_id
-     WHERE s.is_public = 1
-     ORDER BY s.created_at DESC`
+     WHERE ${where.join(' AND ')}
+     ORDER BY s.created_at DESC`,
+    params
   );
   if (list.length > 0) {
     const placeholders = list.map(() => '?').join(',');
@@ -104,7 +198,9 @@ router.get('/public', optionalAuth, async (req, res) => {
     });
   }
   const withCommunity = await attachCommunityRatings(list);
-  res.json(await attachUserStats(withCommunity, req.userId));
+  const withStats = await attachUserStats(withCommunity, req.userId);
+  const filtered = applyFilterSort(withStats, opts);
+  res.json(filtered);
 });
 
 router.use(authMiddleware);
@@ -151,26 +247,48 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 });
 
 router.get('/', async (req, res) => {
+  const opts = parseSearchSort(req.query);
+  const where = ['s.user_id = ?'];
+  const params = [req.userId];
+  if (opts.title) {
+    where.push('s.title LIKE ?');
+    params.push(`%${opts.title}%`);
+  }
+  if (opts.artist) {
+    where.push('s.artist LIKE ?');
+    params.push(`%${opts.artist}%`);
+  }
+  if (opts.durationMin != null) {
+    where.push('(s.duration_seconds IS NULL OR s.duration_seconds >= ?)');
+    params.push(opts.durationMin);
+  }
+  if (opts.durationMax != null) {
+    where.push('(s.duration_seconds IS NULL OR s.duration_seconds <= ?)');
+    params.push(opts.durationMax);
+  }
   const list = await db.all(
     `SELECT s.*, u.username as uploader_name
      FROM songs s
      JOIN users u ON u.id = s.user_id
-     WHERE s.user_id = ?
+     WHERE ${where.join(' AND ')}
      ORDER BY s.created_at DESC`,
-    [req.userId]
+    params
   );
-  res.json(await attachUserStats(list, req.userId));
+  const withStats = await attachUserStats(list, req.userId);
+  const filtered = applyFilterSort(withStats, opts);
+  res.json(filtered);
 });
 
 router.get('/favorites', async (req, res) => {
   const userId = req.userId;
+  const opts = parseSearchSort(req.query);
   const ratedRows = await db.all('SELECT song_id FROM user_song_ratings WHERE user_id = ? AND rating > 0', [userId]);
   const listenedRows = await db.all('SELECT song_id FROM user_song_listens WHERE user_id = ? AND listen_count > 0', [userId]);
   const ratedSongIds = ratedRows.map((r) => r.song_id);
   const listenedSongIds = listenedRows.map((r) => r.song_id);
   const allIds = [...new Set([...ratedSongIds, ...listenedSongIds])];
   if (allIds.length === 0) {
-    return res.json(await attachUserStats([], userId));
+    return res.json([]);
   }
   const placeholders = allIds.map(() => '?').join(',');
   const list = await db.all(
@@ -180,19 +298,58 @@ router.get('/favorites', async (req, res) => {
      WHERE s.id IN (${placeholders})`,
     allIds
   );
+  if (list.length > 0) {
+    const songIds = list.map((s) => s.id);
+    const totals = await db.all(
+      `SELECT song_id, SUM(listen_count) as total_listen_count
+       FROM user_song_listens
+       WHERE song_id IN (${placeholders})
+       GROUP BY song_id`,
+      songIds
+    );
+    const totalMap = Object.fromEntries(totals.map((r) => [r.song_id, r.total_listen_count]));
+    list.forEach((s) => {
+      s.total_listen_count = totalMap[s.id] ?? 0;
+    });
+  }
   const withCommunity = await attachCommunityRatings(list);
   const withStats = await attachUserStats(withCommunity, userId);
   const byId = Object.fromEntries(withStats.map((s) => [s.id, s]));
-  const ordered = allIds
-    .map((id) => byId[id])
-    .filter(Boolean)
-    .sort((a, b) => {
+  let ordered = allIds.map((id) => byId[id]).filter(Boolean);
+  if (!opts.sortBy) {
+    ordered = ordered.sort((a, b) => {
       const ra = a.rating ?? 0;
       const rb = b.rating ?? 0;
       if (ra !== rb) return rb - ra;
       return (b.listen_count ?? 0) - (a.listen_count ?? 0);
     });
-  res.json(ordered);
+  }
+  const filtered = applyFilterSort(ordered, opts);
+  res.json(filtered);
+});
+
+router.get('/titles', async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const limit = 20;
+  let rows;
+  if (q) {
+    const pattern = `%${q}%`;
+    rows = await db.all(
+      `SELECT DISTINCT title FROM songs
+       WHERE (user_id = ? OR is_public = 1) AND title IS NOT NULL AND TRIM(title) != ''
+       AND title LIKE ?
+       ORDER BY title LIMIT ?`,
+      [req.userId, pattern, limit]
+    );
+  } else {
+    rows = await db.all(
+      `SELECT DISTINCT title FROM songs
+       WHERE (user_id = ? OR is_public = 1) AND title IS NOT NULL AND TRIM(title) != ''
+       ORDER BY title LIMIT ?`,
+      [req.userId, limit]
+    );
+  }
+  res.json(rows.map((r) => r.title));
 });
 
 router.get('/artists', async (req, res) => {

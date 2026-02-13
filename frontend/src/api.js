@@ -43,11 +43,21 @@ export const auth = {
   googleAuthUrl: (next = 'songs') => `${apiBase}/api/auth/google?next=${encodeURIComponent(next.startsWith('/') ? next : `/${next}`)}`,
 };
 
+function buildSearchParams(params) {
+  const sp = new URLSearchParams();
+  Object.entries(params || {}).forEach(([k, v]) => {
+    if (v != null && v !== '') sp.set(k, String(v));
+  });
+  const qs = sp.toString();
+  return qs ? `?${qs}` : '';
+}
+
 // Songs
 export const songs = {
-  list: () => request('/songs'),
-  listFavorites: () => request('/songs/favorites'),
-  listPublic: () => request('/songs/public'),
+  list: (params) => request(`/songs${buildSearchParams(params)}`),
+  listFavorites: (params) => request(`/songs/favorites${buildSearchParams(params)}`),
+  listPublic: (params) => request(`/songs/public${buildSearchParams(params)}`),
+  titles: (q) => request(`/songs/titles${q != null && q !== '' ? `?q=${encodeURIComponent(q)}` : ''}`),
   artists: (q) => request(`/songs/artists${q != null && q !== '' ? `?q=${encodeURIComponent(q)}` : ''}`),
   get: (id) => request(`/songs/${id}`),
   setPublic: (id, isPublic) =>

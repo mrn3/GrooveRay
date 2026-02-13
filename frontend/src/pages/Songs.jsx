@@ -28,27 +28,72 @@ export default function Songs() {
   const artistDebounceRef = useRef(null);
   const [savingId, setSavingId] = useState(null);
   const [ratingId, setRatingId] = useState(null);
+  // Search, filter, sort
+  const [searchTitle, setSearchTitle] = useState('');
+  const [searchArtist, setSearchArtist] = useState('');
+  const [titleSuggestions, setTitleSuggestions] = useState([]);
+  const [titleDropdownOpen, setTitleDropdownOpen] = useState(false);
+  const [titleSuggestionsLoading, setTitleSuggestionsLoading] = useState(false);
+  const [searchArtistDropdownOpen, setSearchArtistDropdownOpen] = useState(false);
+  const [searchArtistSuggestions, setSearchArtistSuggestions] = useState([]);
+  const [searchArtistSuggestionsLoading, setSearchArtistSuggestionsLoading] = useState(false);
+  const searchPanelRef = useRef(null);
+  const [durationMin, setDurationMin] = useState('');
+  const [durationMax, setDurationMax] = useState('');
+  const [minListensMe, setMinListensMe] = useState('');
+  const [minListensEveryone, setMinListensEveryone] = useState('');
+  const [minRatingMe, setMinRatingMe] = useState('');
+  const [minRatingCommunity, setMinRatingCommunity] = useState('');
+  const [sortBy, setSortBy] = useState('');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const { play } = usePlayer();
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const buildSearchParams = useCallback(() => {
+    const p = {};
+    if (searchTitle.trim()) p.title = searchTitle.trim();
+    if (searchArtist.trim()) p.artist = searchArtist.trim();
+    const dMin = durationMin.trim() ? parseInt(durationMin, 10) : null;
+    const dMax = durationMax.trim() ? parseInt(durationMax, 10) : null;
+    if (Number.isFinite(dMin)) p.durationMin = dMin;
+    if (Number.isFinite(dMax)) p.durationMax = dMax;
+    const lm = minListensMe.trim() ? parseInt(minListensMe, 10) : null;
+    const le = minListensEveryone.trim() ? parseInt(minListensEveryone, 10) : null;
+    if (Number.isFinite(lm) && lm >= 0) p.minListensMe = lm;
+    if (Number.isFinite(le) && le >= 0) p.minListensEveryone = le;
+    const rm = minRatingMe.trim() ? parseInt(minRatingMe, 10) : null;
+    const rc = minRatingCommunity.trim() ? parseFloat(minRatingCommunity) : null;
+    if (Number.isFinite(rm) && rm >= 1 && rm <= 5) p.minRatingMe = rm;
+    if (Number.isFinite(rc) && rc >= 0 && rc <= 5) p.minRatingCommunity = rc;
+    if (sortBy) {
+      p.sortBy = sortBy;
+      p.sortOrder = sortOrder;
+    }
+    return p;
+  }, [searchTitle, searchArtist, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity, sortBy, sortOrder]);
+
   const fetchList = useCallback(() => {
     setLoading(true);
     setError('');
+    const params = buildSearchParams();
     const promise = activeTab === 'mine'
-      ? songsApi.list()
+      ? songsApi.list(params)
       : activeTab === 'favorites'
-        ? songsApi.listFavorites()
-        : songsApi.listPublic();
+        ? songsApi.listFavorites(params)
+        : songsApi.listPublic(params);
     promise
       .then(setList)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [activeTab]);
+  }, [activeTab, buildSearchParams]);
 
+  // Refetch when tab, sort, or numeric filters change (title/artist applied via Search button)
   useEffect(() => {
     fetchList();
-  }, [fetchList]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: do not refetch when only searchTitle/searchArtist change
+  }, [activeTab, sortBy, sortOrder, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity]);
 
   useEffect(() => {
     return () => {
@@ -112,6 +157,43 @@ export default function Songs() {
     const onMouseDown = (e) => {
       if (artistDropdownRef.current && !artistDropdownRef.current.contains(e.target)) {
         setArtistDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, []);
+
+  // Search title autocomplete
+  useEffect(() => {
+    if (!titleDropdownOpen) return;
+    const t = searchTitle.trim();
+    const timer = setTimeout(() => {
+      setTitleSuggestionsLoading(true);
+      songsApi.titles(t).then(setTitleSuggestions).catch(() => setTitleSuggestions([])).finally(() => setTitleSuggestionsLoading(false));
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [searchTitle, titleDropdownOpen]);
+
+  // Search artist autocomplete
+  useEffect(() => {
+    if (!searchArtistDropdownOpen) return;
+    const a = searchArtist.trim();
+    const timer = setTimeout(() => {
+      setSearchArtistSuggestionsLoading(true);
+      songsApi.artists(a).then(setSearchArtistSuggestions).catch(() => setSearchArtistSuggestions([])).finally(() => setSearchArtistSuggestionsLoading(false));
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [searchArtist, searchArtistDropdownOpen]);
+
+  const closeSearchDropdowns = () => {
+    setTitleDropdownOpen(false);
+    setSearchArtistDropdownOpen(false);
+  };
+
+  useEffect(() => {
+    const onMouseDown = (e) => {
+      if (searchPanelRef.current && !searchPanelRef.current.contains(e.target)) {
+        closeSearchDropdowns();
       }
     };
     document.addEventListener('mousedown', onMouseDown);
@@ -372,6 +454,221 @@ export default function Songs() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
             </button>
+          )}
+        </div>
+      </div>
+
+      {/* Search, filter, sort */}
+      <div
+        ref={searchPanelRef}
+        className="mb-4 space-y-3 rounded-xl border border-groove-700 bg-groove-900/50 p-4"
+      >
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="relative min-w-[140px] flex-1">
+            <label className="mb-1 block text-xs text-gray-400">Title</label>
+            <input
+              type="text"
+              value={searchTitle}
+              onChange={(e) => setSearchTitle(e.target.value)}
+              onFocus={() => setTitleDropdownOpen(true)}
+              onKeyDown={(e) => e.key === 'Escape' && closeSearchDropdowns()}
+              placeholder="Search by title…"
+              className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+              autoComplete="off"
+            />
+            {titleDropdownOpen && (
+              <ul className="absolute z-20 mt-1 max-h-40 w-full overflow-auto rounded border border-groove-600 bg-groove-800 py-1 shadow-lg">
+                {titleSuggestionsLoading ? (
+                  <li className="px-3 py-2 text-sm text-gray-400">Searching…</li>
+                ) : titleSuggestions.length > 0 ? (
+                  titleSuggestions.map((title) => (
+                    <li key={title}>
+                      <button
+                        type="button"
+                        onClick={() => { setSearchTitle(title); setTitleDropdownOpen(false); }}
+                        className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-groove-600 focus:bg-groove-600 focus:outline-none"
+                      >
+                        {title}
+                      </button>
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-3 py-2 text-sm text-gray-400">Type to search titles</li>
+                )}
+              </ul>
+            )}
+          </div>
+          <div className="relative min-w-[140px] flex-1">
+            <label className="mb-1 block text-xs text-gray-400">Artist</label>
+            <input
+              type="text"
+              value={searchArtist}
+              onChange={(e) => setSearchArtist(e.target.value)}
+              onFocus={() => setSearchArtistDropdownOpen(true)}
+              onKeyDown={(e) => e.key === 'Escape' && closeSearchDropdowns()}
+              placeholder="Search by artist…"
+              className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+              autoComplete="off"
+            />
+            {searchArtistDropdownOpen && (
+              <ul className="absolute z-20 mt-1 max-h-40 w-full overflow-auto rounded border border-groove-600 bg-groove-800 py-1 shadow-lg">
+                {searchArtistSuggestionsLoading ? (
+                  <li className="px-3 py-2 text-sm text-gray-400">Searching…</li>
+                ) : searchArtistSuggestions.length > 0 ? (
+                  searchArtistSuggestions.map((name) => (
+                    <li key={name}>
+                      <button
+                        type="button"
+                        onClick={() => { setSearchArtist(name); setSearchArtistDropdownOpen(false); }}
+                        className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-groove-600 focus:bg-groove-600 focus:outline-none"
+                      >
+                        {name}
+                      </button>
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-3 py-2 text-sm text-gray-400">Type to search artists</li>
+                )}
+              </ul>
+            )}
+          </div>
+          <div className="w-full sm:w-auto">
+            <label className="mb-1 block text-xs text-gray-400">Sort by</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500 sm:w-48"
+            >
+              <option value="">Default</option>
+              <option value="title">Title</option>
+              <option value="artist">Artist</option>
+              <option value="duration_seconds">Duration</option>
+              <option value="listen_count">My listens</option>
+              <option value="total_listen_count">Listens (everyone)</option>
+              <option value="rating">My rating</option>
+              <option value="community_avg_rating">Community rating</option>
+            </select>
+          </div>
+          {sortBy && (
+            <div className="w-full sm:w-auto">
+              <label className="mb-1 block text-xs text-gray-400">Order</label>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500 sm:w-32"
+              >
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => { closeSearchDropdowns(); fetchList(); }}
+            className="rounded-lg bg-ray-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-ray-500 focus:outline-none focus:ring-2 focus:ring-ray-500"
+          >
+            Search
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTitle('');
+              setSearchArtist('');
+              setDurationMin('');
+              setDurationMax('');
+              setMinListensMe('');
+              setMinListensEveryone('');
+              setMinRatingMe('');
+              setMinRatingCommunity('');
+              setSortBy('');
+              setSortOrder('desc');
+              closeSearchDropdowns();
+            }}
+            className="rounded-lg bg-groove-600 px-4 py-2 text-sm font-medium text-gray-300 transition hover:bg-groove-500 focus:outline-none focus:ring-2 focus:ring-ray-500"
+          >
+            Clear
+          </button>
+        </div>
+        <div>
+          <button
+            type="button"
+            onClick={() => setFiltersExpanded((e) => !e)}
+            className="text-sm text-gray-400 hover:text-white focus:outline-none"
+          >
+            {filtersExpanded ? '▼ Less filters' : '▶ More filters (duration, listens, ratings)'}
+          </button>
+          {filtersExpanded && (
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div>
+                <label className="mb-1 block text-xs text-gray-400">Min duration (sec)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={durationMin}
+                  onChange={(e) => setDurationMin(e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-gray-400">Max duration (sec)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={durationMax}
+                  onChange={(e) => setDurationMax(e.target.value)}
+                  placeholder="—"
+                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-gray-400">Min my listens</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={minListensMe}
+                  onChange={(e) => setMinListensMe(e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-gray-400">Min listens (everyone)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={minListensEveryone}
+                  onChange={(e) => setMinListensEveryone(e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-gray-400">Min my rating (1–5)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={minRatingMe}
+                  onChange={(e) => setMinRatingMe(e.target.value)}
+                  placeholder="—"
+                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-gray-400">Min community rating (0–5)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={5}
+                  step={0.1}
+                  value={minRatingCommunity}
+                  onChange={(e) => setMinRatingCommunity(e.target.value)}
+                  placeholder="—"
+                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                />
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -792,7 +1089,7 @@ export default function Songs() {
                   </div>
                 </>
               )}
-              {showEditActions(song) && (
+              {showEditActions() && (
                 <>
                   <button
                     type="button"
