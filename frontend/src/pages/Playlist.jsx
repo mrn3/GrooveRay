@@ -273,26 +273,12 @@ export default function Playlist() {
                 Everyone: ★ {Number(playlist.community_avg_rating).toFixed(1)} ({playlist.community_rating_count} ratings)
               </span>
             )}
-            <button
-              type="button"
-              onClick={handleLoadRatings}
-              className="text-sm text-ray-400 hover:text-ray-300"
-            >
-              See what everyone rated
-            </button>
             <span className="text-sm text-gray-500">
               My listens: {playlist.listen_count ?? 0}
             </span>
             <span className="text-sm text-gray-500">
               Total plays: {playlist.total_listen_count ?? 0}
             </span>
-            <button
-              type="button"
-              onClick={handleLoadListens}
-              className="text-sm text-ray-400 hover:text-ray-300"
-            >
-              See everyone&apos;s listens
-            </button>
           </div>
         </div>
       </div>
