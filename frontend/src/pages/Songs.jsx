@@ -180,12 +180,13 @@ export default function Songs() {
     setYoutubePendingItem({ title: url.length > 50 ? url.slice(0, 47) + '…' : url });
     setYoutubeLoading(true);
     setAddMessage('');
-    closeAddModal();
     try {
       await youtubeApi.add(url);
+      setAddMessage('Download started — audio will be added to your library when ready.');
       if (activeTab === 'mine') fetchList();
+      setTimeout(closeAddModal, 1800);
     } catch (err) {
-      setError(err.message || 'Failed to add YouTube link');
+      setAddMessage(err.message || 'Failed to add YouTube link');
     } finally {
       setYoutubeLoading(false);
       setYoutubePendingItem(null);
