@@ -26,12 +26,15 @@ export function streamUrl(songId) {
 }
 
 // Auth
+const apiBase = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL ? import.meta.env.VITE_API_URL : '';
 export const auth = {
   register: (username, email, password) =>
     request('/auth/register', { method: 'POST', body: JSON.stringify({ username, email, password }) }),
   login: (username, password) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   me: () => request('/auth/me'),
+  /** Full URL to start Google OAuth (redirects away). Pass next path e.g. "/songs". */
+  googleAuthUrl: (next = 'songs') => `${apiBase}/api/auth/google?next=${encodeURIComponent(next.startsWith('/') ? next : `/${next}`)}`,
 };
 
 // Songs

@@ -40,8 +40,17 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const refreshUser = () => {
+    const token = localStorage.getItem('grooveray_token');
+    if (!token) return Promise.resolve(null);
+    return authApi.me().then((u) => {
+      setUser(u);
+      return u;
+    }).catch(() => null);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

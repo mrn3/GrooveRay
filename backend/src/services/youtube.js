@@ -60,8 +60,18 @@ export async function addYouTube(userId, url) {
     '--write-info-json',
     '--no-playlist',
     '--no-warnings',
-    normalizedUrl,
   ];
+
+  // YouTube often requires cookies to avoid "Sign in to confirm you're not a bot"
+  const cookiesFromBrowser = process.env.YTDLP_COOKIES_FROM_BROWSER;
+  const cookiesFile = process.env.YTDLP_COOKIES_FILE;
+  if (cookiesFromBrowser) {
+    args.push('--cookies-from-browser', cookiesFromBrowser);
+  } else if (cookiesFile && fs.existsSync(cookiesFile)) {
+    args.push('--cookies', cookiesFile);
+  }
+
+  args.push(normalizedUrl);
 
   const proc = spawn('yt-dlp', args, { stdio: ['ignore', 'pipe', 'pipe'] });
 

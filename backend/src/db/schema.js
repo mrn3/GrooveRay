@@ -49,7 +49,8 @@ const DDL = `
     id VARCHAR(36) PRIMARY KEY,
     username VARCHAR(255) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NULL,
+    google_id VARCHAR(255) UNIQUE NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -180,6 +181,12 @@ async function ensureSchema() {
   } catch (_) {}
   try {
     await exec('ALTER TABLE songs ADD COLUMN thumbnail_url TEXT');
+  } catch (_) {}
+  try {
+    await exec('ALTER TABLE users ADD COLUMN google_id VARCHAR(255) UNIQUE NULL');
+  } catch (_) {}
+  try {
+    await exec('ALTER TABLE users MODIFY COLUMN password_hash VARCHAR(255) NULL');
   } catch (_) {}
 }
 
