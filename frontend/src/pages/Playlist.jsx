@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { playlists as playlistsApi, songs as songsApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 
 export default function Playlist() {
   const { id, slug } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { play, current, playing } = usePlayer();
   const [playlist, setPlaylist] = useState(null);
@@ -152,6 +153,17 @@ export default function Playlist() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!playlist?.id || !isOwner) return;
+    if (!window.confirm(`Delete "${playlist.name}"? This cannot be undone.`)) return;
+    try {
+      await playlistsApi.delete(playlist.id);
+      navigate('/playlists');
+    } catch (e) {
+      setError(e.message || 'Failed to delete playlist');
+    }
+  };
+
   const handleLoadRatings = () => {
     if (!playlist?.id) return;
     setRatingsOpen(true);
@@ -267,6 +279,13 @@ export default function Playlist() {
                     Create share link
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="rounded-lg border border-red-900/60 px-4 py-2 text-sm text-red-400 hover:bg-red-900/30"
+                >
+                  Delete playlist
+                </button>
               </>
             )}
           </div>
