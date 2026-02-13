@@ -268,12 +268,29 @@ router.delete('/:id', async (req, res) => {
   if (!song) return res.status(404).json({ error: 'Song not found' });
   if (song.user_id !== req.userId) return res.status(403).json({ error: 'You can only delete your own songs' });
 
-  await db.run('DELETE FROM station_queue WHERE song_id = ?', [req.params.id]);
-  await db.run('DELETE FROM songs WHERE id = ?', [req.params.id]);
+  const songId = req.params.id;
 
+  // Remove all references so we can delete the song (FK constraints)
+  await db.run('DELETE FROM station_queue WHERE song_id = ?', [songId]);
+  await db.run('DELETE FROM user_song_favorites WHERE song_id = ?', [songId]);
+  await db.run('DELETE FROM user_song_ratings WHERE song_id = ?', [songId]);
+  await db.run('DELETE FROM user_song_listens WHERE song_id = ?', [songId]);
+  await db.run('DELETE FROM youtube_jobs WHERE song_id = ?', [songId]);
+
+  // Delete the song row
+  await db.run('DELETE FROM songs WHERE id = ?', [songId]);
+
+  // Delete the MP3 file from disk if it exists
   if (song.file_path) {
     const filePath = path.join(uploadsDir, song.file_path);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (err) {
+      console.error('Failed to delete song file:', filePath, err);
+      // Still return success; DB row is already removed
+    }
   }
 
   res.status(204).send();

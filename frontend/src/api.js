@@ -13,9 +13,13 @@ export async function request(path, options = {}) {
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(url, { ...options, headers });
-  const data = res.headers.get('content-type')?.includes('application/json')
-    ? await res.json().catch(() => ({}))
-    : null;
+  // 204 No Content has no body; don't try to parse JSON
+  const data =
+    res.status === 204
+      ? null
+      : res.headers.get('content-type')?.includes('application/json')
+        ? await res.json().catch(() => ({}))
+        : null;
   if (!res.ok) throw new Error(data?.error || res.statusText || 'Request failed');
   return data;
 }
