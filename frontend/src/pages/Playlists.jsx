@@ -5,8 +5,8 @@ import { useAuth } from '../context/AuthContext';
 
 const TABS = [
   { id: 'all', label: 'All Playlists' },
-  { id: 'mine', label: 'My Playlists' },
-  { id: 'contributions', label: 'My Contributions' },
+  { id: 'mine', label: 'My Contributions' },
+  { id: 'contributions', label: 'My Playlists' },
 ];
 
 export default function Playlists() {
@@ -50,7 +50,7 @@ export default function Playlists() {
       }
       p.page = overrides.page ?? page;
       p.limit = overrides.limit ?? pageSize;
-      if (activeTab === 'contributions') p.contributions = 1;
+      if (activeTab === 'mine') p.contributions = 1;
       return p;
     },
     [searchName, minTracks, minListens, minRating, sortBy, sortOrder, page, pageSize, activeTab]
@@ -341,9 +341,9 @@ export default function Playlists() {
           {list.length === 0 ? (
             <p className="px-6 py-12 text-center text-gray-500">
               {activeTab === 'all' && 'No public playlists yet.'}
-              {activeTab === 'mine' && 'No playlists yet. Create one to get started.'}
-              {activeTab === 'contributions' &&
+              {activeTab === 'mine' &&
                 'No public playlists from you yet. Create a playlist and make it public to share.'}
+              {activeTab === 'contributions' && 'No playlists yet. Create one to get started.'}
             </p>
           ) : (
             list.map((pl) => (
