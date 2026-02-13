@@ -11,6 +11,7 @@ export function PlayerProvider({ children }) {
   const [stationMode, setStationModeState] = useState(null);
   const [, setTick] = useState(0);
   const audioRef = useRef(new Audio());
+  const pendingSeekRef = useRef(null);
 
   const setStationMode = useCallback((mode) => {
     setStationModeState(mode);
@@ -22,15 +23,22 @@ export function PlayerProvider({ children }) {
     return () => clearInterval(interval);
   }, [stationMode]);
 
-  const play = useCallback((song) => {
+  const play = useCallback((song, options = {}) => {
     if (!song?.id) return;
     songsApi.recordPlay(song.id).catch(() => {});
     // Use stream URL for all tracks
     const url = song.file_path?.startsWith('http') ? song.file_path : streamUrl(song.id);
     const audio = audioRef.current;
+    const seekTo = options.seekTo != null ? Number(options.seekTo) : null;
     if (audio.src !== url) {
+      if (seekTo != null) pendingSeekRef.current = seekTo;
       audio.src = url;
       audio.load();
+    } else if (seekTo != null && audio.readyState >= 2) {
+      audio.currentTime = seekTo;
+      setProgress(seekTo);
+    } else if (seekTo != null) {
+      pendingSeekRef.current = seekTo;
     }
     audio.play().catch(() => setPlaying(false));
     setCurrent(song);
@@ -65,13 +73,23 @@ export function PlayerProvider({ children }) {
       setPlaying(false);
       setProgress(0);
     };
+    const onCanPlay = () => {
+      const t = pendingSeekRef.current;
+      if (t != null && Number.isFinite(t)) {
+        pendingSeekRef.current = null;
+        audio.currentTime = t;
+        setProgress(t);
+      }
+    };
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('durationchange', onDurationChange);
     audio.addEventListener('ended', onEnded);
+    audio.addEventListener('canplay', onCanPlay);
     return () => {
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('durationchange', onDurationChange);
       audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('canplay', onCanPlay);
     };
   }, []);
 

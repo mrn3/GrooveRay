@@ -25,7 +25,7 @@ export default function Station() {
   const [nowPlayingDetails, setNowPlayingDetails] = useState(null);
   const [ratingId, setRatingId] = useState(null);
   const socketRef = useRef(null);
-  const { play, seek, setStationMode } = usePlayer();
+  const { play, setStationMode } = usePlayer();
 
   useEffect(() => {
     stationsApi.get(slugOrId).then((s) => {
@@ -65,9 +65,8 @@ export default function Station() {
     const song = { id: item.song_id, title: item.title, artist: item.artist, source: item.source, file_path: item.file_path, thumbnail_url: item.thumbnail_url, duration_seconds: item.duration_seconds };
     const pos = serverPosition(nowPlaying.startedAt, item.duration_seconds);
     setStationMode({ startedAt: nowPlaying.startedAt, durationSeconds: item.duration_seconds ?? 60 });
-    play(song);
-    seek(pos);
-  }, [nowPlaying?.queueId, nowPlaying?.startedAt, play, seek, setStationMode]);
+    play(song, { seekTo: pos });
+  }, [nowPlaying?.queueId, nowPlaying?.startedAt, play, setStationMode]);
 
   useEffect(() => {
     if (!nowPlaying?.item?.song_id) {
