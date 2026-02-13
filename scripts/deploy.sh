@@ -29,6 +29,17 @@ REPO_DIR="${1:?Missing REPO_DIR}"
 # Expand ~ to $HOME on the server
 [[ "$REPO_DIR" == ~* ]] && REPO_DIR="$HOME${REPO_DIR:1}"
 
+# Bitnami: non-interactive SSH does not load .bashrc, so node/npm/pm2 are not in PATH
+if [[ -f /opt/bitnami/scripts/setenv.sh ]]; then
+  source /opt/bitnami/scripts/setenv.sh
+fi
+for node_dir in /opt/bitnami/node/bin /opt/bitnami/nodejs/bin; do
+  if [[ -x "$node_dir/npm" ]]; then
+    export PATH="$node_dir:$PATH"
+    break
+  fi
+done
+
 echo "→ cd $REPO_DIR"
 cd "$REPO_DIR"
 
