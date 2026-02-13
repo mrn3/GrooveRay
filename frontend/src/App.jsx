@@ -12,6 +12,7 @@ import Stations from './pages/Stations';
 import Station from './pages/Station';
 import Playlists from './pages/Playlists';
 import Playlist from './pages/Playlist';
+import Song from './pages/Song';
 import Profile from './pages/Profile';
 
 function ProtectedRoute({ children }) {
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/songs" replace />} />
           <Route path="songs" element={<ProtectedRoute><Songs /></ProtectedRoute>} />
+          <Route path="songs/:id" element={<ProtectedRoute><Song /></ProtectedRoute>} />
           <Route path="upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
           <Route path="youtube" element={<ProtectedRoute><YouTube /></ProtectedRoute>} />
           <Route path="playlists" element={<ProtectedRoute><Playlists /></ProtectedRoute>} />

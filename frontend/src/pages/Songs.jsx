@@ -935,13 +935,17 @@ export default function Songs() {
             {list.map((song) => (
             <div
               key={song.id}
+              role="button"
+              tabIndex={0}
               className={`flex cursor-pointer items-center gap-3 px-6 py-3 transition hover:bg-groove-800 ${current?.id === song.id ? 'bg-groove-800/80' : ''}`}
-              onClick={() => play(song)}
+              onClick={() => navigate(`/songs/${song.id}`)}
+              onKeyDown={(e) => e.key === 'Enter' && navigate(`/songs/${song.id}`)}
             >
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  e.preventDefault();
                   if (current?.id === song.id && playing) {
                     toggle();
                   } else {

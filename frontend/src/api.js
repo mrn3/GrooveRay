@@ -60,6 +60,9 @@ export const songs = {
   titles: (q) => request(`/songs/titles${q != null && q !== '' ? `?q=${encodeURIComponent(q)}` : ''}`),
   artists: (q) => request(`/songs/artists${q != null && q !== '' ? `?q=${encodeURIComponent(q)}` : ''}`),
   get: (id) => request(`/songs/${id}`),
+  ratings: (id, params) => request(`/songs/${id}/ratings${buildSearchParams(params)}`),
+  listens: (id) => request(`/songs/${id}/listens`),
+  listensHistory: (id, params) => request(`/songs/${id}/listens/history${buildSearchParams(params)}`),
   setPublic: (id, isPublic) =>
     request(`/songs/${id}`, { method: 'PATCH', body: JSON.stringify({ is_public: isPublic }) }),
   update: (id, payload) =>

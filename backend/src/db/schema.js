@@ -142,6 +142,15 @@ const DDL = `
     FOREIGN KEY (song_id) REFERENCES songs(id)
   );
 
+  CREATE TABLE IF NOT EXISTS song_listen_events (
+    id VARCHAR(36) PRIMARY KEY,
+    song_id VARCHAR(36) NOT NULL,
+    user_id VARCHAR(36) NOT NULL,
+    played_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (song_id) REFERENCES songs(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
   CREATE TABLE IF NOT EXISTS station_now_playing (
     station_id VARCHAR(36) PRIMARY KEY,
     queue_id VARCHAR(36) NOT NULL,
@@ -215,6 +224,7 @@ const indexStatements = [
   'CREATE INDEX idx_user_playlist_ratings_playlist ON user_playlist_ratings(playlist_id)',
   'CREATE INDEX idx_user_playlist_listens_playlist ON user_playlist_listens(playlist_id)',
   'CREATE INDEX idx_playlist_listen_events_playlist_played ON playlist_listen_events(playlist_id, played_at)',
+  'CREATE INDEX idx_song_listen_events_song_played ON song_listen_events(song_id, played_at)',
 ];
 
 async function ensureSchema() {
@@ -281,6 +291,27 @@ async function ensureSchema() {
   } catch (_) {}
   try {
     await exec('CREATE INDEX idx_playlist_listen_events_playlist_played ON playlist_listen_events(playlist_id, played_at)');
+  } catch (_) {}
+  try {
+    await exec('ALTER TABLE songs ADD COLUMN description TEXT');
+  } catch (_) {}
+  try {
+    await exec('ALTER TABLE songs ADD COLUMN lyrics TEXT');
+  } catch (_) {}
+  try {
+    await exec(
+      `CREATE TABLE IF NOT EXISTS song_listen_events (
+        id VARCHAR(36) PRIMARY KEY,
+        song_id VARCHAR(36) NOT NULL,
+        user_id VARCHAR(36) NOT NULL,
+        played_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (song_id) REFERENCES songs(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )`
+    );
+  } catch (_) {}
+  try {
+    await exec('CREATE INDEX idx_song_listen_events_song_played ON song_listen_events(song_id, played_at)');
   } catch (_) {}
 }
 

@@ -399,6 +399,10 @@ router.post('/:id/played', async (req, res) => {
      ON DUPLICATE KEY UPDATE listen_count = listen_count + 1`,
     [req.userId, req.params.id]
   );
+  await db.run(
+    'INSERT INTO song_listen_events (id, song_id, user_id, played_at) VALUES (?, ?, ?, NOW())',
+    [uuid(), req.params.id, req.userId]
+  );
   res.status(204).send();
 });
 
@@ -416,12 +420,124 @@ router.patch('/:id/rating', async (req, res) => {
   res.status(204).send();
 });
 
+router.get('/:id/ratings', async (req, res) => {
+  const song = await db.get('SELECT id FROM songs WHERE id = ?', [req.params.id]);
+  if (!song) return res.status(404).json({ error: 'Song not found' });
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const offset = (page - 1) * limit;
+  const [rows, summary, totalRow] = await Promise.all([
+    db.all(
+      `SELECT r.user_id, r.rating, r.updated_at, u.username
+       FROM user_song_ratings r
+       JOIN users u ON u.id = r.user_id
+       WHERE r.song_id = ?
+       ORDER BY r.updated_at DESC
+       LIMIT ? OFFSET ?`,
+      [req.params.id, limit, offset]
+    ),
+    db.get(
+      'SELECT AVG(rating) as avg_rating, COUNT(*) as rating_count FROM user_song_ratings WHERE song_id = ?',
+      [req.params.id]
+    ),
+    db.get('SELECT COUNT(*) as total FROM user_song_ratings WHERE song_id = ?', [req.params.id]),
+  ]);
+  res.json({
+    avg_rating: summary?.avg_rating ?? null,
+    rating_count: summary?.rating_count ?? 0,
+    ratings: rows,
+    total: totalRow?.total ?? 0,
+    page,
+    limit,
+  });
+});
+
+router.get('/:id/listens/history', async (req, res) => {
+  const song = await db.get('SELECT id FROM songs WHERE id = ?', [req.params.id]);
+  if (!song) return res.status(404).json({ error: 'Song not found' });
+  const period = ['day', 'week', 'month'].includes(req.query.period) ? req.query.period : 'day';
+  const scope = req.query.scope === 'me' ? 'me' : 'all';
+  if (scope === 'me' && !req.userId) return res.status(401).json({ error: 'Sign in to see your listens' });
+
+  const dateGroup =
+    period === 'day'
+      ? 'DATE(e.played_at)'
+      : period === 'week'
+        ? 'DATE_SUB(DATE(e.played_at), INTERVAL WEEKDAY(e.played_at) DAY)'
+        : "DATE_FORMAT(e.played_at, '%Y-%m-01')";
+  const userFilter = scope === 'me' ? 'AND e.user_id = ?' : '';
+  const params = [req.params.id];
+  if (scope === 'me') params.push(req.userId);
+
+  const buckets = await db.all(
+    `SELECT ${dateGroup} AS bucket_date, COUNT(*) AS count
+     FROM song_listen_events e
+     WHERE e.song_id = ? ${userFilter}
+     GROUP BY bucket_date
+     ORDER BY bucket_date ASC`,
+    params
+  );
+
+  const eventDateCond =
+    period === 'day'
+      ? 'DATE(e.played_at) = ?'
+      : period === 'week'
+        ? 'DATE_SUB(DATE(e.played_at), INTERVAL WEEKDAY(e.played_at) DAY) = ?'
+        : "DATE_FORMAT(e.played_at, '%Y-%m-01') = ?";
+
+  const result = [];
+  for (const b of buckets) {
+    const bucketDate = b.bucket_date;
+    const eventParams = [req.params.id];
+    if (scope === 'me') eventParams.push(req.userId);
+    eventParams.push(bucketDate);
+    const events = await db.all(
+      `SELECT e.played_at, u.username
+       FROM song_listen_events e
+       JOIN users u ON u.id = e.user_id
+       WHERE e.song_id = ? ${scope === 'me' ? 'AND e.user_id = ?' : ''} AND ${eventDateCond}
+       ORDER BY e.played_at DESC`,
+      eventParams
+    );
+    result.push({
+      label: String(bucketDate),
+      date: bucketDate,
+      count: b.count,
+      events: events.map((ev) => ({ username: ev.username, played_at: ev.played_at })),
+    });
+  }
+
+  res.json({ buckets: result });
+});
+
+router.get('/:id/listens', async (req, res) => {
+  const song = await db.get('SELECT id FROM songs WHERE id = ?', [req.params.id]);
+  if (!song) return res.status(404).json({ error: 'Song not found' });
+  const total = await db.get(
+    'SELECT COALESCE(SUM(listen_count), 0) as total FROM user_song_listens WHERE song_id = ?',
+    [req.params.id]
+  );
+  const byUser = await db.all(
+    `SELECT l.user_id, l.listen_count, u.username
+     FROM user_song_listens l
+     JOIN users u ON u.id = l.user_id
+     WHERE l.song_id = ?
+     ORDER BY l.listen_count DESC`,
+    [req.params.id]
+  );
+  res.json({
+    total_listen_count: total?.total ?? 0,
+    by_user: byUser,
+  });
+});
+
 router.get('/:id', async (req, res) => {
   const song = await db.get(
     `SELECT s.*, u.username as uploader_name FROM songs s JOIN users u ON u.id = s.user_id WHERE s.id = ?`,
     [req.params.id]
   );
   if (!song) return res.status(404).json({ error: 'Song not found' });
+  if (!song.is_public && song.user_id !== req.userId) return res.status(404).json({ error: 'Song not found' });
   const totalRow = await db.get(
     `SELECT COALESCE(SUM(listen_count), 0) as total_listen_count FROM user_song_listens WHERE song_id = ?`,
     [req.params.id]
@@ -436,7 +552,7 @@ router.patch('/:id', async (req, res) => {
   const song = await db.get('SELECT * FROM songs WHERE id = ?', [req.params.id]);
   if (!song) return res.status(404).json({ error: 'Song not found' });
   if (song.user_id !== req.userId) return res.status(403).json({ error: 'You can only update your own songs' });
-  const { is_public, title, artist } = req.body || {};
+  const { is_public, title, artist, description, lyrics } = req.body || {};
 
   const updates = [];
   const values = [];
@@ -454,7 +570,15 @@ router.patch('/:id', async (req, res) => {
     updates.push('artist = ?');
     values.push(artist.trim());
   }
-  if (updates.length === 0) return res.status(400).json({ error: 'Provide at least one of: is_public, title, artist' });
+  if (typeof description !== 'undefined') {
+    updates.push('description = ?');
+    values.push(description === null || description === '' ? null : String(description).trim());
+  }
+  if (typeof lyrics !== 'undefined') {
+    updates.push('lyrics = ?');
+    values.push(lyrics === null || lyrics === '' ? null : String(lyrics).trim());
+  }
+  if (updates.length === 0) return res.status(400).json({ error: 'Provide at least one of: is_public, title, artist, description, lyrics' });
 
   values.push(req.params.id);
   await db.run(`UPDATE songs SET ${updates.join(', ')} WHERE id = ?`, values);
@@ -478,6 +602,7 @@ router.delete('/:id', async (req, res) => {
   await db.run('DELETE FROM user_song_favorites WHERE song_id = ?', [songId]);
   await db.run('DELETE FROM user_song_ratings WHERE song_id = ?', [songId]);
   await db.run('DELETE FROM user_song_listens WHERE song_id = ?', [songId]);
+  await db.run('DELETE FROM song_listen_events WHERE song_id = ?', [songId]);
   await db.run('DELETE FROM youtube_jobs WHERE song_id = ?', [songId]);
 
   // Delete the song row

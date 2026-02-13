@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { playlists as playlistsApi, songs as songsApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
@@ -509,10 +509,14 @@ export default function Playlist() {
                     <span className="text-ray-400">◇</span>
                   )}
                 </div>
-                <div className="min-w-0 flex-1">
+                <Link
+                  to={`/songs/${track.song_id}`}
+                  className="min-w-0 flex-1 hover:opacity-90"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <p className="font-medium text-white">{track.title}</p>
                   <p className="text-sm text-gray-400">{track.artist}</p>
-                </div>
+                </Link>
                 {isOwner && (
                   <button
                     type="button"
