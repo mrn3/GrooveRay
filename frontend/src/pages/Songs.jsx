@@ -5,13 +5,13 @@ import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
 
 const TABS = [
-  { id: 'mine', label: 'My Contributions' },
-  { id: 'favorites', label: 'My Songs' },
   { id: 'all', label: 'All Songs' },
+  { id: 'favorites', label: 'My Songs' },
+  { id: 'mine', label: 'My Contributions' },
 ];
 
 export default function Songs() {
-  const [activeTab, setActiveTab] = useState('mine');
+  const [activeTab, setActiveTab] = useState('all');
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
