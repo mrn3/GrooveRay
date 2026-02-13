@@ -73,7 +73,15 @@ export async function addYouTube(userId, url) {
 
   args.push(normalizedUrl);
 
-  const proc = spawn('yt-dlp', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  // So yt-dlp can find Deno/Node for YouTube n-signature (EJS) when needed
+  const denoBin = process.env.HOME && path.join(process.env.HOME, '.deno', 'bin');
+  const nodeBin = path.dirname(process.execPath);
+  const extraPath = [denoBin, nodeBin].filter(Boolean).join(path.delimiter);
+  const env = extraPath
+    ? { ...process.env, PATH: `${extraPath}${path.delimiter}${process.env.PATH || ''}` }
+    : process.env;
+
+  const proc = spawn('yt-dlp', args, { stdio: ['ignore', 'pipe', 'pipe'], env });
 
   let stderr = '';
   proc.stderr?.on('data', (chunk) => { stderr += chunk; });
