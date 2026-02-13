@@ -89,7 +89,13 @@ export default function Stations() {
               className="block rounded-xl border border-groove-700 bg-groove-900/50 p-5 transition hover:border-ray-500/50 hover:bg-groove-800/50"
             >
               <div className="mb-2 flex items-center gap-2">
-                <span className="text-2xl text-ray-500">◇</span>
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-500">
+                  {s.image_url ? (
+                    <img src={s.image_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-xl">◇</span>
+                  )}
+                </div>
                 <h2 className="font-semibold text-white">{s.name}</h2>
               </div>
               {s.description && <p className="mb-2 line-clamp-2 text-sm text-gray-400">{s.description}</p>}
