@@ -1,9 +1,27 @@
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { v4 as uuid } from 'uuid';
 import db from '../db/schema.js';
+
+/** Throw with a clear message if yt-dlp or ffmpeg are missing (so we can return 400 before 202). */
+function ensureYouTubeDeps() {
+  try {
+    execSync('command -v yt-dlp >/dev/null 2>&1', { stdio: 'pipe' });
+  } catch {
+    throw new Error(
+      'yt-dlp is not installed on the server. Install it (and ffmpeg for MP3): e.g. brew install yt-dlp ffmpeg'
+    );
+  }
+  try {
+    execSync('command -v ffmpeg >/dev/null 2>&1', { stdio: 'pipe' });
+  } catch {
+    throw new Error(
+      'ffmpeg is not installed on the server (required for MP3). Install with: brew install ffmpeg'
+    );
+  }
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '../../uploads');
@@ -22,6 +40,7 @@ export async function addYouTube(userId, url) {
   if (!isValidYouTubeUrl(url)) {
     throw new Error('Invalid YouTube URL. Use a youtube.com or youtu.be link.');
   }
+  ensureYouTubeDeps();
   const jobId = uuid();
   const normalizedUrl = url.trim();
   await db.run(
@@ -49,8 +68,20 @@ export async function addYouTube(userId, url) {
   let stderr = '';
   proc.stderr?.on('data', (chunk) => { stderr += chunk; });
 
+  function friendlyError(msg) {
+    if (typeof msg !== 'string' || !msg.trim()) return msg || null;
+    const s = msg.toLowerCase();
+    if (s.includes('ffmpeg') && (s.includes('not found') || s.includes('not installed') || s.includes('missing'))) {
+      return 'ffmpeg is not installed on the server (required for MP3). Install with: brew install ffmpeg';
+    }
+    if (s.includes('yt-dlp') && (s.includes('not found') || s.includes('no such file'))) {
+      return 'yt-dlp is not installed on the server. Install with: brew install yt-dlp ffmpeg';
+    }
+    return msg.length > 500 ? msg.slice(0, 497) + '...' : msg;
+  }
+
   async function setFailed(msg) {
-    const truncated = typeof msg === 'string' && msg.length > 500 ? msg.slice(0, 497) + '...' : (msg || null);
+    const truncated = friendlyError(typeof msg === 'string' ? msg : (msg && msg.message) || '');
     await db.run('UPDATE youtube_jobs SET status = ?, error_message = ? WHERE id = ?', ['failed', truncated, jobId]);
   }
 
