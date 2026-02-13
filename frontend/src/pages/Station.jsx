@@ -44,7 +44,7 @@ export default function Station() {
   }, [slugOrId]);
 
   useEffect(() => {
-    songsApi.listPublic().then(setSongs).catch(() => setSongs([]));
+    songsApi.listPublic({ limit: 200 }).then((data) => setSongs(data?.items ?? [])).catch(() => setSongs([]));
   }, []);
 
   useEffect(() => {

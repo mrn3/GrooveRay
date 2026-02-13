@@ -94,6 +94,9 @@ function parseSearchSort(query) {
     ? query.sortBy
     : null;
   const sortOrder = query.sortOrder === 'asc' || query.sortOrder === 'desc' ? query.sortOrder : 'desc';
+  const page = query.page != null ? Math.max(1, parseInt(query.page, 10)) : 1;
+  const limitRaw = query.limit != null ? parseInt(query.limit, 10) : 50;
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(100, Math.max(1, limitRaw)) : 50;
   return {
     title: title || null,
     artist: artist || null,
@@ -105,6 +108,8 @@ function parseSearchSort(query) {
     minRatingCommunity: Number.isFinite(minRatingCommunity) && minRatingCommunity >= 0 && minRatingCommunity <= 5 ? minRatingCommunity : null,
     sortBy,
     sortOrder,
+    page: Number.isFinite(page) ? page : 1,
+    limit,
   };
 }
 
@@ -200,7 +205,10 @@ router.get('/public', optionalAuth, async (req, res) => {
   const withCommunity = await attachCommunityRatings(list);
   const withStats = await attachUserStats(withCommunity, req.userId);
   const filtered = applyFilterSort(withStats, opts);
-  res.json(filtered);
+  const total = filtered.length;
+  const start = (opts.page - 1) * opts.limit;
+  const items = filtered.slice(start, start + opts.limit);
+  res.json({ items, total });
 });
 
 router.use(authMiddleware);
@@ -276,7 +284,10 @@ router.get('/', async (req, res) => {
   );
   const withStats = await attachUserStats(list, req.userId);
   const filtered = applyFilterSort(withStats, opts);
-  res.json(filtered);
+  const total = filtered.length;
+  const start = (opts.page - 1) * opts.limit;
+  const items = filtered.slice(start, start + opts.limit);
+  res.json({ items, total });
 });
 
 router.get('/favorites', async (req, res) => {
@@ -288,7 +299,7 @@ router.get('/favorites', async (req, res) => {
   const listenedSongIds = listenedRows.map((r) => r.song_id);
   const allIds = [...new Set([...ratedSongIds, ...listenedSongIds])];
   if (allIds.length === 0) {
-    return res.json([]);
+    return res.json({ items: [], total: 0 });
   }
   const placeholders = allIds.map(() => '?').join(',');
   const list = await db.all(
@@ -325,7 +336,10 @@ router.get('/favorites', async (req, res) => {
     });
   }
   const filtered = applyFilterSort(ordered, opts);
-  res.json(filtered);
+  const total = filtered.length;
+  const start = (opts.page - 1) * opts.limit;
+  const items = filtered.slice(start, start + opts.limit);
+  res.json({ items, total });
 });
 
 router.get('/titles', async (req, res) => {

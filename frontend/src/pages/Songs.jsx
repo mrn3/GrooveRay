@@ -47,11 +47,14 @@ export default function Songs() {
   const [sortBy, setSortBy] = useState('');
   const [sortOrder, setSortOrder] = useState('desc');
   const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
   const { play } = usePlayer();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const buildSearchParams = useCallback(() => {
+  const buildSearchParams = useCallback((overrides = {}) => {
     const p = {};
     if (searchTitle.trim()) p.title = searchTitle.trim();
     if (searchArtist.trim()) p.artist = searchArtist.trim();
@@ -71,29 +74,44 @@ export default function Songs() {
       p.sortBy = sortBy;
       p.sortOrder = sortOrder;
     }
+    p.page = overrides.page ?? page;
+    p.limit = overrides.limit ?? pageSize;
     return p;
-  }, [searchTitle, searchArtist, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity, sortBy, sortOrder]);
+  }, [searchTitle, searchArtist, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity, sortBy, sortOrder, page, pageSize]);
+
+  const resetPageRef = useRef(false);
+  useEffect(() => {
+    resetPageRef.current = true;
+  }, [activeTab, sortBy, sortOrder, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity]);
 
   const fetchList = useCallback(() => {
     setLoading(true);
     setError('');
-    const params = buildSearchParams();
+    const pageToUse = resetPageRef.current ? 1 : page;
+    if (resetPageRef.current) {
+      resetPageRef.current = false;
+      setPage(1);
+    }
+    const params = buildSearchParams({ page: pageToUse });
     const promise = activeTab === 'mine'
       ? songsApi.list(params)
       : activeTab === 'favorites'
         ? songsApi.listFavorites(params)
         : songsApi.listPublic(params);
     promise
-      .then(setList)
+      .then((data) => {
+        setList(data?.items ?? []);
+        setTotalCount(data?.total ?? 0);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [activeTab, buildSearchParams]);
+  }, [activeTab, buildSearchParams, page]);
 
-  // Refetch when tab, sort, or numeric filters change (title/artist applied via Search button)
+  // Refetch when tab, sort, filters, or page change (title/artist applied via Search button)
   useEffect(() => {
     fetchList();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: do not refetch when only searchTitle/searchArtist change
-  }, [activeTab, sortBy, sortOrder, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity]);
+  }, [activeTab, sortBy, sortOrder, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity, page, pageSize]);
 
   useEffect(() => {
     return () => {
@@ -1142,6 +1160,50 @@ export default function Songs() {
           </>
         )}
       </div>
+
+      {totalCount > 0 && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-groove-700 pt-4">
+          <p className="text-sm text-gray-400">
+            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalCount)} of {totalCount}
+          </p>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-gray-400">
+              Per page
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="rounded border border-groove-600 bg-groove-800 px-2 py-1 text-white focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+              >
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="rounded border border-groove-600 bg-groove-800 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-groove-700 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-400">
+              Page {page} of {Math.max(1, Math.ceil(totalCount / pageSize))}
+            </span>
+            <button
+              type="button"
+              disabled={page >= Math.ceil(totalCount / pageSize)}
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded border border-groove-600 bg-groove-800 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-groove-700 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

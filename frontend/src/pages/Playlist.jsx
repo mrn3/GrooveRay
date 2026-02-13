@@ -46,7 +46,7 @@ export default function Playlist() {
   }, [fetchPlaylist]);
 
   useEffect(() => {
-    songsApi.listPublic().then(setSongsForAdd).catch(() => setSongsForAdd([]));
+    songsApi.listPublic({ limit: 200 }).then((data) => setSongsForAdd(data?.items ?? [])).catch(() => setSongsForAdd([]));
   }, []);
 
   useEffect(() => {
