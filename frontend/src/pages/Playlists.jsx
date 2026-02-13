@@ -352,8 +352,12 @@ export default function Playlists() {
                 to={linkTo(pl)}
                 className="flex items-center gap-3 px-6 py-3 transition hover:bg-groove-800"
               >
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-groove-700 text-ray-500">
-                  <span className="text-xl">♫</span>
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-500">
+                  {pl.thumbnail_url ? (
+                    <img src={pl.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-xl">♫</span>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-white">{pl.name}</p>

@@ -254,7 +254,7 @@ router.patch('/:id', authMiddleware, async (req, res) => {
   const playlist = await db.get('SELECT * FROM playlists WHERE id = ?', [req.params.id]);
   if (!playlist) return res.status(404).json({ error: 'Playlist not found' });
   if (playlist.user_id !== req.userId) return res.status(403).json({ error: 'Only the owner can edit this playlist' });
-  const { name, description, is_public, slug } = req.body || {};
+  const { name, description, is_public, slug, thumbnail_url } = req.body || {};
   const updates = [];
   const params = [];
   if (typeof name === 'string' && name.trim()) {
@@ -268,6 +268,10 @@ router.patch('/:id', authMiddleware, async (req, res) => {
   if (typeof is_public === 'boolean') {
     updates.push('is_public = ?');
     params.push(is_public ? 1 : 0);
+  }
+  if (typeof thumbnail_url !== 'undefined') {
+    updates.push('thumbnail_url = ?');
+    params.push(thumbnail_url === null || thumbnail_url === '' ? null : String(thumbnail_url).trim());
   }
   if (typeof slug === 'string') {
     const s = slug.trim() || null;

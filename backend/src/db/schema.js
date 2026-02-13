@@ -246,6 +246,9 @@ async function ensureSchema() {
     await exec('ALTER TABLE stations ADD COLUMN image_url TEXT');
   } catch (_) {}
   try {
+    await exec('ALTER TABLE playlists ADD COLUMN thumbnail_url TEXT');
+  } catch (_) {}
+  try {
     await exec('ALTER TABLE users ADD COLUMN name VARCHAR(255) NULL');
   } catch (_) {}
   try {

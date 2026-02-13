@@ -24,6 +24,7 @@ export default function Playlist() {
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
+  const [editThumbnail, setEditThumbnail] = useState('');
   const [editPublic, setEditPublic] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -139,6 +140,7 @@ export default function Playlist() {
       const updated = await playlistsApi.update(playlist.id, {
         name: editName.trim(),
         description: editDesc.trim() || null,
+        thumbnail_url: editThumbnail.trim() || null,
         is_public: editPublic,
       });
       setPlaylist(updated);
@@ -189,8 +191,28 @@ export default function Playlist() {
       <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="mb-4 flex items-center gap-4">
-            <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-groove-700 text-3xl text-ray-500">
-              ♫
+            <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-groove-700 text-3xl text-ray-500">
+              {playlist.thumbnail_url ? (
+                <img src={playlist.thumbnail_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span>♫</span>
+              )}
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditName(playlist.name);
+                    setEditDesc(playlist.description || '');
+                    setEditThumbnail(playlist.thumbnail_url || '');
+                    setEditPublic(!!playlist.is_public);
+                    setEditOpen(true);
+                  }}
+                  className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/60 text-xs font-medium text-white opacity-0 transition hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ray-500"
+                  title="Edit playlist (including thumbnail)"
+                >
+                  Edit
+                </button>
+              )}
             </div>
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold text-white">{playlist.name}</h1>
@@ -220,6 +242,7 @@ export default function Playlist() {
                   onClick={() => {
                     setEditName(playlist.name);
                     setEditDesc(playlist.description || '');
+                    setEditThumbnail(playlist.thumbnail_url || '');
                     setEditPublic(!!playlist.is_public);
                     setEditOpen(true);
                   }}
@@ -396,6 +419,16 @@ export default function Playlist() {
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
                   className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Thumbnail image URL</label>
+                <input
+                  type="url"
+                  value={editThumbnail}
+                  onChange={(e) => setEditThumbnail(e.target.value)}
+                  placeholder="https://…"
+                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500"
                 />
               </div>
               <label className="flex cursor-pointer items-center gap-2">
