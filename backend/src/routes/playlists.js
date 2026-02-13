@@ -431,22 +431,35 @@ router.get('/:id/ratings', optionalAuth, async (req, res) => {
   const p = await db.get('SELECT id, user_id, is_public FROM playlists WHERE id = ?', [req.params.id]);
   if (!p) return res.status(404).json({ error: 'Playlist not found' });
   if (!canAccess(p, req.userId)) return res.status(404).json({ error: 'Playlist not found' });
-  const rows = await db.all(
-    `SELECT r.user_id, r.rating, r.updated_at, u.username
-     FROM user_playlist_ratings r
-     JOIN users u ON u.id = r.user_id
-     WHERE r.playlist_id = ?
-     ORDER BY r.updated_at DESC`,
-    [req.params.id]
-  );
-  const summary = await db.get(
-    `SELECT AVG(rating) as avg_rating, COUNT(*) as rating_count FROM user_playlist_ratings WHERE playlist_id = ?`,
-    [req.params.id]
-  );
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const offset = (page - 1) * limit;
+  const [rows, summary, totalRow] = await Promise.all([
+    db.all(
+      `SELECT r.user_id, r.rating, r.updated_at, u.username
+       FROM user_playlist_ratings r
+       JOIN users u ON u.id = r.user_id
+       WHERE r.playlist_id = ?
+       ORDER BY r.updated_at DESC
+       LIMIT ? OFFSET ?`,
+      [req.params.id, limit, offset]
+    ),
+    db.get(
+      `SELECT AVG(rating) as avg_rating, COUNT(*) as rating_count FROM user_playlist_ratings WHERE playlist_id = ?`,
+      [req.params.id]
+    ),
+    db.get(
+      `SELECT COUNT(*) as total FROM user_playlist_ratings WHERE playlist_id = ?`,
+      [req.params.id]
+    ),
+  ]);
   res.json({
     avg_rating: summary?.avg_rating ?? null,
     rating_count: summary?.rating_count ?? 0,
     ratings: rows,
+    total: totalRow?.total ?? 0,
+    page,
+    limit,
   });
 });
 
@@ -460,6 +473,10 @@ router.post('/:id/played', authMiddleware, async (req, res) => {
      VALUES (?, ?, 1)
      ON DUPLICATE KEY UPDATE listen_count = listen_count + 1`,
     [req.userId, req.params.id]
+  );
+  await db.run(
+    `INSERT INTO playlist_listen_events (id, playlist_id, user_id, played_at) VALUES (?, ?, ?, NOW())`,
+    [uuid(), req.params.id, req.userId]
   );
   res.status(204).send();
 });
@@ -484,6 +501,66 @@ router.get('/:id/listens', optionalAuth, async (req, res) => {
     total_listen_count: total?.total ?? 0,
     by_user: byUser,
   });
+});
+
+// Listens over time for charts: ?period=day|week|month&scope=me|all
+router.get('/:id/listens/history', optionalAuth, async (req, res) => {
+  const p = await db.get('SELECT id, user_id, is_public FROM playlists WHERE id = ?', [req.params.id]);
+  if (!p) return res.status(404).json({ error: 'Playlist not found' });
+  if (!canAccess(p, req.userId)) return res.status(404).json({ error: 'Playlist not found' });
+  const period = ['day', 'week', 'month'].includes(req.query.period) ? req.query.period : 'day';
+  const scope = req.query.scope === 'me' ? 'me' : 'all';
+  if (scope === 'me' && !req.userId) return res.status(401).json({ error: 'Sign in to see your listens' });
+
+  const dateGroup =
+    period === 'day'
+      ? 'DATE(e.played_at)'
+      : period === 'week'
+        ? "DATE_SUB(DATE(e.played_at), INTERVAL WEEKDAY(e.played_at) DAY)"
+        : "DATE_FORMAT(e.played_at, '%Y-%m-01')";
+  const userFilter = scope === 'me' ? 'AND e.user_id = ?' : '';
+  const params = [req.params.id];
+  if (scope === 'me') params.push(req.userId);
+
+  const buckets = await db.all(
+    `SELECT ${dateGroup} AS bucket_date, COUNT(*) AS count
+     FROM playlist_listen_events e
+     WHERE e.playlist_id = ? ${userFilter}
+     GROUP BY bucket_date
+     ORDER BY bucket_date ASC`,
+    params
+  );
+
+  const eventDateCond =
+    period === 'day'
+      ? 'DATE(e.played_at) = ?'
+      : period === 'week'
+        ? 'DATE_SUB(DATE(e.played_at), INTERVAL WEEKDAY(e.played_at) DAY) = ?'
+        : "DATE_FORMAT(e.played_at, '%Y-%m-01') = ?";
+
+  const result = [];
+  for (const b of buckets) {
+    const bucketDate = b.bucket_date;
+    const eventParams = [req.params.id];
+    if (scope === 'me') eventParams.push(req.userId);
+    eventParams.push(bucketDate);
+    const events = await db.all(
+      `SELECT e.played_at, u.username
+       FROM playlist_listen_events e
+       JOIN users u ON u.id = e.user_id
+       WHERE e.playlist_id = ? ${scope === 'me' ? 'AND e.user_id = ?' : ''} AND ${eventDateCond}
+       ORDER BY e.played_at DESC`,
+      eventParams
+    );
+    result.push({
+      label: String(bucketDate),
+      date: bucketDate,
+      count: b.count,
+      events: events.map((ev) => ({ username: ev.username, played_at: ev.played_at })),
+    });
+  }
+
+  res.json({ buckets: result });
 });
 
 export default router;

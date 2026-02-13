@@ -4,6 +4,56 @@ import { playlists as playlistsApi, songs as songsApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 
+function formatRatingDate(updatedAt) {
+  if (!updatedAt) return '—';
+  const d = new Date(updatedAt);
+  return d.toLocaleDateString(undefined, { dateStyle: 'medium' });
+}
+
+function ListenChart({ buckets, scope, hoverBucket, onHover, onHoverScope, onHoverEnd }) {
+  const maxCount = Math.max(1, ...buckets.map((b) => b.count));
+  return (
+    <div className="relative flex items-end gap-0.5" style={{ minHeight: 32 }}>
+      {buckets.length === 0 ? (
+        <span className="text-xs text-gray-500">No data for this period</span>
+      ) : (
+        buckets.map((bucket) => {
+          const isHovered = hoverBucket && hoverBucket.date === bucket.date && hoverBucket.label === bucket.label;
+          return (
+            <div
+              key={bucket.label}
+              className="group relative flex-1 min-w-0 flex flex-col items-center"
+              onMouseEnter={() => {
+                onHoverScope();
+                onHover(bucket);
+              }}
+              onMouseLeave={onHoverEnd}
+            >
+              <div
+                className="w-full rounded-t bg-groove-600 transition hover:bg-ray-500"
+                style={{ height: Math.max(4, (bucket.count / maxCount) * 28) }}
+                title={`${bucket.label}: ${bucket.count} play${bucket.count !== 1 ? 's' : ''}`}
+              />
+              {isHovered && bucket.events && bucket.events.length > 0 && (
+                <div className="absolute bottom-full left-1/2 z-50 mb-1 w-56 -translate-x-1/2 rounded-lg border border-groove-600 bg-groove-900 p-2 shadow-xl">
+                  <p className="mb-2 text-xs font-medium text-gray-300">{bucket.label}</p>
+                  <ul className="max-h-40 overflow-auto text-xs text-gray-400 space-y-1">
+                    {bucket.events.map((ev, i) => (
+                      <li key={i}>
+                        {ev.username} — {ev.played_at ? new Date(ev.played_at).toLocaleString() : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
 export default function Playlist() {
   const { id, slug } = useParams();
   const navigate = useNavigate();
@@ -16,8 +66,15 @@ export default function Playlist() {
   const [shareCopied, setShareCopied] = useState(false);
   const [ratingsOpen, setRatingsOpen] = useState(false);
   const [ratingsData, setRatingsData] = useState(null);
+  const [ratingsPage, setRatingsPage] = useState(1);
+  const RATINGS_PAGE_SIZE = 10;
   const [listensOpen, setListensOpen] = useState(false);
   const [listensData, setListensData] = useState(null);
+  const [listensPeriod, setListensPeriod] = useState('day');
+  const [myListensHistory, setMyListensHistory] = useState(null);
+  const [totalListensHistory, setTotalListensHistory] = useState(null);
+  const [listensHoverBucket, setListensHoverBucket] = useState(null);
+  const [listensHoverScope, setListensHoverScope] = useState(null);
   const [addTrackOpen, setAddTrackOpen] = useState(false);
   const [addTrackInput, setAddTrackInput] = useState('');
   const [songsForAdd, setSongsForAdd] = useState([]);
@@ -167,7 +224,15 @@ export default function Playlist() {
   const handleLoadRatings = () => {
     if (!playlist?.id) return;
     setRatingsOpen(true);
-    if (!ratingsData) playlistsApi.ratings(playlist.id).then(setRatingsData).catch(() => setRatingsData({ ratings: [] }));
+    setRatingsPage(1);
+    setRatingsData(null);
+    playlistsApi.ratings(playlist.id, { page: 1, limit: RATINGS_PAGE_SIZE }).then(setRatingsData).catch(() => setRatingsData({ ratings: [], total: 0 }));
+  };
+
+  const loadRatingsPage = (page) => {
+    if (!playlist?.id) return;
+    setRatingsPage(page);
+    playlistsApi.ratings(playlist.id, { page, limit: RATINGS_PAGE_SIZE }).then(setRatingsData).catch(() => {});
   };
 
   const handleLoadListens = () => {
@@ -175,6 +240,16 @@ export default function Playlist() {
     setListensOpen(true);
     if (!listensData) playlistsApi.listens(playlist.id).then(setListensData).catch(() => setListensData({ by_user: [] }));
   };
+
+  useEffect(() => {
+    if (!playlist?.id || !user) return;
+    playlistsApi.listensHistory(playlist.id, { period: listensPeriod, scope: 'me' }).then(setMyListensHistory).catch(() => setMyListensHistory({ buckets: [] }));
+  }, [playlist?.id, user, listensPeriod]);
+
+  useEffect(() => {
+    if (!playlist?.id) return;
+    playlistsApi.listensHistory(playlist.id, { period: listensPeriod, scope: 'all' }).then(setTotalListensHistory).catch(() => setTotalListensHistory({ buckets: [] }));
+  }, [playlist?.id, listensPeriod]);
 
   const addTrackQuery = addTrackInput.trim().toLowerCase();
   const addSuggestions = addTrackQuery
@@ -312,15 +387,55 @@ export default function Playlist() {
             )}
             {playlist.community_rating_count > 0 && (
               <span className="text-sm text-gray-400">
-                Everyone: ★ {Number(playlist.community_avg_rating).toFixed(1)} ({playlist.community_rating_count} ratings)
+                Everyone: ★ {Number(playlist.community_avg_rating).toFixed(1)}{' '}
+                <button
+                  type="button"
+                  onClick={handleLoadRatings}
+                  className="text-ray-400 underline hover:text-ray-300"
+                >
+                  ({playlist.community_rating_count} ratings)
+                </button>
               </span>
             )}
-            <span className="text-sm text-gray-500">
-              My listens: {playlist.listen_count ?? 0}
-            </span>
-            <span className="text-sm text-gray-500">
-              Total plays: {playlist.total_listen_count ?? 0}
-            </span>
+            <div className="w-full flex flex-col gap-2">
+              <div className="flex items-center gap-3 text-sm text-gray-500">
+                <span>By:</span>
+                {['day', 'week', 'month'].map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setListensPeriod(p)}
+                    className={`capitalize ${listensPeriod === p ? 'text-ray-400 font-medium' : 'hover:text-gray-300'}`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-6">
+                <div className="flex flex-col gap-1 text-sm text-gray-500 min-w-[140px]">
+                  <span>My listens: {playlist.listen_count ?? 0}</span>
+                  <ListenChart
+                    buckets={myListensHistory?.buckets ?? []}
+                    scope="me"
+                    hoverBucket={listensHoverScope === 'me' ? listensHoverBucket : null}
+                    onHover={setListensHoverBucket}
+                    onHoverScope={() => setListensHoverScope('me')}
+                    onHoverEnd={() => { setListensHoverBucket(null); setListensHoverScope(null); }}
+                  />
+                </div>
+                <div className="flex flex-col gap-1 text-sm text-gray-500 min-w-[140px]">
+                  <span>Total plays: {playlist.total_listen_count ?? 0}</span>
+                  <ListenChart
+                    buckets={totalListensHistory?.buckets ?? []}
+                    scope="all"
+                    hoverBucket={listensHoverScope === 'all' ? listensHoverBucket : null}
+                    onHover={setListensHoverBucket}
+                    onHoverScope={() => setListensHoverScope('all')}
+                    onHoverEnd={() => { setListensHoverBucket(null); setListensHoverScope(null); }}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -484,12 +599,36 @@ export default function Playlist() {
                 )}
                 <ul className="space-y-2">
                   {ratingsData.ratings?.map((r) => (
-                    <li key={r.user_id} className="flex justify-between rounded-lg bg-groove-800 px-3 py-2 text-sm">
+                    <li key={r.user_id} className="flex items-center justify-between gap-2 rounded-lg bg-groove-800 px-3 py-2 text-sm">
                       <span className="text-gray-300">{r.username}</span>
                       <span className="text-amber-400">★ {r.rating}</span>
+                      <span className="text-xs text-gray-500">{formatRatingDate(r.updated_at)}</span>
                     </li>
                   ))}
                 </ul>
+                {ratingsData.total > RATINGS_PAGE_SIZE && (
+                  <div className="mt-4 flex items-center justify-between text-sm">
+                    <button
+                      type="button"
+                      disabled={ratingsPage <= 1}
+                      onClick={() => loadRatingsPage(ratingsPage - 1)}
+                      className="rounded px-3 py-1 text-gray-400 hover:text-white disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-gray-400">
+                      Page {ratingsPage} of {Math.ceil((ratingsData.total || 0) / RATINGS_PAGE_SIZE)}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={ratingsPage >= Math.ceil((ratingsData.total || 0) / RATINGS_PAGE_SIZE)}
+                      onClick={() => loadRatingsPage(ratingsPage + 1)}
+                      className="rounded px-3 py-1 text-gray-400 hover:text-white disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <p className="text-gray-500">Loading…</p>

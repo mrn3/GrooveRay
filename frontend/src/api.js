@@ -172,7 +172,8 @@ export const playlists = {
     }),
   setRating: (id, rating) =>
     request(`/playlists/${id}/rating`, { method: 'PATCH', body: JSON.stringify({ rating }) }),
-  ratings: (id) => request(`/playlists/${id}/ratings`),
+  ratings: (id, params) => request(`/playlists/${id}/ratings${buildSearchParams(params)}`),
   recordPlay: (id) => request(`/playlists/${id}/played`, { method: 'POST' }),
   listens: (id) => request(`/playlists/${id}/listens`),
+  listensHistory: (id, params) => request(`/playlists/${id}/listens/history${buildSearchParams(params)}`),
 };

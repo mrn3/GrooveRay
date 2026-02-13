@@ -5,8 +5,8 @@ import { useAuth } from '../context/AuthContext';
 
 const TABS = [
   { id: 'all', label: 'All Playlists' },
-  { id: 'mine', label: 'My Contributions' },
-  { id: 'contributions', label: 'My Playlists' },
+  { id: 'mine', label: 'My Playlists' },
+  { id: 'contributions', label: 'My Contributions' },
 ];
 
 export default function Playlists() {
