@@ -63,6 +63,65 @@ function canAccess(playlist, userId) {
   return userId && playlist.user_id === userId;
 }
 
+function parsePlaylistQuery(query) {
+  const name = typeof query.name === 'string' ? query.name.trim() : '';
+  const sortBy = ['name', 'track_count', 'community_avg_rating', 'total_listen_count', 'created_at'].includes(query.sortBy)
+    ? query.sortBy
+    : null;
+  const sortOrder = query.sortOrder === 'asc' || query.sortOrder === 'desc' ? query.sortOrder : 'desc';
+  const page = query.page != null ? Math.max(1, parseInt(query.page, 10)) : 1;
+  const limitRaw = query.limit != null ? parseInt(query.limit, 10) : 20;
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(100, Math.max(1, limitRaw)) : 20;
+  const contributions = query.contributions === '1' || query.contributions === true;
+  const minTracks = query.minTracks != null ? parseInt(query.minTracks, 10) : null;
+  const minListens = query.minListens != null ? parseInt(query.minListens, 10) : null;
+  const minRating = query.minRating != null ? parseFloat(query.minRating) : null;
+  return {
+    name: name || null,
+    sortBy,
+    sortOrder,
+    page: Number.isFinite(page) ? page : 1,
+    limit,
+    contributions,
+    minTracks: Number.isFinite(minTracks) && minTracks >= 0 ? minTracks : null,
+    minListens: Number.isFinite(minListens) && minListens >= 0 ? minListens : null,
+    minRating: Number.isFinite(minRating) && minRating >= 0 && minRating <= 5 ? minRating : null,
+  };
+}
+
+function applyPlaylistFilterSort(list, opts) {
+  let out = list;
+  if (opts.name) {
+    const n = opts.name.toLowerCase();
+    out = out.filter((p) => (p.name || '').toLowerCase().includes(n));
+  }
+  if (opts.minTracks != null) out = out.filter((p) => (p.track_count ?? 0) >= opts.minTracks);
+  if (opts.minListens != null) out = out.filter((p) => (p.total_listen_count ?? 0) >= opts.minListens);
+  if (opts.minRating != null) out = out.filter((p) => (p.community_avg_rating ?? 0) >= opts.minRating);
+  if (opts.sortBy) {
+    const key = opts.sortBy;
+    const mult = opts.sortOrder === 'asc' ? 1 : -1;
+    out = [...out].sort((a, b) => {
+      let va = a[key];
+      let vb = b[key];
+      if (key === 'name') {
+        va = (va || '').toLowerCase();
+        vb = (vb || '').toLowerCase();
+        return mult * (va < vb ? -1 : va > vb ? 1 : 0);
+      }
+      if (key === 'created_at') {
+        va = new Date(va || 0).getTime();
+        vb = new Date(vb || 0).getTime();
+        return mult * (va - vb);
+      }
+      va = Number(va) ?? 0;
+      vb = Number(vb) ?? 0;
+      return mult * (va - vb);
+    });
+  }
+  return out;
+}
+
 router.post('/', authMiddleware, async (req, res) => {
   const { name, description, is_public } = req.body || {};
   if (!name?.trim()) return res.status(400).json({ error: 'Playlist name required' });
@@ -79,6 +138,14 @@ router.post('/', authMiddleware, async (req, res) => {
 });
 
 router.get('/', authMiddleware, async (req, res) => {
+  const opts = parsePlaylistQuery(req.query);
+  const where = ['p.user_id = ?'];
+  const params = [req.userId];
+  if (opts.contributions) where.push('p.is_public = 1');
+  if (opts.name) {
+    where.push('p.name LIKE ?');
+    params.push(`%${opts.name}%`);
+  }
   const list = await db.all(
     `SELECT p.*, u.username as owner_name,
       (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = p.id) as track_count,
@@ -87,9 +154,9 @@ router.get('/', authMiddleware, async (req, res) => {
       (SELECT COALESCE(SUM(listen_count), 0) FROM user_playlist_listens WHERE playlist_id = p.id) as total_listen_count
      FROM playlists p
      JOIN users u ON u.id = p.user_id
-     WHERE p.user_id = ?
+     WHERE ${where.join(' AND ')}
      ORDER BY p.created_at DESC`,
-    [req.userId]
+    params
   );
   const withMyStats = await Promise.all(
     list.map(async (row) => {
@@ -108,10 +175,21 @@ router.get('/', authMiddleware, async (req, res) => {
       };
     })
   );
-  res.json(withMyStats);
+  const filtered = applyPlaylistFilterSort(withMyStats, opts);
+  const total = filtered.length;
+  const start = (opts.page - 1) * opts.limit;
+  const items = filtered.slice(start, start + opts.limit);
+  res.json({ items, total });
 });
 
 router.get('/public', optionalAuth, async (req, res) => {
+  const opts = parsePlaylistQuery(req.query);
+  const where = ['p.is_public = 1'];
+  const params = [];
+  if (opts.name) {
+    where.push('p.name LIKE ?');
+    params.push(`%${opts.name}%`);
+  }
   const list = await db.all(
     `SELECT p.*, u.username as owner_name,
       (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = p.id) as track_count,
@@ -120,28 +198,34 @@ router.get('/public', optionalAuth, async (req, res) => {
       (SELECT COALESCE(SUM(listen_count), 0) FROM user_playlist_listens WHERE playlist_id = p.id) as total_listen_count
      FROM playlists p
      JOIN users u ON u.id = p.user_id
-     WHERE p.is_public = 1
-     ORDER BY p.created_at DESC`
+     WHERE ${where.join(' AND ')}
+     ORDER BY p.created_at DESC`,
+    params
   );
-  if (!req.userId) return res.json(list);
-  const withMyStats = await Promise.all(
-    list.map(async (row) => {
-      const myRating = await db.get(
-        'SELECT rating FROM user_playlist_ratings WHERE user_id = ? AND playlist_id = ?',
-        [req.userId, row.id]
-      );
-      const myListens = await db.get(
-        'SELECT listen_count FROM user_playlist_listens WHERE user_id = ? AND playlist_id = ?',
-        [req.userId, row.id]
-      );
-      return {
-        ...row,
-        rating: myRating?.rating ?? null,
-        listen_count: myListens?.listen_count ?? 0,
-      };
-    })
-  );
-  res.json(withMyStats);
+  const withMyStats = req.userId
+    ? await Promise.all(
+        list.map(async (row) => {
+          const myRating = await db.get(
+            'SELECT rating FROM user_playlist_ratings WHERE user_id = ? AND playlist_id = ?',
+            [req.userId, row.id]
+          );
+          const myListens = await db.get(
+            'SELECT listen_count FROM user_playlist_listens WHERE user_id = ? AND playlist_id = ?',
+            [req.userId, row.id]
+          );
+          return {
+            ...row,
+            rating: myRating?.rating ?? null,
+            listen_count: myListens?.listen_count ?? 0,
+          };
+        })
+      )
+    : list.map((row) => ({ ...row, rating: null, listen_count: 0 }));
+  const filtered = applyPlaylistFilterSort(withMyStats, opts);
+  const total = filtered.length;
+  const start = (opts.page - 1) * opts.limit;
+  const items = filtered.slice(start, start + opts.limit);
+  res.json({ items, total });
 });
 
 router.get('/by-slug/:slug', optionalAuth, async (req, res) => {
