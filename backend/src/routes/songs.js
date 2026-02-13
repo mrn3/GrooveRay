@@ -227,7 +227,14 @@ router.get('/:id', async (req, res) => {
     [req.params.id]
   );
   if (!song) return res.status(404).json({ error: 'Song not found' });
-  res.json(song);
+  const totalRow = await db.get(
+    `SELECT COALESCE(SUM(listen_count), 0) as total_listen_count FROM user_song_listens WHERE song_id = ?`,
+    [req.params.id]
+  );
+  song.total_listen_count = totalRow?.total_listen_count ?? 0;
+  const [withCommunity] = await attachCommunityRatings([song]);
+  const [withStats] = await attachUserStats([withCommunity], req.userId);
+  res.json(withStats);
 });
 
 router.patch('/:id', async (req, res) => {
