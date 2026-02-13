@@ -50,7 +50,7 @@ export default function Songs() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
-  const { play } = usePlayer();
+  const { play, toggle, current, playing } = usePlayer();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -935,9 +935,28 @@ export default function Songs() {
             {list.map((song) => (
             <div
               key={song.id}
-              className="flex cursor-pointer items-center gap-3 px-6 py-3 transition hover:bg-groove-800"
+              className={`flex cursor-pointer items-center gap-3 px-6 py-3 transition hover:bg-groove-800 ${current?.id === song.id ? 'bg-groove-800/80' : ''}`}
               onClick={() => play(song)}
             >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (current?.id === song.id && playing) {
+                    toggle();
+                  } else {
+                    play(song);
+                  }
+                }}
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-groove-700 text-ray-400 hover:bg-groove-600"
+                aria-label={current?.id === song.id && playing ? 'Pause' : 'Play'}
+              >
+                {current?.id === song.id && playing ? (
+                  <span className="text-sm">⏸</span>
+                ) : (
+                  <span className="text-sm">▶</span>
+                )}
+              </button>
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
                 {song.thumbnail_url ? (
                   <img src={song.thumbnail_url} alt="" className="h-full w-full object-cover" />
