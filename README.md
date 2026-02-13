@@ -75,7 +75,7 @@ Users can log in with Google in addition to username/password. To enable it:
 3. Set these environment variables on the backend:
    - `GOOGLE_CLIENT_ID` — OAuth client ID
    - `GOOGLE_CLIENT_SECRET` — OAuth client secret
-   - `FRONTEND_URL` — Where the frontend is served (e.g. `https://grooveray.funkpad.com`), used to redirect after login
+   - `FRONTEND_URL` — Where the frontend is served (e.g. `https://grooveray.com`), used to redirect after login
    - `API_URL` — Full backend URL (e.g. `https://your-api-host`) so the redirect_uri sent to Google is correct
 
 The login page will show a **Sign in with Google** button when these are set.

@@ -2,13 +2,13 @@
 # Obtain Let's Encrypt cert using Bitnami's lego (avoids bncert TLS-ALPN-01 failure).
 # Use this when bncert fails with "TLS-ALPN-01" or "Error getting validation data".
 #
-# Prerequisite: http://grooveray.funkpad.com must reach THIS server (no proxy).
-#   - If using Cloudflare: set DNS to "DNS only" (grey cloud) for grooveray.funkpad.com.
+# Prerequisite: http://grooveray.com must reach THIS server (no proxy).
+#   - If using Cloudflare: set DNS to "DNS only" (grey cloud) for grooveray.com.
 #
 # Run on server: sudo bash ssl-with-lego.sh
 
 set -e
-DOMAIN="grooveray.funkpad.com"
+DOMAIN="grooveray.com"
 EMAIL="${LEC_EMAIL:-mattrobertnewman@gmail.com}"
 LEGO_PATH="/opt/bitnami/letsencrypt"
 WEBROOT="/opt/bitnami/apache/htdocs"

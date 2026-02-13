@@ -1,4 +1,4 @@
-# SSL for grooveray.funkpad.com (Bitnami)
+# SSL for grooveray.com (Bitnami)
 
 ## Why bncert fails with "TLS-ALPN-01" / "Error getting validation data"
 
@@ -9,13 +9,13 @@
 ## What to do
 
 1. **Make the domain point straight at this server (no proxy)**  
-   - In Cloudflare: set the record for `grooveray.funkpad.com` to **DNS only** (grey cloud).  
+   - In Cloudflare: set the record for `grooveray.com` to **DNS only** (grey cloud).  
    - Ensure port 80 (and 443 if you use TLS-ALPN) reaches this machine.
 
 2. **Option A – Use lego with HTTP-01 (recommended)**  
    - On the server: `sudo bash /path/to/ssl-with-lego.sh`  
    - This uses **HTTP-01** only (no TLS-ALPN-01), so Apache can stay on 443.  
-   - Requires `http://grooveray.funkpad.com` to reach this server (see step 1).
+   - Requires `http://grooveray.com` to reach this server (see step 1).
 
 3. **Option B – Use certbot (existing script)**  
    - On the server: `sudo bash fix-ssl-grooveray.sh`  

@@ -1,12 +1,12 @@
 #!/bin/bash
-# Fix SSL for grooveray.funkpad.com on Bitnami Apache
+# Fix SSL for grooveray.com on Bitnami Apache
 # Run on server: sudo bash fix-ssl-grooveray.sh
 # Optional: set LEC_EMAIL=your@email.com before running (for Let's Encrypt)
 
 set -e
-DOMAIN="grooveray.funkpad.com"
+DOMAIN="grooveray.com"
 WEBROOT="/opt/bitnami/apache/htdocs"
-EMAIL="${LEC_EMAIL:-admin@funkpad.com}"
+EMAIL="${LEC_EMAIL:-admin@grooveray.com}"
 APACHE_CONF="/opt/bitnami/apache2/conf/bitnami/bitnami-ssl.conf"
 CERTS_DIR="/opt/bitnami/apache2/conf/bitnami/certs"
 

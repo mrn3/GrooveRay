@@ -13,8 +13,8 @@
 set -e
 
 GOOGLE_CLIENT_ID='772324541703-q8nbp99up6vu7ucoev5csrlr17c6c0so.apps.googleusercontent.com'
-FRONTEND_URL='https://grooveray.funkpad.com'
-API_URL='https://grooveray.funkpad.com'
+FRONTEND_URL='https://grooveray.com'
+API_URL='https://grooveray.com'
 
 # Client secret from env or first argument (never commit this)
 GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-${1}}"
