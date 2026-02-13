@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
 import db from '../db/schema.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
+import { fetchThumbnailForPlaylist } from '../services/playlistThumbnail.js';
 
 const router = Router();
 
@@ -126,10 +127,18 @@ router.post('/', authMiddleware, async (req, res) => {
   const { name, description, is_public } = req.body || {};
   if (!name?.trim()) return res.status(400).json({ error: 'Playlist name required' });
   const id = uuid();
+  const desc = (description && String(description).trim()) || null;
   await db.run(
     'INSERT INTO playlists (id, user_id, name, description, is_public) VALUES (?, ?, ?, ?, ?)',
-    [id, req.userId, name.trim(), (description && String(description).trim()) || null, is_public ? 1 : 0]
+    [id, req.userId, name.trim(), desc, is_public ? 1 : 0]
   );
+  let thumbnailUrl = null;
+  try {
+    thumbnailUrl = await fetchThumbnailForPlaylist(name.trim(), desc);
+    if (thumbnailUrl) {
+      await db.run('UPDATE playlists SET thumbnail_url = ? WHERE id = ?', [thumbnailUrl, id]);
+    }
+  } catch (_) {}
   const playlist = await db.get(
     `SELECT p.*, u.username as owner_name FROM playlists p JOIN users u ON u.id = p.user_id WHERE p.id = ?`,
     [id]
