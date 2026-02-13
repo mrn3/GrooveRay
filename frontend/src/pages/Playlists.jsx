@@ -137,7 +137,7 @@ export default function Playlists() {
               </button>
             ))}
           </nav>
-          {user && activeTab === 'mine' && (
+          {user && activeTab === 'contributions' && (
             <button
               type="button"
               onClick={() => setCreateModalOpen(true)}
