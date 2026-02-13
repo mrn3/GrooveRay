@@ -48,6 +48,7 @@ export const songs = {
   list: () => request('/songs'),
   listFavorites: () => request('/songs/favorites'),
   listPublic: () => request('/songs/public'),
+  artists: (q) => request(`/songs/artists${q != null && q !== '' ? `?q=${encodeURIComponent(q)}` : ''}`),
   get: (id) => request(`/songs/${id}`),
   setPublic: (id, isPublic) =>
     request(`/songs/${id}`, { method: 'PATCH', body: JSON.stringify({ is_public: isPublic }) }),

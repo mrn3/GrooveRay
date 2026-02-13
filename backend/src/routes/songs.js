@@ -195,6 +195,30 @@ router.get('/favorites', async (req, res) => {
   res.json(ordered);
 });
 
+router.get('/artists', async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const limit = 20;
+  let rows;
+  if (q) {
+    const pattern = `%${q}%`;
+    rows = await db.all(
+      `SELECT DISTINCT artist FROM songs
+       WHERE (user_id = ? OR is_public = 1) AND artist IS NOT NULL AND TRIM(artist) != ''
+       AND artist LIKE ?
+       ORDER BY artist LIMIT ?`,
+      [req.userId, pattern, limit]
+    );
+  } else {
+    rows = await db.all(
+      `SELECT DISTINCT artist FROM songs
+       WHERE (user_id = ? OR is_public = 1) AND artist IS NOT NULL AND TRIM(artist) != ''
+       ORDER BY artist LIMIT ?`,
+      [req.userId, limit]
+    );
+  }
+  res.json(rows.map((r) => r.artist));
+});
+
 router.post('/:id/played', async (req, res) => {
   const song = await db.get('SELECT id FROM songs WHERE id = ?', [req.params.id]);
   if (!song) return res.status(404).json({ error: 'Song not found' });

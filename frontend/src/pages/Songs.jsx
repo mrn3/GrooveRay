@@ -20,6 +20,12 @@ export default function Songs() {
   const [togglingId, setTogglingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
+  const [editArtist, setEditArtist] = useState('');
+  const [artistSuggestions, setArtistSuggestions] = useState([]);
+  const [artistDropdownOpen, setArtistDropdownOpen] = useState(false);
+  const [artistSuggestionsLoading, setArtistSuggestionsLoading] = useState(false);
+  const artistDropdownRef = useRef(null);
+  const artistDebounceRef = useRef(null);
   const [savingId, setSavingId] = useState(null);
   const [ratingId, setRatingId] = useState(null);
   const { play } = usePlayer();
@@ -72,26 +78,68 @@ export default function Songs() {
   const startRename = (e, song) => {
     e.stopPropagation();
     setEditingId(song.id);
-    setEditTitle(song.title);
+    setEditTitle(song.title ?? '');
+    setEditArtist(song.artist ?? '');
+    setArtistSuggestions([]);
+    setArtistDropdownOpen(false);
   };
 
   const cancelRename = (e) => {
     e?.stopPropagation();
     setEditingId(null);
     setEditTitle('');
+    setEditArtist('');
+    setArtistSuggestions([]);
+    setArtistDropdownOpen(false);
   };
+
+  // Fetch artist suggestions when editing and artist input changes (debounced)
+  useEffect(() => {
+    if (editingId == null) return;
+    if (artistDebounceRef.current) clearTimeout(artistDebounceRef.current);
+    artistDebounceRef.current = setTimeout(() => {
+      setArtistSuggestionsLoading(true);
+      const q = editArtist.trim();
+      songsApi.artists(q).then(setArtistSuggestions).catch(() => setArtistSuggestions([])).finally(() => setArtistSuggestionsLoading(false));
+    }, 200);
+    return () => {
+      if (artistDebounceRef.current) clearTimeout(artistDebounceRef.current);
+    };
+  }, [editingId, editArtist]);
+
+  // Close artist dropdown when clicking outside
+  useEffect(() => {
+    const onMouseDown = (e) => {
+      if (artistDropdownRef.current && !artistDropdownRef.current.contains(e.target)) {
+        setArtistDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, []);
 
   const handleRename = async (e, song) => {
     e?.stopPropagation();
     const newTitle = editTitle.trim();
-    if (!newTitle || newTitle === song.title) {
+    const newArtist = editArtist.trim();
+    const titleChanged = newTitle !== (song.title ?? '');
+    const artistChanged = newArtist !== (song.artist ?? '');
+    if (!titleChanged && !artistChanged) {
       cancelRename();
       return;
     }
+    if (!newTitle) {
+      setError('Title cannot be empty');
+      return;
+    }
     setSavingId(song.id);
+    setArtistDropdownOpen(false);
     try {
-      const updated = await songsApi.update(song.id, { title: newTitle });
-      setList((prev) => prev.map((s) => (s.id === song.id ? { ...s, title: updated.title } : s)));
+      const payload = {};
+      if (titleChanged) payload.title = newTitle;
+      if (artistChanged) payload.artist = newArtist;
+      const updated = await songsApi.update(song.id, payload);
+      setList((prev) => prev.map((s) => (s.id === song.id ? { ...s, title: updated.title, artist: updated.artist } : s)));
       cancelRename();
     } catch (err) {
       setError(err.message);
@@ -585,7 +633,7 @@ export default function Songs() {
               <div className="min-w-0 flex-1">
                 {editingId === song.id ? (
                   <form
-                    className="flex items-center gap-2"
+                    className="flex min-w-0 flex-1 flex-col gap-2"
                     onSubmit={(e) => handleRename(e, song)}
                     onClick={(e) => e.stopPropagation()}
                   >
@@ -593,29 +641,75 @@ export default function Songs() {
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      className="min-w-0 flex-1 rounded border border-groove-600 bg-groove-800 px-2 py-1 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                      className="min-w-0 rounded border border-groove-600 bg-groove-800 px-2 py-1 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
                       placeholder="Song title"
                       autoFocus
                       onKeyDown={(e) => e.key === 'Escape' && cancelRename()}
                     />
-                    <button
-                      type="submit"
-                      disabled={savingId === song.id || !editTitle.trim()}
-                      className="rounded bg-ray-600 px-2 py-1 text-xs font-medium text-white hover:bg-ray-500 disabled:opacity-50"
-                    >
-                      {savingId === song.id ? (
-                        <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      ) : (
-                        'Save'
+                    <div ref={artistDropdownRef} className="relative min-w-0">
+                      <input
+                        type="text"
+                        value={editArtist}
+                        onChange={(e) => {
+                          setEditArtist(e.target.value);
+                          setArtistDropdownOpen(true);
+                        }}
+                        onFocus={() => setArtistDropdownOpen(true)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') {
+                            setArtistDropdownOpen(false);
+                            cancelRename();
+                          }
+                        }}
+                        className="min-w-0 w-full rounded border border-groove-600 bg-groove-800 px-2 py-1 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                        placeholder="Artist (type to search or enter new)"
+                        autoComplete="off"
+                      />
+                      {artistDropdownOpen && (
+                        <ul className="absolute z-10 mt-1 max-h-40 min-w-full overflow-auto rounded border border-groove-600 bg-groove-800 py-1 shadow-lg">
+                          {artistSuggestionsLoading ? (
+                            <li className="px-3 py-2 text-sm text-gray-400">Searching…</li>
+                          ) : artistSuggestions.length > 0 ? (
+                            artistSuggestions.map((name) => (
+                              <li key={name}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditArtist(name);
+                                    setArtistDropdownOpen(false);
+                                  }}
+                                  className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-groove-600 focus:bg-groove-600 focus:outline-none"
+                                >
+                                  {name}
+                                </button>
+                              </li>
+                            ))
+                          ) : (
+                            <li className="px-3 py-2 text-sm text-gray-400">Type to search or enter a new artist</li>
+                          )}
+                        </ul>
                       )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelRename}
-                      className="rounded bg-groove-600 px-2 py-1 text-xs text-gray-300 hover:bg-groove-500"
-                    >
-                      Cancel
-                    </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="submit"
+                        disabled={savingId === song.id || !editTitle.trim() || (editTitle.trim() === (song.title ?? '') && editArtist.trim() === (song.artist ?? ''))}
+                        className="rounded bg-ray-600 px-2 py-1 text-xs font-medium text-white hover:bg-ray-500 disabled:opacity-50"
+                      >
+                        {savingId === song.id ? (
+                          <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        ) : (
+                          'Save'
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelRename}
+                        className="rounded bg-groove-600 px-2 py-1 text-xs text-gray-300 hover:bg-groove-500"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </form>
                 ) : (
                   <>
@@ -719,8 +813,8 @@ export default function Songs() {
                   {editingId !== song.id && (
                     <button
                       type="button"
-                      aria-label="Rename song"
-                      title="Rename"
+                      aria-label="Edit song"
+                      title="Edit"
                       className="flex-shrink-0 rounded p-1.5 text-gray-400 transition hover:bg-groove-700 hover:text-ray-400 focus:outline-none focus:ring-2 focus:ring-ray-500"
                       onClick={(e) => startRename(e, song)}
                     >
