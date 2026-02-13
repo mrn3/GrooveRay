@@ -78,12 +78,25 @@ export async function addYouTube(userId, url) {
   ];
 
   // YouTube often requires cookies to avoid "Sign in to confirm you're not a bot"
-  const cookiesFromBrowser = process.env.YTDLP_COOKIES_FROM_BROWSER;
-  const cookiesFile = process.env.YTDLP_COOKIES_FILE;
-  if (cookiesFromBrowser) {
-    args.push('--cookies-from-browser', cookiesFromBrowser);
-  } else if (cookiesFile && fs.existsSync(cookiesFile)) {
-    args.push('--cookies', cookiesFile);
+  // Prefer per-user cookies from profile; then env cookies file or browser
+  let cookiesFileToUse = null;
+  const user = await db.get('SELECT youtube_cookies FROM users WHERE id = ?', [userId]);
+  const userCookies = user?.youtube_cookies && String(user.youtube_cookies).trim();
+  if (userCookies) {
+    const userCookiesPath = path.join(jobDir, 'cookies.txt');
+    fs.writeFileSync(userCookiesPath, userCookies, 'utf8');
+    cookiesFileToUse = userCookiesPath;
+  }
+  if (!cookiesFileToUse) {
+    const cookiesFromBrowser = process.env.YTDLP_COOKIES_FROM_BROWSER;
+    const cookiesFile = process.env.YTDLP_COOKIES_FILE;
+    if (cookiesFromBrowser) {
+      args.push('--cookies-from-browser', cookiesFromBrowser);
+    } else if (cookiesFile && fs.existsSync(cookiesFile)) {
+      args.push('--cookies', cookiesFile);
+    }
+  } else {
+    args.push('--cookies', cookiesFileToUse);
   }
 
   args.push(normalizedUrl);

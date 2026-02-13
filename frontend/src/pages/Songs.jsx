@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { songs as songsApi, youtube as youtubeApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
@@ -23,6 +24,7 @@ export default function Songs() {
   const [ratingId, setRatingId] = useState(null);
   const { play } = usePlayer();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const fetchList = useCallback(() => {
     setLoading(true);
@@ -385,7 +387,7 @@ export default function Songs() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setAddMode('youtube')}
+                  onClick={() => setAddMode(user?.has_youtube_cookies ? 'youtube' : 'youtube_no_cookies')}
                   className="flex items-center gap-3 rounded-xl border border-groove-600 bg-groove-800/50 px-4 py-4 text-left transition hover:border-groove-500 hover:bg-groove-800 focus:outline-none focus:ring-2 focus:ring-ray-500"
                 >
                   <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-groove-700 text-ray-400">
@@ -397,6 +399,25 @@ export default function Songs() {
                     <p className="font-medium text-white">Add from YouTube</p>
                     <p className="text-sm text-gray-400">Paste a YouTube link to extract audio</p>
                   </div>
+                </button>
+              </div>
+            ) : addMode === 'youtube_no_cookies' ? (
+              <div className="space-y-4">
+                <p className="text-gray-300">
+                  To add songs from YouTube, you need to set up your YouTube cookies in your profile first.
+                </p>
+                <ol className="list-inside list-decimal space-y-2 text-sm text-gray-400">
+                  <li>Install a &quot;cookies.txt&quot; extension in Chrome (e.g. <strong className="text-gray-300">Get cookies.txt LOCALLY</strong>).</li>
+                  <li>Go to <a href="https://www.youtube.com" target="_blank" rel="noreferrer" className="text-ray-400 hover:underline">youtube.com</a> and sign in.</li>
+                  <li>Use the extension to export cookies in <strong className="text-gray-300">Netscape format</strong> and copy the text.</li>
+                  <li>Open your <strong className="text-gray-300">Profile</strong>, paste the cookies into the &quot;YouTube cookies&quot; field, and save.</li>
+                </ol>
+                <button
+                  type="button"
+                  onClick={() => { closeAddModal(); navigate('/profile'); }}
+                  className="rounded-lg bg-ray-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-ray-500"
+                >
+                  Open Profile to paste cookies
                 </button>
               </div>
             ) : addMode === 'upload' ? (

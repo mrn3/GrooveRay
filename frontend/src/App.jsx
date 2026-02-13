@@ -10,6 +10,7 @@ import Upload from './pages/Upload';
 import YouTube from './pages/YouTube';
 import Stations from './pages/Stations';
 import Station from './pages/Station';
+import Profile from './pages/Profile';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="youtube" element={<ProtectedRoute><YouTube /></ProtectedRoute>} />
           <Route path="stations" element={<Stations />} />
           <Route path="stations/:slugOrId" element={<ProtectedRoute><Station /></ProtectedRoute>} />
+          <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

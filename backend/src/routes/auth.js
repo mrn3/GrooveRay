@@ -57,11 +57,67 @@ router.get('/me', async (req, res) => {
   if (!auth?.startsWith('Bearer ')) return res.status(401).json({ error: 'Not authenticated' });
   try {
     const payload = jwt.verify(auth.slice(7), JWT_SECRET);
-    const user = await db.get('SELECT id, username, email FROM users WHERE id = ?', [payload.userId]);
+    const user = await db.get(
+      'SELECT id, username, email, name, location, google_id, youtube_cookies FROM users WHERE id = ?',
+      [payload.userId]
+    );
     if (!user) return res.status(401).json({ error: 'User not found' });
-    res.json(user);
+    const { youtube_cookies, ...rest } = user;
+    res.json({
+      ...rest,
+      has_google_account: !!user.google_id,
+      has_youtube_cookies: !!(youtube_cookies && String(youtube_cookies).trim()),
+    });
   } catch {
     res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+router.patch('/me', async (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith('Bearer ')) return res.status(401).json({ error: 'Not authenticated' });
+  try {
+    const payload = jwt.verify(auth.slice(7), JWT_SECRET);
+    const userId = payload.userId;
+    const { username, name, location, youtube_cookies } = req.body || {};
+    const updates = [];
+    const params = [];
+    if (typeof username === 'string') {
+      const u = username.trim();
+      if (!u) return res.status(400).json({ error: 'Username cannot be empty' });
+      const existing = await db.get('SELECT id FROM users WHERE username = ? AND id != ?', [u, userId]);
+      if (existing) return res.status(409).json({ error: 'Username already taken' });
+      updates.push('username = ?');
+      params.push(u);
+    }
+    if (typeof name === 'string') {
+      updates.push('name = ?');
+      params.push(name.trim() || null);
+    }
+    if (typeof location === 'string') {
+      updates.push('location = ?');
+      params.push(location.trim() || null);
+    }
+    if (youtube_cookies !== undefined) {
+      updates.push('youtube_cookies = ?');
+      params.push(typeof youtube_cookies === 'string' ? youtube_cookies.trim() || null : null);
+    }
+    if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
+    params.push(userId);
+    await db.run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
+    const user = await db.get(
+      'SELECT id, username, email, name, location, google_id, youtube_cookies FROM users WHERE id = ?',
+      [userId]
+    );
+    const { youtube_cookies: yc, ...rest } = user;
+    res.json({
+      ...rest,
+      has_google_account: !!user.google_id,
+      has_youtube_cookies: !!(yc && String(yc).trim()),
+    });
+  } catch (e) {
+    if (e.name === 'JsonWebTokenError') return res.status(401).json({ error: 'Invalid token' });
+    throw e;
   }
 });
 

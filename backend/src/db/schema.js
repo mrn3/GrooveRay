@@ -199,6 +199,15 @@ async function ensureSchema() {
   try {
     await exec('ALTER TABLE stations ADD COLUMN image_url TEXT');
   } catch (_) {}
+  try {
+    await exec('ALTER TABLE users ADD COLUMN name VARCHAR(255) NULL');
+  } catch (_) {}
+  try {
+    await exec('ALTER TABLE users ADD COLUMN location VARCHAR(255) NULL');
+  } catch (_) {}
+  try {
+    await exec('ALTER TABLE users ADD COLUMN youtube_cookies TEXT NULL');
+  } catch (_) {}
 }
 
 let schemaReady = null;

@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { youtube as youtubeApi } from '../api';
 
 export default function YouTube() {
+  const { user } = useAuth();
   const [url, setUrl] = useState('');
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -37,6 +40,17 @@ export default function YouTube() {
   return (
     <div>
       <h1 className="mb-6 text-2xl font-semibold text-white">YouTube</h1>
+      {user && !user.has_youtube_cookies && (
+        <div className="mb-6 rounded-xl border border-amber-600/50 bg-amber-500/10 p-4">
+          <p className="mb-2 font-medium text-amber-200">YouTube cookies not set</p>
+          <p className="mb-3 text-sm text-gray-400">
+            To add songs from YouTube, set up your cookies in your profile: install a &quot;cookies.txt&quot; extension (e.g. Get cookies.txt LOCALLY), go to YouTube, export cookies in Netscape format, then paste them in your profile.
+          </p>
+          <Link to="/profile" className="inline-block rounded-lg bg-ray-600 px-4 py-2 text-sm font-medium text-white hover:bg-ray-500">
+            Open Profile to set cookies
+          </Link>
+        </div>
+      )}
       <p className="mb-4 text-gray-400">
         Paste a YouTube music video link. We’ll extract the audio and add it to your library. The server needs <strong className="text-gray-300">yt-dlp</strong> and <strong className="text-gray-300">ffmpeg</strong> installed (e.g. <code className="rounded bg-groove-700 px-1 text-xs">brew install yt-dlp ffmpeg</code>).
       </p>

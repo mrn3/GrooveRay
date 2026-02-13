@@ -37,6 +37,8 @@ export const auth = {
   login: (username, password) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   me: () => request('/auth/me'),
+  updateProfile: (payload) =>
+    request('/auth/me', { method: 'PATCH', body: JSON.stringify(payload) }),
   /** Full URL to start Google OAuth (redirects away). Pass next path e.g. "/songs". */
   googleAuthUrl: (next = 'songs') => `${apiBase}/api/auth/google?next=${encodeURIComponent(next.startsWith('/') ? next : `/${next}`)}`,
 };

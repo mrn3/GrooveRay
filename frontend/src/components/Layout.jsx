@@ -33,7 +33,9 @@ export default function Layout() {
           <div className="flex items-center gap-3">
             {user ? (
               <>
-                <span className="text-sm text-gray-400">{user.username}</span>
+                <NavLink to="/profile" className="text-sm text-gray-400 hover:text-white">
+                  {user.name || user.username}
+                </NavLink>
                 <button
                   type="button"
                   onClick={logout}
