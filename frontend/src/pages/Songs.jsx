@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { songs as songsApi, youtube as youtubeApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
@@ -42,6 +42,15 @@ export default function Songs() {
     fetchList();
   }, [fetchList]);
 
+  useEffect(() => {
+    return () => {
+      if (youtubePollRef.current) {
+        clearInterval(youtubePollRef.current);
+        youtubePollRef.current = null;
+      }
+    };
+  }, []);
+
   // Add song modal
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addMode, setAddMode] = useState(null); // null | 'upload' | 'youtube'
@@ -56,6 +65,7 @@ export default function Songs() {
   // Shown in list while upload/YouTube is in progress (progress bar in row)
   const [uploadingItem, setUploadingItem] = useState(null); // { title, artist, progress: 0-100 } | null
   const [youtubePendingItem, setYoutubePendingItem] = useState(null); // { title: string } | null
+  const youtubePollRef = useRef(null);
 
   const startRename = (e, song) => {
     e.stopPropagation();
@@ -181,10 +191,35 @@ export default function Songs() {
     setYoutubeLoading(true);
     setAddMessage('');
     try {
-      await youtubeApi.add(url);
+      const { jobId } = await youtubeApi.add(url);
       setAddMessage('Download started — audio will be added to your library when ready.');
-      if (activeTab === 'mine') fetchList();
       setTimeout(closeAddModal, 1800);
+      if (activeTab === 'mine' && jobId) {
+        if (youtubePollRef.current) clearInterval(youtubePollRef.current);
+        const startedAt = Date.now();
+        const maxMs = 120000;
+        youtubePollRef.current = setInterval(async () => {
+          if (Date.now() - startedAt > maxMs) {
+            clearInterval(youtubePollRef.current);
+            youtubePollRef.current = null;
+            return;
+          }
+          try {
+            const jobs = await youtubeApi.jobs();
+            const job = jobs.find((j) => j.id === jobId);
+            if (!job) return;
+            if (job.status === 'completed') {
+              clearInterval(youtubePollRef.current);
+              youtubePollRef.current = null;
+              fetchList();
+            } else if (job.status === 'failed') {
+              clearInterval(youtubePollRef.current);
+              youtubePollRef.current = null;
+              setError(job.error_message || 'YouTube download failed');
+            }
+          } catch (_) {}
+        }, 3000);
+      }
     } catch (err) {
       setAddMessage(err.message || 'Failed to add YouTube link');
     } finally {
