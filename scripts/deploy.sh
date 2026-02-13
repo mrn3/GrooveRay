@@ -13,7 +13,9 @@
 set -e
 
 SSH_HOST="${SSH_HOST:-shared}"
-REPO_DIR="${REPO_DIR:-$HOME/GrooveRay}"
+# Default repo path on the *server* (use ~/GrooveRay so it works on the remote machine)
+REMOTE_REPO_DEFAULT='~/GrooveRay'
+REPO_DIR="${REPO_DIR:-$REMOTE_REPO_DEFAULT}"
 
 echo ""
 echo "  ╭─────────────────────────────────────────╮"
@@ -24,6 +26,8 @@ echo ""
 ssh "$SSH_HOST" "bash -s" -- "$REPO_DIR" << 'REMOTE'
 set -e
 REPO_DIR="${1:?Missing REPO_DIR}"
+# Expand ~ to $HOME on the server
+[[ "$REPO_DIR" == ~* ]] && REPO_DIR="$HOME${REPO_DIR:1}"
 
 echo "→ cd $REPO_DIR"
 cd "$REPO_DIR"
