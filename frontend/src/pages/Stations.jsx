@@ -26,7 +26,6 @@ export default function Stations() {
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [minRatingCommunity, setMinRatingCommunity] = useState('');
   const [minRatingMe, setMinRatingMe] = useState('');
-  const [ratingId, setRatingId] = useState(null);
   const resetPageRef = useRef(false);
 
   const [createName, setCreateName] = useState('');
@@ -103,21 +102,6 @@ export default function Stations() {
     }
   };
 
-  const handleSetRating = async (e, station, rating) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!user) return;
-    setRatingId(station.id);
-    try {
-      await stationsApi.setRating(station.id, rating);
-      setList((prev) =>
-        prev.map((s) => (s.id === station.id ? { ...s, rating } : s))
-      );
-    } catch (_) {}
-    finally {
-      setRatingId(null);
-    }
-  };
 
   const clearFilters = () => {
     setSearchTitle('');
@@ -361,32 +345,10 @@ export default function Stations() {
                 )}
               </span>
               <span className="flex-shrink-0 text-xs text-gray-400" title="My rating">
-                {user ? (
-                  <span className="flex items-center gap-0.5">
-                    {ratingId === station.id && (
-                      <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
-                    )}
-                    {[1, 2, 3, 4, 5].map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={(e) => handleSetRating(e, station, r)}
-                        disabled={ratingId === station.id}
-                        className={`rounded p-0.5 focus:outline-none focus:ring-2 focus:ring-ray-500 disabled:opacity-50 ${
-                          (station.rating ?? 0) >= r ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'
-                        }`}
-                        aria-label={`Rate ${r} star${r === 1 ? '' : 's'}`}
-                      >
-                        ★
-                      </button>
-                    ))}
-                  </span>
+                {station.rating != null ? (
+                  <span className="text-amber-400">{station.rating} ★</span>
                 ) : (
-                  station.rating != null ? (
-                    <span className="text-amber-400">{station.rating} ★</span>
-                  ) : (
-                    '—'
-                  )
+                  '—'
                 )}
               </span>
             </div>
