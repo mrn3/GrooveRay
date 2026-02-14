@@ -155,6 +155,7 @@ export async function addYouTube(userId, url) {
       let durationSeconds = 0;
       let thumbnailUrl = null;
       let youtubeId = null;
+      let description = null;
       if (jsonFile) {
         try {
           const info = JSON.parse(fs.readFileSync(path.join(jobDir, jsonFile), 'utf8'));
@@ -163,14 +164,18 @@ export async function addYouTube(userId, url) {
           durationSeconds = Math.round(Number(info.duration) || 0);
           thumbnailUrl = info.thumbnail && typeof info.thumbnail === 'string' ? info.thumbnail : null;
           if (info.id && typeof info.id === 'string') youtubeId = info.id;
+          const rawDesc = info.description;
+          if (rawDesc && typeof rawDesc === 'string' && rawDesc.trim()) {
+            description = rawDesc.length > 10000 ? rawDesc.slice(0, 9997) + '...' : rawDesc.trim();
+          }
         } catch (_) {}
       }
 
       const songId = uuid();
       await db.run(
-        `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public, thumbnail_url, youtube_id)
-         VALUES (?, ?, ?, ?, 'youtube', ?, ?, 1, ?, ?)`,
-        [songId, userId, title, artist, destName, durationSeconds, thumbnailUrl, youtubeId]
+        `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public, thumbnail_url, youtube_id, description)
+         VALUES (?, ?, ?, ?, 'youtube', ?, ?, 1, ?, ?, ?)`,
+        [songId, userId, title, artist, destName, durationSeconds, thumbnailUrl, youtubeId, description]
       );
       await db.run('UPDATE youtube_jobs SET status = ?, song_id = ? WHERE id = ?', ['completed', songId, jobId]);
     } finally {

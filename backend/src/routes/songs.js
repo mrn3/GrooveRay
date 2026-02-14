@@ -228,20 +228,31 @@ async function fetchThumbnailForTrack(artist, title) {
 
 router.post('/upload', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  const { title, artist } = req.body || {};
+  const { title, artist, description: bodyDesc, lyrics: bodyLyrics, guitar_tab: bodyGuitarTab } = req.body || {};
   const finalTitle = title || req.file.originalname || 'Untitled';
   const finalArtist = artist || 'Unknown';
   const id = uuid();
   const filePath = path.join(uploadsDir, req.file.filename);
   let durationSeconds = 0;
+  let description = typeof bodyDesc === 'string' && bodyDesc.trim() ? bodyDesc.trim() : null;
+  let lyrics = typeof bodyLyrics === 'string' && bodyLyrics.trim() ? bodyLyrics.trim() : null;
+  let guitarTab = typeof bodyGuitarTab === 'string' && bodyGuitarTab.trim() ? bodyGuitarTab.trim() : null;
   try {
     const metadata = await parseFile(filePath);
     durationSeconds = Math.round(Number(metadata.format?.duration) || 0);
+    if (!description && metadata.common?.comment?.length) {
+      const comment = metadata.common.comment.join('\n').trim();
+      if (comment) description = comment.length > 10000 ? comment.slice(0, 9997) + '...' : comment;
+    }
+    if (!lyrics && metadata.common?.lyrics?.length) {
+      const fromMeta = metadata.common.lyrics.join('\n').trim();
+      if (fromMeta) lyrics = fromMeta.length > 50000 ? fromMeta.slice(0, 49997) + '...' : fromMeta;
+    }
   } catch (_) {}
   await db.run(
-    `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public, thumbnail_url)
-     VALUES (?, ?, ?, ?, 'upload', ?, ?, 1, ?)`,
-    [id, req.userId, finalTitle, finalArtist, req.file.filename, durationSeconds, null]
+    `INSERT INTO songs (id, user_id, title, artist, source, file_path, duration_seconds, is_public, thumbnail_url, description, lyrics, guitar_tab)
+     VALUES (?, ?, ?, ?, 'upload', ?, ?, 1, ?, ?, ?, ?)`,
+    [id, req.userId, finalTitle, finalArtist, req.file.filename, durationSeconds, null, description, lyrics, guitarTab]
   );
   let thumbnailUrl = null;
   try {
@@ -552,7 +563,7 @@ router.patch('/:id', async (req, res) => {
   const song = await db.get('SELECT * FROM songs WHERE id = ?', [req.params.id]);
   if (!song) return res.status(404).json({ error: 'Song not found' });
   if (song.user_id !== req.userId) return res.status(403).json({ error: 'You can only update your own songs' });
-  const { is_public, title, artist, description, lyrics } = req.body || {};
+  const { is_public, title, artist, description, lyrics, guitar_tab } = req.body || {};
 
   const updates = [];
   const values = [];
@@ -578,7 +589,11 @@ router.patch('/:id', async (req, res) => {
     updates.push('lyrics = ?');
     values.push(lyrics === null || lyrics === '' ? null : String(lyrics).trim());
   }
-  if (updates.length === 0) return res.status(400).json({ error: 'Provide at least one of: is_public, title, artist, description, lyrics' });
+  if (typeof guitar_tab !== 'undefined') {
+    updates.push('guitar_tab = ?');
+    values.push(guitar_tab === null || guitar_tab === '' ? null : String(guitar_tab).trim());
+  }
+  if (updates.length === 0) return res.status(400).json({ error: 'Provide at least one of: is_public, title, artist, description, lyrics, guitar_tab' });
 
   values.push(req.params.id);
   await db.run(`UPDATE songs SET ${updates.join(', ')} WHERE id = ?`, values);

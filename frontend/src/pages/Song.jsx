@@ -56,10 +56,53 @@ function ListenChart({ buckets, scope, hoverBucket, onHover, onHoverScope, onHov
 
 const RATINGS_PAGE_SIZE = 10;
 
+/** Parse "[M:SS]" or "[MM:SS]" or "[H:MM:SS]" at start of line; return { timeSeconds, text }. */
+function parseLyricTimestamp(line) {
+  const trimmed = line.trim();
+  const match = trimmed.match(/^\[?(\d+):(\d+)(?::(\d+))?\]?\s*(.*)$/);
+  if (!match) return { timeSeconds: null, text: trimmed };
+  const [, m, s, h, rest] = match;
+  const minutes = parseInt(m, 10) || 0;
+  const seconds = parseInt(s, 10) || 0;
+  const hours = h != null ? parseInt(h, 10) || 0 : 0;
+  const timeSeconds = hours * 3600 + minutes * 60 + seconds;
+  return { timeSeconds, text: rest.trim() || trimmed };
+}
+
+function LyricsWithKaraoke({ lyrics, currentTime }) {
+  const lines = lyrics.split(/\r?\n/).map((raw) => parseLyricTimestamp(raw));
+  let activeIndex = -1;
+  if (currentTime != null && Number.isFinite(currentTime)) {
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].timeSeconds != null && lines[i].timeSeconds <= currentTime) {
+        activeIndex = i;
+        break;
+      }
+    }
+  }
+  return (
+    <div className="space-y-1 font-sans text-gray-300">
+      {lines.map(({ timeSeconds, text }, i) => (
+        <div
+          key={i}
+          className={`flex gap-3 ${i === activeIndex ? 'rounded-md bg-ray-500/20 text-white' : ''}`}
+        >
+          {timeSeconds != null && (
+            <span className="flex-shrink-0 font-mono text-xs text-gray-500 tabular-nums">
+              [{Math.floor(timeSeconds / 60)}:{(timeSeconds % 60).toString().padStart(2, '0')}]
+            </span>
+          )}
+          <span className="whitespace-pre-wrap">{text || '\u00A0'}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Song() {
   const { id } = useParams();
   const { user } = useAuth();
-  const { play, current, playing } = usePlayer();
+  const { play, current, playing, progress } = usePlayer();
   const [song, setSong] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -72,9 +115,11 @@ export default function Song() {
   const [totalListensHistory, setTotalListensHistory] = useState(null);
   const [listensHoverBucket, setListensHoverBucket] = useState(null);
   const [listensHoverScope, setListensHoverScope] = useState(null);
+  const [contentTab, setContentTab] = useState('description');
   const [editOpen, setEditOpen] = useState(false);
   const [editDescription, setEditDescription] = useState('');
   const [editLyrics, setEditLyrics] = useState('');
+  const [editGuitarTab, setEditGuitarTab] = useState('');
   const [saving, setSaving] = useState(false);
 
   const fetchSong = useCallback(() => {
@@ -160,8 +205,11 @@ export default function Song() {
       const updated = await songsApi.update(song.id, {
         description: editDescription.trim() || null,
         lyrics: editLyrics.trim() || null,
+        guitar_tab: editGuitarTab.trim() || null,
       });
-      setSong((s) => (s ? { ...s, description: updated.description, lyrics: updated.lyrics } : null));
+      setSong((s) =>
+        s ? { ...s, description: updated.description, lyrics: updated.lyrics, guitar_tab: updated.guitar_tab } : null
+      );
       setEditOpen(false);
     } catch (e) {
       setError(e.message);
@@ -220,11 +268,12 @@ export default function Song() {
                 onClick={() => {
                   setEditDescription(song.description || '');
                   setEditLyrics(song.lyrics || '');
+                  setEditGuitarTab(song.guitar_tab || '');
                   setEditOpen(true);
                 }}
                 className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
               >
-                Edit description & lyrics
+                Edit description, lyrics & tab
               </button>
             )}
           </div>
@@ -310,26 +359,58 @@ export default function Song() {
         </div>
       </div>
 
-      {/* Description */}
+      {/* Description / Lyrics / Guitar tab */}
       <section className="mb-8">
-        <h2 className="mb-3 text-lg font-medium text-white">Description</h2>
-        <div className="rounded-xl border border-groove-700 bg-groove-900/50 p-4">
-          {song.description ? (
-            <p className="whitespace-pre-wrap text-gray-300">{song.description}</p>
-          ) : (
-            <p className="text-gray-500">No description yet.</p>
-          )}
+        <div className="mb-3 flex gap-1 border-b border-groove-700">
+          {[
+            { id: 'description', label: 'Description' },
+            { id: 'lyrics', label: 'Lyrics' },
+            { id: 'guitar_tab', label: 'Guitar tab' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setContentTab(tab.id)}
+              className={`border-b-2 px-4 py-2 text-sm font-medium transition ${
+                contentTab === tab.id
+                  ? 'border-ray-500 text-ray-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-300'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-      </section>
-
-      {/* Lyrics */}
-      <section className="mb-8">
-        <h2 className="mb-3 text-lg font-medium text-white">Lyrics</h2>
         <div className="rounded-xl border border-groove-700 bg-groove-900/50 p-4">
-          {song.lyrics ? (
-            <pre className="whitespace-pre-wrap font-sans text-gray-300">{song.lyrics}</pre>
-          ) : (
-            <p className="text-gray-500">No lyrics yet.</p>
+          {contentTab === 'description' && (
+            <>
+              {song.description ? (
+                <p className="whitespace-pre-wrap text-gray-300">{song.description}</p>
+              ) : (
+                <p className="text-gray-500">No description yet.</p>
+              )}
+            </>
+          )}
+          {contentTab === 'lyrics' && (
+            <>
+              {song.lyrics ? (
+                <LyricsWithKaraoke
+                  lyrics={song.lyrics}
+                  currentTime={current?.id === song?.id && playing ? progress : null}
+                />
+              ) : (
+                <p className="text-gray-500">No lyrics yet. Add lyrics with timestamps for karaoke (e.g. [0:12] Line one).</p>
+              )}
+            </>
+          )}
+          {contentTab === 'guitar_tab' && (
+            <>
+              {song.guitar_tab ? (
+                <pre className="whitespace-pre-wrap font-mono text-sm text-gray-300">{song.guitar_tab}</pre>
+              ) : (
+                <p className="text-gray-500">No guitar tab yet.</p>
+              )}
+            </>
           )}
         </div>
       </section>
@@ -344,7 +425,7 @@ export default function Song() {
             className="w-full max-w-lg rounded-xl border border-groove-700 bg-groove-900 p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="mb-4 text-lg font-semibold text-white">Edit description & lyrics</h2>
+            <h2 className="mb-4 text-lg font-semibold text-white">Edit description, lyrics & guitar tab</h2>
             <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
               <div>
                 <label className="mb-1 block text-sm text-gray-400">Description</label>
@@ -357,13 +438,23 @@ export default function Song() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-400">Lyrics</label>
+                <label className="mb-1 block text-sm text-gray-400">Lyrics (use [M:SS] or [MM:SS] for karaoke timestamps)</label>
                 <textarea
                   value={editLyrics}
                   onChange={(e) => setEditLyrics(e.target.value)}
-                  rows={12}
+                  rows={10}
                   className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500 font-mono text-sm"
-                  placeholder="Paste lyrics…"
+                  placeholder="[0:12] First line\n[0:18] Second line…"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Guitar tab</label>
+                <textarea
+                  value={editGuitarTab}
+                  onChange={(e) => setEditGuitarTab(e.target.value)}
+                  rows={10}
+                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 font-mono text-sm text-white placeholder-gray-500"
+                  placeholder="e|-----0---0---0---0---|  B|-----1---1---1---1---|…"
                 />
               </div>
               <div className="flex justify-end gap-2">

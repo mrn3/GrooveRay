@@ -299,6 +299,9 @@ async function ensureSchema() {
     await exec('ALTER TABLE songs ADD COLUMN lyrics TEXT');
   } catch (_) {}
   try {
+    await exec('ALTER TABLE songs ADD COLUMN guitar_tab TEXT');
+  } catch (_) {}
+  try {
     await exec(
       `CREATE TABLE IF NOT EXISTS song_listen_events (
         id VARCHAR(36) PRIMARY KEY,

@@ -71,23 +71,29 @@ export const songs = {
   recordPlay: (id) => request(`/songs/${id}/played`, { method: 'POST' }),
   setRating: (id, rating) =>
     request(`/songs/${id}/rating`, { method: 'PATCH', body: JSON.stringify({ rating }) }),
-  upload: (file, title, artist) => {
+  upload: (file, title, artist, extra = {}) => {
     const form = new FormData();
     form.append('file', file);
     if (title) form.append('title', title);
     if (artist) form.append('artist', artist);
+    if (extra.description != null) form.append('description', String(extra.description));
+    if (extra.lyrics != null) form.append('lyrics', String(extra.lyrics));
+    if (extra.guitar_tab != null) form.append('guitar_tab', String(extra.guitar_tab));
     return fetch(`${API}/songs/upload`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${getToken()}` },
       body: form,
     }).then((r) => (r.ok ? r.json() : r.json().then((d) => Promise.reject(new Error(d.error || 'Upload failed')))));
   },
-  /** Upload with progress callback: onProgress(percent 0-100) */
-  uploadWithProgress: (file, title, artist, onProgress) => {
+  /** Upload with progress callback: onProgress(percent 0-100). extra: { description, lyrics, guitar_tab }. */
+  uploadWithProgress: (file, title, artist, onProgress, extra = {}) => {
     const form = new FormData();
     form.append('file', file);
     if (title) form.append('title', title);
     if (artist) form.append('artist', artist);
+    if (extra.description != null) form.append('description', String(extra.description));
+    if (extra.lyrics != null) form.append('lyrics', String(extra.lyrics));
+    if (extra.guitar_tab != null) form.append('guitar_tab', String(extra.guitar_tab));
     const token = getToken();
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();

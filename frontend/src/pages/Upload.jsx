@@ -5,6 +5,9 @@ export default function Upload() {
   const [file, setFile] = useState(null);
   const [title, setTitle] = useState('');
   const [artist, setArtist] = useState('');
+  const [description, setDescription] = useState('');
+  const [lyrics, setLyrics] = useState('');
+  const [guitarTab, setGuitarTab] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null); // 0–100 or null
   const [message, setMessage] = useState('');
@@ -18,17 +21,25 @@ export default function Upload() {
     setUploading(true);
     setUploadProgress(0);
     setMessage('');
+    const extra = {};
+    if (description.trim()) extra.description = description.trim();
+    if (lyrics.trim()) extra.lyrics = lyrics.trim();
+    if (guitarTab.trim()) extra.guitar_tab = guitarTab.trim();
     try {
       await songsApi.uploadWithProgress(
         file,
         title || file.name,
         artist || 'Unknown',
-        (percent) => setUploadProgress(percent)
+        (percent) => setUploadProgress(percent),
+        extra
       );
       setMessage('Uploaded successfully');
       setFile(null);
       setTitle('');
       setArtist('');
+      setDescription('');
+      setLyrics('');
+      setGuitarTab('');
     } catch (err) {
       setMessage(err.message || 'Upload failed');
     } finally {
@@ -73,6 +84,36 @@ export default function Upload() {
             onChange={(e) => setArtist(e.target.value)}
             placeholder="Artist name"
             className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-gray-400">Description (optional)</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            placeholder="About this song…"
+            className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-gray-400">Lyrics (optional, use [M:SS] for karaoke)</label>
+          <textarea
+            value={lyrics}
+            onChange={(e) => setLyrics(e.target.value)}
+            rows={4}
+            placeholder="[0:12] First line…"
+            className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 font-mono text-sm text-white placeholder-gray-500"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-gray-400">Guitar tab (optional)</label>
+          <textarea
+            value={guitarTab}
+            onChange={(e) => setGuitarTab(e.target.value)}
+            rows={4}
+            placeholder="e|-----0---0---| …"
+            className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 font-mono text-sm text-white placeholder-gray-500"
           />
         </div>
         {uploading && (
