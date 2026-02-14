@@ -135,12 +135,14 @@ export const youtube = {
 
 // Stations
 export const stations = {
-  list: () => request('/stations'),
+  list: (params) => request(`/stations${buildSearchParams(params)}`),
   get: (slugOrId) => request(`/stations/${slugOrId}`),
   create: (name, description) =>
     request('/stations', { method: 'POST', body: JSON.stringify({ name, description }) }),
   update: (id, payload) =>
     request(`/stations/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  setRating: (id, rating) =>
+    request(`/stations/${id}/rating`, { method: 'PATCH', body: JSON.stringify({ rating }) }),
   queue: (id) => request(`/stations/${id}/queue`),
   addToQueue: (stationId, songId) =>
     request(`/stations/${stationId}/queue`, { method: 'POST', body: JSON.stringify({ songId }) }),

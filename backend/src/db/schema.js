@@ -266,6 +266,22 @@ async function ensureSchema() {
     await exec('ALTER TABLE stations ADD COLUMN image_url TEXT');
   } catch (_) {}
   try {
+    await exec(
+      `CREATE TABLE IF NOT EXISTS user_station_ratings (
+        user_id VARCHAR(36) NOT NULL,
+        station_id VARCHAR(36) NOT NULL,
+        rating INT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, station_id),
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (station_id) REFERENCES stations(id)
+      )`
+    );
+  } catch (_) {}
+  try {
+    await exec('CREATE INDEX idx_user_station_ratings_station ON user_station_ratings(station_id)');
+  } catch (_) {}
+  try {
     await exec('ALTER TABLE playlists ADD COLUMN thumbnail_url TEXT');
   } catch (_) {}
   try {

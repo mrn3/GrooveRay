@@ -1,10 +1,37 @@
 import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
 import db from '../db/schema.js';
-import { authMiddleware } from '../middleware/auth.js';
-import { emitStationUpdate } from '../socket.js';
+import { authMiddleware, optionalAuth } from '../middleware/auth.js';
+import { emitStationUpdate, getStationListenerCounts, getStationListenerCount } from '../socket.js';
 
 const router = Router();
+
+const MAX_LIST = 1000;
+const SORT_KEYS = ['name', 'created_at', 'community_avg_rating', 'listener_count'];
+
+function parseListQuery(query) {
+  const tab = ['all', 'mine', 'contributions'].includes(query.tab) ? query.tab : 'all';
+  const title = typeof query.title === 'string' ? query.title.trim() : '';
+  const owner = typeof query.owner === 'string' ? query.owner.trim() : '';
+  const sortBy = SORT_KEYS.includes(query.sortBy) ? query.sortBy : 'created_at';
+  const sortOrder = query.sortOrder === 'asc' || query.sortOrder === 'desc' ? query.sortOrder : 'desc';
+  const page = query.page != null ? Math.max(1, parseInt(query.page, 10)) : 1;
+  const limitRaw = query.limit != null ? parseInt(query.limit, 10) : 20;
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(100, Math.max(1, limitRaw)) : 20;
+  const minRatingCommunity = query.minRatingCommunity != null ? parseFloat(query.minRatingCommunity) : null;
+  const minRatingMe = query.minRatingMe != null ? parseInt(query.minRatingMe, 10) : null;
+  return {
+    tab,
+    title: title || null,
+    owner: owner || null,
+    sortBy,
+    sortOrder,
+    page: Number.isFinite(page) ? page : 1,
+    limit,
+    minRatingCommunity: Number.isFinite(minRatingCommunity) && minRatingCommunity >= 0 && minRatingCommunity <= 5 ? minRatingCommunity : null,
+    minRatingMe: Number.isFinite(minRatingMe) && minRatingMe >= 1 && minRatingMe <= 5 ? minRatingMe : null,
+  };
+}
 
 function slugify(s) {
   return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -93,24 +120,146 @@ router.post('/', authMiddleware, async (req, res) => {
   res.status(201).json(station);
 });
 
-router.get('/', async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
+  const opts = parseListQuery(req.query);
+  const userId = req.userId || null;
+
+  const conditions = [];
+  const params = [];
+  if (opts.tab === 'mine') {
+    if (!userId) {
+      return res.json({ items: [], total: 0 });
+    }
+    conditions.push('s.owner_id = ?');
+    params.push(userId);
+  } else if (opts.tab === 'contributions') {
+    if (!userId) {
+      return res.json({ items: [], total: 0 });
+    }
+    conditions.push('s.id IN (SELECT DISTINCT station_id FROM station_votes WHERE user_id = ?)');
+    params.push(userId);
+  }
+  if (opts.title) {
+    conditions.push('s.name LIKE ?');
+    params.push(`%${opts.title.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`);
+  }
+  if (opts.owner) {
+    conditions.push('u.username LIKE ?');
+    params.push(`%${opts.owner.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
   const list = await db.all(
-    `SELECT s.*, u.username as owner_name
-     FROM stations s JOIN users u ON u.id = s.owner_id
-     ORDER BY s.created_at DESC`
+    `SELECT s.*, u.username as owner_name,
+       (SELECT COALESCE(AVG(rating), 0) FROM user_station_ratings WHERE station_id = s.id) as community_avg_rating,
+       (SELECT COUNT(*) FROM user_station_ratings WHERE station_id = s.id) as community_rating_count
+     FROM stations s
+     JOIN users u ON u.id = s.owner_id
+     ${where}
+     ORDER BY s.created_at DESC
+     LIMIT ?`,
+    [...params, MAX_LIST]
   );
-  res.json(list);
+
+  const listenerCounts = getStationListenerCounts();
+  let withListeners = list.map((row) => ({
+    ...row,
+    community_avg_rating: row.community_avg_rating != null ? Number(row.community_avg_rating) : null,
+    community_rating_count: Number(row.community_rating_count ?? 0),
+    listener_count: listenerCounts[row.id] ?? 0,
+  }));
+
+  if (userId && withListeners.length > 0) {
+    const ids = withListeners.map((r) => r.id);
+    const placeholders = ids.map(() => '?').join(',');
+    const ratings = await db.all(
+      `SELECT station_id, rating FROM user_station_ratings WHERE user_id = ? AND station_id IN (${placeholders})`,
+      [userId, ...ids]
+    );
+    const ratingMap = Object.fromEntries(ratings.map((r) => [r.station_id, r.rating]));
+    withListeners = withListeners.map((r) => ({ ...r, rating: ratingMap[r.id] ?? null }));
+  } else {
+    withListeners = withListeners.map((r) => ({ ...r, rating: null }));
+  }
+
+  if (opts.minRatingCommunity != null) {
+    withListeners = withListeners.filter((r) => (r.community_avg_rating ?? 0) >= opts.minRatingCommunity);
+  }
+  if (opts.minRatingMe != null && userId) {
+    withListeners = withListeners.filter((r) => (r.rating ?? 0) >= opts.minRatingMe);
+  }
+
+  const mult = opts.sortOrder === 'asc' ? 1 : -1;
+  withListeners.sort((a, b) => {
+    let va = a[opts.sortBy];
+    let vb = b[opts.sortBy];
+    if (opts.sortBy === 'name') {
+      va = (va || '').toLowerCase();
+      vb = (vb || '').toLowerCase();
+      return mult * (va < vb ? -1 : va > vb ? 1 : 0);
+    }
+    if (opts.sortBy === 'created_at') {
+      va = new Date(va || 0).getTime();
+      vb = new Date(vb || 0).getTime();
+      return mult * (va - vb);
+    }
+    va = Number(va) ?? 0;
+    vb = Number(vb) ?? 0;
+    return mult * (va - vb);
+  });
+
+  const total = withListeners.length;
+  const start = (opts.page - 1) * opts.limit;
+  const items = withListeners.slice(start, start + opts.limit);
+
+  res.json({ items, total });
 });
 
-router.get('/:slugOrId', async (req, res) => {
+router.get('/:slugOrId', optionalAuth, async (req, res) => {
   const station = await db.get(
-    `SELECT s.*, u.username as owner_name
+    `SELECT s.*, u.username as owner_name,
+       (SELECT COALESCE(AVG(rating), 0) FROM user_station_ratings WHERE station_id = s.id) as community_avg_rating,
+       (SELECT COUNT(*) FROM user_station_ratings WHERE station_id = s.id) as community_rating_count
      FROM stations s JOIN users u ON u.id = s.owner_id
      WHERE s.id = ? OR s.slug = ?`,
     [req.params.slugOrId, req.params.slugOrId]
   );
   if (!station) return res.status(404).json({ error: 'Station not found' });
-  res.json(station);
+  const out = {
+    ...station,
+    community_avg_rating: station.community_avg_rating != null ? Number(station.community_avg_rating) : null,
+    community_rating_count: Number(station.community_rating_count ?? 0),
+    listener_count: getStationListenerCount(station.id),
+  };
+  if (req.userId) {
+    const myRating = await db.get(
+      'SELECT rating FROM user_station_ratings WHERE user_id = ? AND station_id = ?',
+      [req.userId, station.id]
+    );
+    out.rating = myRating?.rating ?? null;
+  } else {
+    out.rating = null;
+  }
+  res.json(out);
+});
+
+router.patch('/:id/rating', authMiddleware, async (req, res) => {
+  const station = await db.get('SELECT id FROM stations WHERE id = ?', [req.params.id]);
+  if (!station) return res.status(404).json({ error: 'Station not found' });
+  const rating = req.body?.rating != null ? parseInt(req.body.rating, 10) : null;
+  if (rating === null || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: 'Rating must be 1–5' });
+  }
+  await db.run(
+    `INSERT INTO user_station_ratings (user_id, station_id, rating) VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE rating = VALUES(rating)`,
+    [req.userId, req.params.id, rating]
+  );
+  const updated = await db.get(
+    'SELECT rating FROM user_station_ratings WHERE user_id = ? AND station_id = ?',
+    [req.userId, req.params.id]
+  );
+  res.json({ rating: updated?.rating ?? rating });
 });
 
 router.patch('/:id', authMiddleware, async (req, res) => {
