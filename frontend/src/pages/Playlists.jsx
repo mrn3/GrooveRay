@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { playlists as playlistsApi } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { usePlayer } from '../context/PlayerContext';
 
 const TABS = [
   { id: 'all', label: 'All Playlists' },
@@ -12,6 +13,7 @@ const TABS = [
 export default function Playlists() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { play } = usePlayer();
   const [activeTab, setActiveTab] = useState('all');
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +110,30 @@ export default function Playlists() {
   };
 
   const linkTo = (pl) => (pl.slug ? `/playlists/by/${pl.slug}` : `/playlists/${pl.id}`);
+
+  const handlePlayPlaylist = (e, pl) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if ((pl.track_count ?? 0) === 0) return;
+    playlistsApi
+      .tracks(pl.id)
+      .then((tracks) => {
+        const first = tracks?.[0];
+        if (!first) return;
+        const song = {
+          id: first.song_id,
+          title: first.title,
+          artist: first.artist,
+          source: first.source,
+          file_path: first.file_path,
+          thumbnail_url: first.thumbnail_url,
+          duration_seconds: first.duration_seconds,
+        };
+        play(song);
+        if (user && pl.id) playlistsApi.recordPlay(pl.id).catch(() => {});
+      })
+      .catch(() => {});
+  };
 
   const clearFilters = () => {
     setSearchName('');
@@ -352,6 +378,15 @@ export default function Playlists() {
                 to={linkTo(pl)}
                 className="flex items-center gap-3 px-6 py-3 transition hover:bg-groove-800"
               >
+                <button
+                  type="button"
+                  onClick={(e) => handlePlayPlaylist(e, pl)}
+                  disabled={(pl.track_count ?? 0) === 0}
+                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-groove-700 text-ray-400 hover:bg-groove-600 disabled:pointer-events-none disabled:opacity-50"
+                  aria-label={(pl.track_count ?? 0) === 0 ? 'Playlist has no tracks' : 'Play playlist'}
+                >
+                  <span className="text-sm">▶</span>
+                </button>
                 <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-500">
                   {pl.thumbnail_url ? (
                     <img src={pl.thumbnail_url} alt="" className="h-full w-full object-cover" />
