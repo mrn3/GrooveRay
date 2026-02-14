@@ -27,7 +27,6 @@ export default function Songs() {
   const artistDropdownRef = useRef(null);
   const artistDebounceRef = useRef(null);
   const [savingId, setSavingId] = useState(null);
-  const [ratingId, setRatingId] = useState(null);
   // Search, filter, sort
   const [searchTitle, setSearchTitle] = useState('');
   const [searchArtist, setSearchArtist] = useState('');
@@ -375,19 +374,6 @@ export default function Songs() {
     } finally {
       setYoutubeLoading(false);
       setYoutubePendingItem(null);
-    }
-  };
-
-  const handleSetRating = async (e, song, rating) => {
-    e.stopPropagation();
-    setRatingId(song.id);
-    try {
-      await songsApi.setRating(song.id, rating);
-      setList((prev) => prev.map((s) => (s.id === song.id ? { ...s, rating } : s)));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setRatingId(null);
     }
   };
 
@@ -1110,24 +1096,13 @@ export default function Songs() {
                       '—'
                     )}
                   </span>
-                  <div className="flex flex-shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()} title="My rating">
-                    <div className="flex items-center gap-0.5">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
-                          disabled={ratingId === song.id}
-                          className="rounded p-0.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-ray-500 disabled:opacity-50"
-                          onClick={(e) => handleSetRating(e, song, star)}
-                        >
-                          <span className={((song.rating ?? 0) >= star ? 'text-amber-400' : 'text-gray-500 hover:text-amber-500')}>
-                            ★
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <span className="flex-shrink-0 text-xs text-gray-400" title="My rating">
+                    {song.rating != null ? (
+                      <span className="text-amber-400">{song.rating} ★</span>
+                    ) : (
+                      '—'
+                    )}
+                  </span>
                 </>
               )}
               {showEditActions() && (
