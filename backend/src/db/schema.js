@@ -266,6 +266,9 @@ async function ensureSchema() {
     await exec('ALTER TABLE stations ADD COLUMN image_url TEXT');
   } catch (_) {}
   try {
+    await exec("ALTER TABLE stations ADD COLUMN type VARCHAR(20) NOT NULL DEFAULT 'music'");
+  } catch (_) {}
+  try {
     await exec(
       `CREATE TABLE IF NOT EXISTS user_station_ratings (
         user_id VARCHAR(36) NOT NULL,

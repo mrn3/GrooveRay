@@ -137,8 +137,8 @@ export const youtube = {
 export const stations = {
   list: (params) => request(`/stations${buildSearchParams(params)}`),
   get: (slugOrId) => request(`/stations/${slugOrId}`),
-  create: (name, description) =>
-    request('/stations', { method: 'POST', body: JSON.stringify({ name, description }) }),
+  create: (name, description, type = 'music') =>
+    request('/stations', { method: 'POST', body: JSON.stringify({ name, description, type }) }),
   update: (id, payload) =>
     request(`/stations/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   setRating: (id, rating) =>

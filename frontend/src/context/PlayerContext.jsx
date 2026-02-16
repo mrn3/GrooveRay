@@ -17,6 +17,17 @@ export function PlayerProvider({ children }) {
     setStationModeState(mode);
   }, []);
 
+  /** For Music Video stations: show current track and synced progress in the bar without playing audio. */
+  const setStationVideoDisplay = useCallback((song, mode) => {
+    setCurrent(song ?? null);
+    setStationModeState(mode ?? null);
+    if (!mode) {
+      setPlaying(false);
+      setProgress(0);
+      setDuration(0);
+    }
+  }, []);
+
   useEffect(() => {
     if (!stationMode) return;
     const interval = setInterval(() => setTick((t) => t + 1), 1000);
@@ -120,6 +131,7 @@ export function PlayerProvider({ children }) {
         toggle,
         seek,
         setStationMode,
+        setStationVideoDisplay,
       }}
     >
       {children}

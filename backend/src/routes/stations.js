@@ -39,7 +39,7 @@ function slugify(s) {
 
 async function getQueue(stationId) {
   return db.all(
-    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
+    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url, s.youtube_id
      FROM station_queue q
      JOIN songs s ON s.id = q.song_id
      WHERE q.station_id = ? AND q.played_at IS NULL
@@ -55,7 +55,7 @@ export async function advanceStationPlayback(stationId) {
 
   if (np) {
     const row = await db.get(
-      `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
+      `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url, s.youtube_id
        FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`,
       [np.queue_id]
     );
@@ -83,7 +83,7 @@ export async function advanceStationPlayback(stationId) {
     }
     const queue = await getQueue(stationId);
     const current = await db.get(
-      `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
+      `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url, s.youtube_id
        FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`,
       [np.queue_id]
     );
@@ -105,16 +105,19 @@ export async function advanceStationPlayback(stationId) {
   return { nowPlaying: null, queue };
 }
 
+const STATION_TYPES = ['music', 'music_video'];
+
 router.post('/', authMiddleware, async (req, res) => {
-  const { name, description } = req.body || {};
+  const { name, description, type } = req.body || {};
   if (!name?.trim()) return res.status(400).json({ error: 'Station name required' });
+  const stationType = type && STATION_TYPES.includes(type) ? type : 'music';
   const id = uuid();
   let slug = slugify(name);
   const existing = await db.get('SELECT id FROM stations WHERE slug = ?', [slug]);
   if (existing) slug = `${slug}-${id.slice(0, 8)}`;
   await db.run(
-    'INSERT INTO stations (id, owner_id, name, slug, description) VALUES (?, ?, ?, ?, ?)',
-    [id, req.userId, name.trim(), slug, description?.trim() || '']
+    'INSERT INTO stations (id, owner_id, name, slug, description, type) VALUES (?, ?, ?, ?, ?, ?)',
+    [id, req.userId, name.trim(), slug, description?.trim() || '', stationType]
   );
   const station = await db.get('SELECT * FROM stations WHERE id = ?', [id]);
   res.status(201).json(station);
@@ -336,10 +339,13 @@ router.get('/:id/chat', async (req, res) => {
 router.post('/:id/queue', authMiddleware, async (req, res) => {
   const { songId } = req.body || {};
   if (!songId) return res.status(400).json({ error: 'songId required' });
-  const song = await db.get('SELECT id FROM songs WHERE id = ?', [songId]);
-  if (!song) return res.status(404).json({ error: 'Song not found' });
-  const station = await db.get('SELECT id FROM stations WHERE id = ?', [req.params.id]);
+  const station = await db.get('SELECT id, type FROM stations WHERE id = ?', [req.params.id]);
   if (!station) return res.status(404).json({ error: 'Station not found' });
+  const song = await db.get('SELECT id, youtube_id FROM songs WHERE id = ?', [songId]);
+  if (!song) return res.status(404).json({ error: 'Song not found' });
+  if (station.type === 'music_video' && (!song.youtube_id || !song.youtube_id.trim())) {
+    return res.status(400).json({ error: 'Music Video stations only allow songs that have a YouTube video. This song has no YouTube ID.' });
+  }
   const existing = await db.get(
     'SELECT id FROM station_queue WHERE station_id = ? AND song_id = ? AND played_at IS NULL',
     [req.params.id, songId]
@@ -355,7 +361,7 @@ router.post('/:id/queue', authMiddleware, async (req, res) => {
     [queueId, req.params.id, songId, maxPos + 1]
   );
   const row = await db.get(
-    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
+    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url, s.youtube_id
      FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`,
     [queueId]
   );
@@ -387,7 +393,7 @@ router.post('/:id/vote/:queueId', authMiddleware, async (req, res) => {
     throw e;
   }
   const updated = await db.get(
-    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
+    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url, s.youtube_id
      FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`,
     [queueId]
   );
@@ -407,7 +413,7 @@ router.delete('/:id/vote/:queueId', authMiddleware, async (req, res) => {
     await db.run('UPDATE station_queue SET votes = votes - 1 WHERE id = ?', [queueId]);
   }
   const updated = await db.get(
-    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url
+    `SELECT q.*, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url, s.youtube_id
      FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`,
     [queueId]
   );

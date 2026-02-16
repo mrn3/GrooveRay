@@ -38,10 +38,14 @@ export default function Station() {
   const [editImageOpen, setEditImageOpen] = useState(false);
   const [editImageUrl, setEditImageUrl] = useState('');
   const [savingImage, setSavingImage] = useState(false);
+  const [addToQueueError, setAddToQueueError] = useState('');
   const socketRef = useRef(null);
+  const youtubePlayerRef = useRef(null);
+  const [youtubeApiReady, setYoutubeApiReady] = useState(false);
   const { user } = useAuth();
-  const { play, setStationMode } = usePlayer();
+  const { play, setStationMode, setStationVideoDisplay } = usePlayer();
   const isOwner = user?.id === station?.owner_id;
+  const isMusicVideo = station?.type === 'music_video';
 
   useEffect(() => {
     stationsApi.get(slugOrId).then((s) => {
@@ -80,22 +84,29 @@ export default function Station() {
       socket.off('chat');
       socket.close();
       setStationMode(null);
+      setStationVideoDisplay(null, null);
       setListeners([]);
     };
-  }, [station?.id, setStationMode]);
+  }, [station?.id, setStationMode, setStationVideoDisplay]);
 
   useEffect(() => {
     if (!nowPlaying?.item) {
       setStationMode(null);
+      setStationVideoDisplay(null, null);
       setNowPlayingDetails(null);
       return;
     }
     const item = nowPlaying.item;
-    const song = { id: item.song_id, title: item.title, artist: item.artist, source: item.source, file_path: item.file_path, thumbnail_url: item.thumbnail_url, duration_seconds: item.duration_seconds };
+    const song = { id: item.song_id, title: item.title, artist: item.artist, source: item.source, file_path: item.file_path, thumbnail_url: item.thumbnail_url, duration_seconds: item.duration_seconds, youtube_id: item.youtube_id };
     const pos = serverPosition(nowPlaying.startedAt, item.duration_seconds);
-    setStationMode({ startedAt: nowPlaying.startedAt, durationSeconds: item.duration_seconds ?? 60 });
-    play(song, { seekTo: pos });
-  }, [nowPlaying?.queueId, nowPlaying?.startedAt, play, setStationMode]);
+    const mode = { startedAt: nowPlaying.startedAt, durationSeconds: item.duration_seconds ?? 60 };
+    if (isMusicVideo && item.youtube_id) {
+      setStationVideoDisplay(song, mode);
+    } else {
+      setStationMode(mode);
+      play(song, { seekTo: pos });
+    }
+  }, [nowPlaying?.queueId, nowPlaying?.startedAt, isMusicVideo, play, setStationMode, setStationVideoDisplay]);
 
   useEffect(() => {
     if (!nowPlaying?.item?.song_id) {
@@ -183,6 +194,7 @@ export default function Station() {
   const handleAddToQueue = async (e) => {
     e.preventDefault();
     if (!station || !addSongId) return;
+    setAddToQueueError('');
     try {
       await stationsApi.addToQueue(station.id, addSongId);
       const q = await stationsApi.queue(station.id);
@@ -190,18 +202,89 @@ export default function Station() {
       setAddSongId('');
       setAddSongInput('');
     } catch (err) {
-      console.error(err);
+      setAddToQueueError(err.message || err.error || 'Failed to add to queue');
     }
   };
 
   const query = addSongInput.trim().toLowerCase();
+  const songsForSuggestions = isMusicVideo ? songs.filter((s) => s.youtube_id) : songs;
   const suggestions = query
-    ? songs.filter(
+    ? songsForSuggestions.filter(
         (s) =>
           (s.title || '').toLowerCase().includes(query) ||
           (s.artist || '').toLowerCase().includes(query)
       ).slice(0, 8)
     : [];
+
+  // Load YouTube IFrame API once
+  useEffect(() => {
+    if (window.YT?.Player) {
+      setYoutubeApiReady(true);
+      return;
+    }
+    if (document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+      const check = () => {
+        if (window.YT?.Player) setYoutubeApiReady(true);
+        else setTimeout(check, 100);
+      };
+      check();
+      return;
+    }
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    const first = document.getElementsByTagName('script')[0];
+    first?.parentNode?.insertBefore(tag, first);
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (prev) prev();
+      setYoutubeApiReady(true);
+    };
+    return () => {
+      window.onYouTubeIframeAPIReady = prev;
+    };
+  }, []);
+
+  // YouTube embed: create/destroy player and sync to server position for Music Video stations
+  const youtubeId = isMusicVideo && nowPlaying?.item?.youtube_id ? nowPlaying.item.youtube_id : null;
+  useEffect(() => {
+    if (!youtubeId || !youtubeApiReady || !window.YT?.Player) return;
+    const container = document.getElementById('station-youtube-embed');
+    if (!container || container.querySelector('iframe')) return;
+    const startSec = serverPosition(nowPlaying.startedAt, nowPlaying.item.duration_seconds);
+    const player = new window.YT.Player('station-youtube-embed', {
+      videoId: youtubeId,
+      width: '100%',
+      height: '100%',
+      playerVars: {
+        autoplay: 1,
+        start: Math.floor(startSec),
+        origin: typeof window !== 'undefined' ? window.location.origin : '',
+      },
+      events: {
+        onReady(ev) {
+          ev.target.seekTo(startSec, true);
+          ev.target.playVideo();
+        },
+      },
+    });
+    youtubePlayerRef.current = player;
+    const syncInterval = setInterval(() => {
+      const p = youtubePlayerRef.current;
+      if (!p?.seekTo || !nowPlaying?.startedAt) return;
+      const pos = serverPosition(nowPlaying.startedAt, nowPlaying.item.duration_seconds);
+      const dur = Number(nowPlaying.item.duration_seconds) || 60;
+      if (pos >= dur - 1) return;
+      try {
+        const current = p.getCurrentTime?.();
+        if (typeof current === 'number' && Math.abs(current - pos) > 3) p.seekTo(pos, true);
+      } catch (_) {}
+    }, 5000);
+    return () => {
+      clearInterval(syncInterval);
+      if (youtubePlayerRef.current?.destroy) youtubePlayerRef.current.destroy();
+      youtubePlayerRef.current = null;
+    };
+  }, [youtubeId, youtubeApiReady, nowPlaying?.startedAt, nowPlaying?.item?.duration_seconds]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -324,6 +407,12 @@ export default function Station() {
 
           <section>
             <h2 className="mb-3 text-lg font-medium text-white">Add song to queue</h2>
+            {isMusicVideo && (
+              <p className="mb-2 text-sm text-gray-400">Only songs with a YouTube video can be added to this station.</p>
+            )}
+            {addToQueueError && (
+              <p className="mb-2 text-sm text-red-400">{addToQueueError}</p>
+            )}
             <form onSubmit={handleAddToQueue} className="flex gap-2">
               <div ref={addSongRef} className="relative flex-1 min-w-0 max-w-md">
                 <input
@@ -371,6 +460,11 @@ export default function Station() {
           <h2 className="border-b border-groove-700 px-4 py-3 text-lg font-medium text-white">Now playing</h2>
           {nowPlaying?.item ? (
             <div className="p-4">
+              {isMusicVideo && nowPlaying.item.youtube_id ? (
+                <div className="mb-4 aspect-video w-full overflow-hidden rounded-lg bg-black">
+                  <div id="station-youtube-embed" className="h-full w-full" />
+                </div>
+              ) : null}
               <div className="flex gap-4">
                 <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
                   {nowPlaying.item.thumbnail_url ? (

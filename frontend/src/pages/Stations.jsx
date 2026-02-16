@@ -30,6 +30,7 @@ export default function Stations() {
 
   const [createName, setCreateName] = useState('');
   const [createDesc, setCreateDesc] = useState('');
+  const [createType, setCreateType] = useState('music');
   const [creating, setCreating] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
@@ -92,9 +93,10 @@ export default function Stations() {
     if (!createName.trim()) return;
     setCreating(true);
     try {
-      await stationsApi.create(createName.trim(), createDesc.trim());
+      await stationsApi.create(createName.trim(), createDesc.trim(), createType);
       setCreateName('');
       setCreateDesc('');
+      setCreateType('music');
       setCreateModalOpen(false);
       fetchList();
     } catch (err) {
@@ -205,6 +207,36 @@ export default function Stations() {
                   placeholder="Description"
                   className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
                 />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Type</label>
+                <div className="flex gap-4">
+                  <label className="flex cursor-pointer items-center gap-2 text-white">
+                    <input
+                      type="radio"
+                      name="createType"
+                      value="music"
+                      checked={createType === 'music'}
+                      onChange={() => setCreateType('music')}
+                      className="rounded-full border-groove-600 bg-groove-800 text-ray-500 focus:ring-ray-500"
+                    />
+                    Music
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-white">
+                    <input
+                      type="radio"
+                      name="createType"
+                      value="music_video"
+                      checked={createType === 'music_video'}
+                      onChange={() => setCreateType('music_video')}
+                      className="rounded-full border-groove-600 bg-groove-800 text-ray-500 focus:ring-ray-500"
+                    />
+                    Music Video
+                  </label>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Music Video: only songs with a YouTube ID can be queued; playback is the embedded YouTube video, synced for all listeners.
+                </p>
               </div>
               <div className="flex justify-end gap-3">
                 <button
