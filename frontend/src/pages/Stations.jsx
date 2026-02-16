@@ -31,6 +31,7 @@ export default function Stations() {
   const [createName, setCreateName] = useState('');
   const [createDesc, setCreateDesc] = useState('');
   const [creating, setCreating] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const buildParams = useCallback(
     (overrides = {}) => {
@@ -94,6 +95,7 @@ export default function Stations() {
       await stationsApi.create(createName.trim(), createDesc.trim());
       setCreateName('');
       setCreateDesc('');
+      setCreateModalOpen(false);
       fetchList();
     } catch (err) {
       setError(err.message);
@@ -141,42 +143,92 @@ export default function Stations() {
               </button>
             ))}
           </nav>
+          {user && activeTab === 'mine' && (
+            <button
+              type="button"
+              onClick={() => setCreateModalOpen(true)}
+              aria-label="Add station"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-ray-600 text-white transition hover:bg-ray-500 focus:outline-none focus:ring-2 focus:ring-ray-400 focus:ring-offset-2 focus:ring-offset-groove-900"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
-      {user && (
-        <form
-          onSubmit={handleCreate}
-          className="mb-6 flex flex-wrap items-end gap-4 rounded-xl border border-groove-700 bg-groove-900/50 p-4"
+      {createModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setCreateModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-station-title"
         >
-          <div>
-            <label className="mb-1 block text-sm text-gray-400">Station name</label>
-            <input
-              type="text"
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              placeholder="My station"
-              className="w-64 rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm text-gray-400">Description (optional)</label>
-            <input
-              type="text"
-              value={createDesc}
-              onChange={(e) => setCreateDesc(e.target.value)}
-              placeholder="Description"
-              className="w-64 rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={creating || !createName.trim()}
-            className="rounded-lg bg-ray-600 px-6 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50"
+          <div
+            className="w-full max-w-md rounded-xl border border-groove-700 bg-groove-900 p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
           >
-            Create station
-          </button>
-        </form>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 id="create-station-title" className="text-lg font-semibold text-white">
+                Create station
+              </h2>
+              <button
+                type="button"
+                onClick={() => setCreateModalOpen(false)}
+                className="rounded p-1.5 text-gray-400 hover:bg-groove-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-ray-500"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Station name</label>
+                <input
+                  type="text"
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
+                  placeholder="My station"
+                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Description (optional)</label>
+                <input
+                  type="text"
+                  value={createDesc}
+                  onChange={(e) => setCreateDesc(e.target.value)}
+                  placeholder="Description"
+                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                />
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCreateModalOpen(false)}
+                  className="rounded-lg bg-groove-700 px-4 py-2 text-sm font-medium text-gray-300 transition hover:bg-groove-600 focus:outline-none focus:ring-2 focus:ring-ray-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating || !createName.trim()}
+                  className="rounded-lg bg-ray-600 px-6 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-ray-500"
+                >
+                  {creating ? (
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    'Create station'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {error && (
@@ -295,7 +347,7 @@ export default function Stations() {
       <div className="space-y-1 rounded-xl border border-groove-700 bg-groove-900/50">
         {list.length === 0 ? (
           <p className="px-6 py-12 text-center text-gray-500">
-            {activeTab === 'mine' && 'No stations yet. Create one above.'}
+            {activeTab === 'mine' && 'No stations yet. Add one with the + button.'}
             {activeTab === 'contributions' && 'No stations where you’ve voted yet.'}
             {activeTab === 'all' && 'No stations match your filters.'}
           </p>
