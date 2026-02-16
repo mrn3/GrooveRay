@@ -302,6 +302,37 @@ router.get('/:id/now-playing', async (req, res) => {
   res.json(nowPlaying);
 });
 
+router.get('/:id/chat', async (req, res) => {
+  const station = await db.get('SELECT id FROM stations WHERE id = ?', [req.params.id]);
+  if (!station) return res.status(404).json({ error: 'Station not found' });
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+  const before = req.query.before;
+  let sql = `
+    SELECT c.id, c.station_id, c.user_id, u.username, c.message, c.created_at
+    FROM station_chat_messages c
+    JOIN users u ON u.id = c.user_id
+    WHERE c.station_id = ?
+  `;
+  const params = [req.params.id];
+  if (before) {
+    sql += ' AND c.id < ? ORDER BY c.created_at DESC LIMIT ?';
+    params.push(before, limit);
+  } else {
+    sql += ' ORDER BY c.created_at DESC LIMIT ?';
+    params.push(limit);
+  }
+  const rows = await db.all(sql, params);
+  const items = rows.reverse().map((r) => ({
+    id: r.id,
+    station_id: r.station_id,
+    user_id: r.user_id,
+    username: r.username,
+    message: r.message,
+    created_at: r.created_at,
+  }));
+  res.json({ items });
+});
+
 router.post('/:id/queue', authMiddleware, async (req, res) => {
   const { songId } = req.body || {};
   if (!songId) return res.status(400).json({ error: 'songId required' });

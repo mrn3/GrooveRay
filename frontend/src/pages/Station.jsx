@@ -25,6 +25,16 @@ export default function Station() {
   const [nowPlaying, setNowPlaying] = useState(null);
   const [nowPlayingDetails, setNowPlayingDetails] = useState(null);
   const [ratingId, setRatingId] = useState(null);
+  const [stationRatingSaving, setStationRatingSaving] = useState(false);
+  const [listeners, setListeners] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [mentionAt, setMentionAt] = useState(null);
+  const [mentionFilter, setMentionFilter] = useState('');
+  const chatCursorRef = useRef(0);
+  const chatEndRef = useRef(null);
+  const chatListRef = useRef(null);
+  const chatInputRef = useRef(null);
   const [editImageOpen, setEditImageOpen] = useState(false);
   const [editImageUrl, setEditImageUrl] = useState('');
   const [savingImage, setSavingImage] = useState(false);
@@ -36,10 +46,15 @@ export default function Station() {
   useEffect(() => {
     stationsApi.get(slugOrId).then((s) => {
       setStation(s);
-      return Promise.all([stationsApi.queue(s.id), stationsApi.nowPlaying(s.id)]);
-    }).then(([q, np]) => {
+      return Promise.all([
+        stationsApi.queue(s.id),
+        stationsApi.nowPlaying(s.id),
+        stationsApi.getChat(s.id).then((data) => (data?.items ?? [])),
+      ]);
+    }).then(([q, np, chat]) => {
       setQueue(q);
       setNowPlaying(np);
+      setChatMessages(chat);
     }).catch(() => setStation(null)).finally(() => setLoading(false));
   }, [slugOrId]);
 
@@ -49,15 +64,23 @@ export default function Station() {
 
   useEffect(() => {
     if (!station?.id) return;
-    const socket = io(undefined, { path: '/socket.io' });
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('grooveray_token') : null;
+    const socket = io(undefined, { path: '/socket.io', auth: { token } });
     socketRef.current = socket;
     socket.emit('station:subscribe', station.id);
     socket.on('queue', setQueue);
     socket.on('nowPlaying', setNowPlaying);
+    socket.on('listeners', setListeners);
+    socket.on('chat', (msg) => setChatMessages((prev) => [...prev, msg]));
     return () => {
       socket.emit('station:unsubscribe', station.id);
+      socket.off('queue');
+      socket.off('nowPlaying');
+      socket.off('listeners');
+      socket.off('chat');
       socket.close();
       setStationMode(null);
+      setListeners([]);
     };
   }, [station?.id, setStationMode]);
 
@@ -102,6 +125,61 @@ export default function Station() {
     }
   };
 
+  const handleStationRating = async (e, rating) => {
+    if (!station) return;
+    e.stopPropagation();
+    setStationRatingSaving(true);
+    try {
+      await stationsApi.setRating(station.id, rating);
+      setStation((prev) => (prev ? { ...prev, rating } : null));
+    } catch (_) {}
+    finally {
+      setStationRatingSaving(false);
+    }
+  };
+
+  const handleSendChat = (e) => {
+    e.preventDefault();
+    const msg = chatInput.trim();
+    if (!msg || !station?.id || !socketRef.current) return;
+    if (!user) return;
+    socketRef.current.emit('station:chat', { stationId: station.id, message: msg });
+    setChatInput('');
+    setMentionAt(null);
+  };
+
+  const insertMention = (username) => {
+    const start = mentionAt ?? 0;
+    const end = chatCursorRef.current;
+    const prefix = chatInput.slice(0, start);
+    const suffix = chatInput.slice(end);
+    setChatInput(`${prefix}@${username} ${suffix}`);
+    setMentionAt(null);
+    setMentionFilter('');
+  };
+
+  const handleChatInputChange = (e) => {
+    const v = e.target.value;
+    const pos = e.target.selectionStart ?? v.length;
+    setChatInput(v);
+    chatCursorRef.current = pos;
+    const lastAt = v.lastIndexOf('@');
+    if (lastAt !== -1 && lastAt <= pos) {
+      const after = v.slice(lastAt + 1, pos);
+      if (!/\s/.test(after)) {
+        setMentionAt(lastAt);
+        setMentionFilter(after.toLowerCase());
+        return;
+      }
+    }
+    setMentionAt(null);
+    setMentionFilter('');
+  };
+
+  const mentionSuggestions = mentionAt !== null && listeners.length > 0
+    ? listeners.filter((l) => l.username?.toLowerCase().startsWith(mentionFilter))
+    : [];
+
   const handleAddToQueue = async (e) => {
     e.preventDefault();
     if (!station || !addSongId) return;
@@ -124,6 +202,10 @@ export default function Station() {
           (s.artist || '').toLowerCase().includes(query)
       ).slice(0, 8)
     : [];
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages.length]);
 
   useEffect(() => {
     function handleClickOutside(ev) {
@@ -171,6 +253,30 @@ export default function Station() {
               <h1 className="text-2xl font-semibold text-white">{station.name}</h1>
               {station.description && <p className="text-gray-400">{station.description}</p>}
               <p className="text-sm text-gray-500">by {station.owner_name}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+                <span className="text-gray-500">Station rating:</span>
+                {station.community_rating_count > 0 && (
+                  <span className="text-amber-400">
+                    {Number(station.community_avg_rating).toFixed(1)} ★ ({station.community_rating_count})
+                  </span>
+                )}
+                {user && (
+                  <span onClick={(e) => e.stopPropagation()} className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        aria-label={`Rate station ${star} star${star > 1 ? 's' : ''}`}
+                        disabled={stationRatingSaving}
+                        className="rounded p-0.5 transition focus:outline-none focus:ring-2 focus:ring-ray-500 disabled:opacity-50"
+                        onClick={(e) => handleStationRating(e, star)}
+                      >
+                        <span className={(station.rating ?? 0) >= star ? 'text-amber-400' : 'text-gray-500 hover:text-amber-500'}>★</span>
+                      </button>
+                    ))}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           {editImageOpen && isOwner && (
@@ -321,8 +427,97 @@ export default function Station() {
           ) : (
             <p className="px-4 py-8 text-center text-gray-500">Nothing playing</p>
           )}
+
+          <section className="border-t border-groove-700">
+            <h2 className="border-b border-groove-700 px-4 py-3 text-lg font-medium text-white">
+              Listeners {listeners.length > 0 ? `(${listeners.length})` : ''}
+            </h2>
+            <div className="max-h-40 overflow-auto p-4">
+              {listeners.length === 0 ? (
+                <p className="text-center text-sm text-gray-500">No one else here yet</p>
+              ) : (
+                <ul className="space-y-1.5 text-sm">
+                  {listeners.map((l) => (
+                    <li key={l.userId} className="text-gray-300">
+                      <span className="font-medium text-white">{l.username}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
         </section>
       </div>
+
+      <section className="mt-8">
+        <h2 className="mb-3 text-lg font-medium text-white">Chat</h2>
+        <div className="flex flex-col rounded-xl border border-groove-700 bg-groove-900/50 overflow-hidden" style={{ minHeight: 280 }}>
+          <div ref={chatListRef} className="flex-1 overflow-auto p-4 space-y-3" style={{ maxHeight: 320 }}>
+            {chatMessages.length === 0 ? (
+              <p className="text-center text-gray-500 py-4">No messages yet. Say hi and use @ to mention listeners.</p>
+            ) : (
+              chatMessages.map((m) => (
+                <div key={m.id} className="text-sm">
+                  <span className="font-medium text-ray-400">{m.username}</span>
+                  <span className="text-gray-500 ml-2 text-xs">
+                    {m.created_at ? new Date(m.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </span>
+                  <p className="text-gray-300 mt-0.5 break-words">
+                    {typeof m.message === 'string'
+                      ? m.message.split(/(@[\w-]+)/g).map((part, i) =>
+                          part.startsWith('@') ? (
+                            <span key={i} className="text-ray-400 font-medium"> {part} </span>
+                          ) : (
+                            part
+                          )
+                        )
+                      : m.message}
+                  </p>
+                </div>
+              ))
+            )}
+            <div ref={chatEndRef} />
+          </div>
+          {user ? (
+            <form onSubmit={handleSendChat} className="border-t border-groove-700 p-2 relative">
+              {mentionSuggestions.length > 0 && (
+                <ul className="absolute bottom-full left-2 right-2 mb-1 max-h-32 overflow-auto rounded-lg border border-groove-600 bg-groove-800 py-1 shadow-lg z-10">
+                  {mentionSuggestions.slice(0, 8).map((l) => (
+                    <li key={l.userId}>
+                      <button
+                        type="button"
+                        onClick={() => insertMention(l.username)}
+                        className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-groove-600 focus:bg-groove-600 focus:outline-none"
+                      >
+                        @{l.username}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="flex gap-2">
+                <input
+                  ref={chatInputRef}
+                  type="text"
+                  value={chatInput}
+                  onChange={handleChatInputChange}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setMentionAt(null);
+                  }}
+                  placeholder="Message… use @ to mention"
+                  className="min-w-0 flex-1 rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                  maxLength={2000}
+                />
+                <button type="submit" disabled={!chatInput.trim()} className="rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50 shrink-0">
+                  Send
+                </button>
+              </div>
+            </form>
+          ) : (
+            <p className="border-t border-groove-700 px-4 py-3 text-center text-sm text-gray-500">Sign in to chat</p>
+          )}
+        </div>
+      </section>
 
       <section>
         <h2 className="mb-3 text-lg font-medium text-white">Queue (most upvoted first)</h2>

@@ -151,6 +151,8 @@ export const stations = {
   unvote: (stationId, queueId) =>
     request(`/stations/${stationId}/vote/${queueId}`, { method: 'DELETE' }),
   nowPlaying: (id) => request(`/stations/${id}/now-playing`),
+  getChat: (id, params) =>
+    request(`/stations/${id}/chat${buildSearchParams(params)}`),
 };
 
 // Playlists

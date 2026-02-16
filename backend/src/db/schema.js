@@ -332,6 +332,22 @@ async function ensureSchema() {
   try {
     await exec('CREATE INDEX idx_song_listen_events_song_played ON song_listen_events(song_id, played_at)');
   } catch (_) {}
+  try {
+    await exec(
+      `CREATE TABLE IF NOT EXISTS station_chat_messages (
+        id VARCHAR(36) PRIMARY KEY,
+        station_id VARCHAR(36) NOT NULL,
+        user_id VARCHAR(36) NOT NULL,
+        message TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (station_id) REFERENCES stations(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )`
+    );
+  } catch (_) {}
+  try {
+    await exec('CREATE INDEX idx_station_chat_messages_station_created ON station_chat_messages(station_id, created_at)');
+  } catch (_) {}
 }
 
 let schemaReady = null;

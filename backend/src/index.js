@@ -11,8 +11,11 @@ import songRoutes from './routes/songs.js';
 import youtubeRoutes from './routes/youtube.js';
 import stationRoutes, { advanceStationPlayback } from './routes/stations.js';
 import playlistRoutes from './routes/playlists.js';
-import { setIO } from './socket.js';
+import { setIO, addStationListener, removeStationListener, removeSocketFromStations, emitStationUpdate } from './socket.js';
 import db from './db/schema.js';
+import { JWT_SECRET } from './middleware/auth.js';
+import jwt from 'jsonwebtoken';
+import { v4 as uuid } from 'uuid';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -40,11 +43,62 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 io.on('connection', (socket) => {
+  const token = socket.handshake.auth?.token;
+  if (token) {
+    try {
+      const payload = jwt.verify(token, JWT_SECRET);
+      socket.userId = payload.userId;
+      socket.username = payload.username || payload.userId;
+    } catch (_) {}
+  }
+
   socket.on('station:subscribe', (stationId) => {
+    if (!stationId || typeof stationId !== 'string') return;
     socket.join(`station:${stationId}`);
+    if (socket.userId && socket.username) {
+      const listeners = addStationListener(stationId, socket.userId, socket.username, socket.id);
+      socket.currentStationId = stationId;
+      io.to(`station:${stationId}`).emit('listeners', listeners);
+    }
   });
+
   socket.on('station:unsubscribe', (stationId) => {
+    if (!stationId || typeof stationId !== 'string') return;
+    if (socket.userId) {
+      const listeners = removeStationListener(stationId, socket.userId, socket.id);
+      io.to(`station:${stationId}`).emit('listeners', listeners);
+    }
     socket.leave(`station:${stationId}`);
+    socket.currentStationId = null;
+  });
+
+  socket.on('station:chat', async (payload) => {
+    const stationId = payload?.stationId;
+    const message = typeof payload?.message === 'string' ? payload.message.trim() : '';
+    if (!stationId || !message || message.length > 2000) return;
+    if (!socket.userId || !socket.username) return;
+    const station = await db.get('SELECT id FROM stations WHERE id = ?', [stationId]);
+    if (!station) return;
+    const id = uuid();
+    await db.run(
+      'INSERT INTO station_chat_messages (id, station_id, user_id, message) VALUES (?, ?, ?, ?)',
+      [id, stationId, socket.userId, message]
+    );
+    const row = {
+      id,
+      user_id: socket.userId,
+      username: socket.username,
+      message,
+      created_at: new Date().toISOString(),
+    };
+    emitStationUpdate(stationId, 'chat', row);
+  });
+
+  socket.on('disconnect', () => {
+    const updates = removeSocketFromStations(socket.id);
+    for (const { stationId, listeners } of updates) {
+      io.to(`station:${stationId}`).emit('listeners', listeners);
+    }
   });
 });
 
