@@ -307,8 +307,36 @@ export default function Station() {
     ? queue.filter((item) => item.id !== nowPlaying.queueId)
     : queue;
 
+  const showHeroVideo = isMusicVideo && nowPlaying?.item?.youtube_id;
+
   return (
     <div>
+      {/* Hero video area: large and centered when a music video is playing */}
+      {showHeroVideo && (
+        <div className="mb-8">
+          <div className="mx-auto w-full max-w-5xl">
+            <div className="aspect-video w-full overflow-hidden rounded-xl bg-black shadow-2xl" style={{ minHeight: 320 }}>
+              <div id="station-youtube-embed" className="h-full w-full" />
+            </div>
+            {nowPlaying?.item && (
+              <div className="mt-3 flex flex-wrap items-center gap-4">
+                <div className="flex h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-groove-700">
+                  {nowPlaying.item.thumbnail_url ? (
+                    <img src={nowPlaying.item.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-xl text-ray-400">◇</span>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-white">{nowPlaying.item.title}</p>
+                  <p className="text-sm text-gray-400">{nowPlaying.item.artist}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="mb-8 flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="mb-8 flex items-center gap-4">
@@ -460,11 +488,7 @@ export default function Station() {
           <h2 className="border-b border-groove-700 px-4 py-3 text-lg font-medium text-white">Now playing</h2>
           {nowPlaying?.item ? (
             <div className="p-4">
-              {isMusicVideo && nowPlaying.item.youtube_id ? (
-                <div className="mb-4 aspect-video w-full overflow-hidden rounded-lg bg-black">
-                  <div id="station-youtube-embed" className="h-full w-full" />
-                </div>
-              ) : null}
+              {/* Video is shown in hero area when music video; only track info here */}
               <div className="flex gap-4">
                 <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
                   {nowPlaying.item.thumbnail_url ? (
