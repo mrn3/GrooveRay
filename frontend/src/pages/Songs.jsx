@@ -19,7 +19,8 @@ export default function Songs() {
   const [togglingId, setTogglingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
-  const [editArtist, setEditArtist] = useState('');
+  const [editArtists, setEditArtists] = useState([]);
+  const [editArtistInput, setEditArtistInput] = useState('');
   const [artistSuggestions, setArtistSuggestions] = useState([]);
   const [artistDropdownOpen, setArtistDropdownOpen] = useState(false);
   const [artistSuggestionsLoading, setArtistSuggestionsLoading] = useState(false);
@@ -139,11 +140,17 @@ export default function Songs() {
   const [youtubePendingItem, setYoutubePendingItem] = useState(null); // { title: string } | null
   const youtubePollRef = useRef(null);
 
+  function parseArtistString(str) {
+    if (!str || typeof str !== 'string') return [];
+    return str.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+
   const startRename = (e, song) => {
     e.stopPropagation();
     setEditingId(song.id);
     setEditTitle(song.title ?? '');
-    setEditArtist(song.artist ?? '');
+    setEditArtists(parseArtistString(song.artist));
+    setEditArtistInput('');
     setArtistSuggestions([]);
     setArtistDropdownOpen(false);
   };
@@ -152,7 +159,8 @@ export default function Songs() {
     e?.stopPropagation();
     setEditingId(null);
     setEditTitle('');
-    setEditArtist('');
+    setEditArtists([]);
+    setEditArtistInput('');
     setArtistSuggestions([]);
     setArtistDropdownOpen(false);
   };
@@ -163,13 +171,13 @@ export default function Songs() {
     if (artistDebounceRef.current) clearTimeout(artistDebounceRef.current);
     artistDebounceRef.current = setTimeout(() => {
       setArtistSuggestionsLoading(true);
-      const q = editArtist.trim();
+      const q = editArtistInput.trim();
       songsApi.artists(q).then(setArtistSuggestions).catch(() => setArtistSuggestions([])).finally(() => setArtistSuggestionsLoading(false));
     }, 200);
     return () => {
       if (artistDebounceRef.current) clearTimeout(artistDebounceRef.current);
     };
-  }, [editingId, editArtist]);
+  }, [editingId, editArtistInput]);
 
   // Close artist dropdown when clicking outside
   useEffect(() => {
@@ -234,7 +242,7 @@ export default function Songs() {
   const handleRename = async (e, song) => {
     e?.stopPropagation();
     const newTitle = editTitle.trim();
-    const newArtist = editArtist.trim();
+    const newArtist = editArtists.length ? editArtists.join(', ') : '';
     const titleChanged = newTitle !== (song.title ?? '');
     const artistChanged = newArtist !== (song.artist ?? '');
     if (!titleChanged && !artistChanged) {
@@ -1018,54 +1026,98 @@ export default function Songs() {
                       autoFocus
                       onKeyDown={(e) => e.key === 'Escape' && cancelRename()}
                     />
-                    <div ref={artistDropdownRef} className="relative min-w-0">
-                      <input
-                        type="text"
-                        value={editArtist}
-                        onChange={(e) => {
-                          setEditArtist(e.target.value);
-                          setArtistDropdownOpen(true);
-                        }}
-                        onFocus={() => setArtistDropdownOpen(true)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape') {
-                            setArtistDropdownOpen(false);
-                            cancelRename();
-                          }
-                        }}
-                        className="min-w-0 w-full rounded border border-groove-600 bg-groove-800 px-2 py-1 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
-                        placeholder="Artist (type to search or enter new)"
-                        autoComplete="off"
-                      />
-                      {artistDropdownOpen && (
-                        <ul className="absolute z-10 mt-1 max-h-40 min-w-full overflow-auto rounded border border-groove-600 bg-groove-800 py-1 shadow-lg">
-                          {artistSuggestionsLoading ? (
-                            <li className="px-3 py-2 text-sm text-gray-400">Searching…</li>
-                          ) : artistSuggestions.length > 0 ? (
-                            artistSuggestions.map((name) => (
-                              <li key={name}>
+                    <div ref={artistDropdownRef} className="relative min-w-0 flex flex-wrap gap-1.5 rounded border border-groove-600 bg-groove-800 p-1.5">
+                      {editArtists.map((name) => (
+                        <span
+                          key={name}
+                          className="inline-flex items-center gap-0.5 rounded bg-groove-600 px-1.5 py-0.5 text-xs text-white"
+                        >
+                          {name}
+                          <button
+                            type="button"
+                            onClick={() => setEditArtists((prev) => prev.filter((a) => a !== name))}
+                            className="rounded p-0.5 text-gray-400 hover:bg-groove-500 hover:text-white"
+                            aria-label={`Remove ${name}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <div className="relative min-w-[120px] flex-1">
+                        <input
+                          type="text"
+                          value={editArtistInput}
+                          onChange={(e) => {
+                            setEditArtistInput(e.target.value);
+                            setArtistDropdownOpen(true);
+                          }}
+                          onFocus={() => setArtistDropdownOpen(true)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') {
+                              setArtistDropdownOpen(false);
+                              cancelRename();
+                            }
+                            if (e.key === 'Enter' || e.key === ',') {
+                              e.preventDefault();
+                              const v = (e.key === ',' ? editArtistInput.replace(/,/g, '') : editArtistInput).trim();
+                              if (v && !editArtists.includes(v)) {
+                                setEditArtists((prev) => [...prev, v]);
+                                setEditArtistInput('');
+                                setArtistDropdownOpen(false);
+                              }
+                              if (e.key === ',') setEditArtistInput((prev) => prev.replace(/,/g, ''));
+                            }
+                          }}
+                          className="min-w-0 w-full border-0 bg-transparent px-1.5 py-0.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-0"
+                          placeholder={editArtists.length ? 'Add artist…' : 'Artists (search or add)'}
+                          autoComplete="off"
+                        />
+                        {artistDropdownOpen && (
+                          <ul className="absolute z-10 mt-1 max-h-40 min-w-full overflow-auto rounded border border-groove-600 bg-groove-800 py-1 shadow-lg">
+                            {artistSuggestionsLoading ? (
+                              <li className="px-3 py-2 text-sm text-gray-400">Searching…</li>
+                            ) : artistSuggestions.length > 0 ? (
+                              artistSuggestions.map((name) => (
+                                <li key={name}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (!editArtists.includes(name)) setEditArtists((prev) => [...prev, name]);
+                                      setEditArtistInput('');
+                                      setArtistDropdownOpen(false);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-groove-600 focus:bg-groove-600 focus:outline-none"
+                                  >
+                                    {name}
+                                  </button>
+                                </li>
+                              ))
+                            ) : editArtistInput.trim() ? (
+                              <li>
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setEditArtist(name);
+                                    const v = editArtistInput.trim();
+                                    if (v && !editArtists.includes(v)) setEditArtists((prev) => [...prev, v]);
+                                    setEditArtistInput('');
                                     setArtistDropdownOpen(false);
                                   }}
-                                  className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-groove-600 focus:bg-groove-600 focus:outline-none"
+                                  className="w-full px-3 py-1.5 text-left text-sm text-gray-400 hover:bg-groove-600 focus:outline-none"
                                 >
-                                  {name}
+                                  Add &quot;{editArtistInput.trim()}&quot;
                                 </button>
                               </li>
-                            ))
-                          ) : (
-                            <li className="px-3 py-2 text-sm text-gray-400">Type to search or enter a new artist</li>
-                          )}
-                        </ul>
-                      )}
+                            ) : (
+                              <li className="px-3 py-2 text-sm text-gray-400">Type to search or add artists</li>
+                            )}
+                          </ul>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         type="submit"
-                        disabled={savingId === song.id || !editTitle.trim() || (editTitle.trim() === (song.title ?? '') && editArtist.trim() === (song.artist ?? ''))}
+                        disabled={savingId === song.id || !editTitle.trim() || (editTitle.trim() === (song.title ?? '') && (editArtists.length ? editArtists.join(', ') : '') === (song.artist ?? ''))}
                         className="rounded bg-ray-600 px-2 py-1 text-xs font-medium text-white hover:bg-ray-500 disabled:opacity-50"
                       >
                         {savingId === song.id ? (

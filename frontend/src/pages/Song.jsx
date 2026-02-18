@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { songs as songsApi } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -118,11 +118,22 @@ export default function Song() {
   const [contentTab, setContentTab] = useState('description');
   const [editOpen, setEditOpen] = useState(false);
   const [editTitle, setEditTitle] = useState('');
-  const [editArtist, setEditArtist] = useState('');
+  const [editArtists, setEditArtists] = useState([]);
+  const [editArtistInput, setEditArtistInput] = useState('');
+  const [artistSuggestions, setArtistSuggestions] = useState([]);
+  const [artistSuggestionsLoading, setArtistSuggestionsLoading] = useState(false);
+  const [artistDropdownOpen, setArtistDropdownOpen] = useState(false);
+  const artistDropdownRef = useRef(null);
+  const artistDebounceRef = useRef(null);
   const [editDescription, setEditDescription] = useState('');
   const [editLyrics, setEditLyrics] = useState('');
   const [editGuitarTab, setEditGuitarTab] = useState('');
   const [saving, setSaving] = useState(false);
+
+  function parseArtistString(str) {
+    if (!str || typeof str !== 'string') return [];
+    return str.split(',').map((s) => s.trim()).filter(Boolean);
+  }
 
   const fetchSong = useCallback(() => {
     if (!id) return;
@@ -157,6 +168,30 @@ export default function Song() {
       .then(setTotalListensHistory)
       .catch(() => setTotalListensHistory({ buckets: [] }));
   }, [song?.id, listensPeriod]);
+
+  // Artist autocomplete when edit modal is open
+  useEffect(() => {
+    if (!editOpen) return;
+    if (artistDebounceRef.current) clearTimeout(artistDebounceRef.current);
+    artistDebounceRef.current = setTimeout(() => {
+      setArtistSuggestionsLoading(true);
+      const q = editArtistInput.trim();
+      songsApi.artists(q).then(setArtistSuggestions).catch(() => setArtistSuggestions([])).finally(() => setArtistSuggestionsLoading(false));
+    }, 200);
+    return () => {
+      if (artistDebounceRef.current) clearTimeout(artistDebounceRef.current);
+    };
+  }, [editOpen, editArtistInput]);
+
+  useEffect(() => {
+    const onMouseDown = (e) => {
+      if (artistDropdownRef.current && !artistDropdownRef.current.contains(e.target)) {
+        setArtistDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, []);
 
   const isOwner = user && song && song.user_id === user.id;
 
@@ -206,9 +241,10 @@ export default function Song() {
     if (!newTitle) return;
     setSaving(true);
     try {
+      const artistValue = editArtists.length ? editArtists.join(', ') : null;
       const updated = await songsApi.update(song.id, {
         title: newTitle,
-        artist: (editArtist || '').trim() || null,
+        artist: artistValue,
         description: editDescription.trim() || null,
         lyrics: editLyrics.trim() || null,
         guitar_tab: editGuitarTab.trim() || null,
@@ -282,7 +318,10 @@ export default function Song() {
                 type="button"
                 onClick={() => {
                   setEditTitle(song.title || '');
-                  setEditArtist(song.artist || '');
+                  setEditArtists(parseArtistString(song.artist));
+                  setEditArtistInput('');
+                  setArtistSuggestions([]);
+                  setArtistDropdownOpen(false);
                   setEditDescription(song.description || '');
                   setEditLyrics(song.lyrics || '');
                   setEditGuitarTab(song.guitar_tab || '');
@@ -455,14 +494,91 @@ export default function Song() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-400">Artist</label>
-                <input
-                  type="text"
-                  value={editArtist}
-                  onChange={(e) => setEditArtist(e.target.value)}
-                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500"
-                  placeholder="Artist name"
-                />
+                <label className="mb-1 block text-sm text-gray-400">Artists</label>
+                <div ref={artistDropdownRef} className="flex flex-wrap gap-2 rounded-lg border border-groove-600 bg-groove-800 p-2">
+                  {editArtists.map((name) => (
+                    <span
+                      key={name}
+                      className="inline-flex items-center gap-1 rounded-md bg-groove-600 px-2 py-1 text-sm text-white"
+                    >
+                      {name}
+                      <button
+                        type="button"
+                        onClick={() => setEditArtists((prev) => prev.filter((a) => a !== name))}
+                        className="rounded p-0.5 text-gray-400 hover:bg-groove-500 hover:text-white"
+                        aria-label={`Remove ${name}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <div className="relative min-w-[140px] flex-1">
+                    <input
+                      type="text"
+                      value={editArtistInput}
+                      onChange={(e) => {
+                        setEditArtistInput(e.target.value);
+                        setArtistDropdownOpen(true);
+                      }}
+                      onFocus={() => setArtistDropdownOpen(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ',') {
+                          e.preventDefault();
+                          const v = (e.key === ',' ? editArtistInput.replace(/,/g, '') : editArtistInput).trim();
+                          if (v && !editArtists.includes(v)) {
+                            setEditArtists((prev) => [...prev, v]);
+                            setEditArtistInput('');
+                            setArtistDropdownOpen(false);
+                          }
+                          if (e.key === ',') setEditArtistInput((prev) => prev.replace(/,/g, ''));
+                        }
+                      }}
+                      className="min-w-0 w-full border-0 bg-transparent px-2 py-1 text-white placeholder-gray-500 focus:outline-none focus:ring-0"
+                      placeholder={editArtists.length ? 'Add artist…' : 'Type to search or add artists'}
+                      autoComplete="off"
+                    />
+                    {artistDropdownOpen && (
+                      <ul className="absolute left-0 top-full z-10 mt-1 max-h-40 min-w-full overflow-auto rounded border border-groove-600 bg-groove-800 py-1 shadow-lg">
+                        {artistSuggestionsLoading ? (
+                          <li className="px-3 py-2 text-sm text-gray-400">Searching…</li>
+                        ) : artistSuggestions.length > 0 ? (
+                          artistSuggestions.map((name) => (
+                            <li key={name}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!editArtists.includes(name)) setEditArtists((prev) => [...prev, name]);
+                                  setEditArtistInput('');
+                                  setArtistDropdownOpen(false);
+                                }}
+                                className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-groove-600 focus:bg-groove-600 focus:outline-none"
+                              >
+                                {name}
+                              </button>
+                            </li>
+                          ))
+                        ) : editArtistInput.trim() ? (
+                          <li>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const v = editArtistInput.trim();
+                                if (v && !editArtists.includes(v)) setEditArtists((prev) => [...prev, v]);
+                                setEditArtistInput('');
+                                setArtistDropdownOpen(false);
+                              }}
+                              className="w-full px-3 py-1.5 text-left text-sm text-gray-400 hover:bg-groove-600 focus:outline-none"
+                            >
+                              Add &quot;{editArtistInput.trim()}&quot;
+                            </button>
+                          </li>
+                        ) : (
+                          <li className="px-3 py-2 text-sm text-gray-400">Type to search or add a new artist</li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="mb-1 block text-sm text-gray-400">Description</label>
