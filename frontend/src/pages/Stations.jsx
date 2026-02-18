@@ -18,7 +18,7 @@ export default function Stations() {
   const [error, setError] = useState('');
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(10);
   const [searchTitle, setSearchTitle] = useState('');
   const [searchOwner, setSearchOwner] = useState('');
   const [sortBy, setSortBy] = useState('');
@@ -456,7 +456,7 @@ export default function Stations() {
                 }}
                 className="rounded border border-groove-600 bg-groove-800 px-2 py-1 text-white focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
               >
-                {[10, 20, 50, 100].map((n) => (
+                {[5, 10, 20, 50, 100].map((n) => (
                   <option key={n} value={n}>{n}</option>
                 ))}
               </select>

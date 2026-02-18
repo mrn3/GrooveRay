@@ -51,7 +51,7 @@ export default function Songs() {
   const [sortOrder, setSortOrder] = useState('desc');
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
   const { play, toggle, current, playing } = usePlayer();
   const { user } = useAuth();
@@ -1227,7 +1227,7 @@ export default function Songs() {
                 }}
                 className="rounded border border-groove-600 bg-groove-800 px-2 py-1 text-white focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
               >
-                {[10, 20, 50, 100].map((n) => (
+                {[5, 10, 20, 50, 100].map((n) => (
                   <option key={n} value={n}>{n}</option>
                 ))}
               </select>
