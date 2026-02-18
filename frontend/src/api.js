@@ -162,6 +162,8 @@ export const stations = {
 export const playlists = {
   list: (params) => request(`/playlists${buildSearchParams(params)}`),
   listPublic: (params) => request(`/playlists/public${buildSearchParams(params)}`),
+  contributors: (q) =>
+    request(`/playlists/contributors${q != null && q !== '' ? `?q=${encodeURIComponent(q)}` : ''}`),
   get: (id) => request(`/playlists/${id}`),
   getBySlug: (slug) => request(`/playlists/by-slug/${slug}`),
   create: (name, description, isPublic) =>

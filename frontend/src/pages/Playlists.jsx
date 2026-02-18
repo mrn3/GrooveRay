@@ -7,7 +7,6 @@ import { usePlayer } from '../context/PlayerContext';
 const TABS = [
   { id: 'all', label: 'All Playlists' },
   { id: 'mine', label: 'My Playlists' },
-  { id: 'contributions', label: 'My Contributions' },
 ];
 
 export default function Playlists() {
@@ -31,6 +30,10 @@ export default function Playlists() {
   const [minTracks, setMinTracks] = useState('');
   const [minListens, setMinListens] = useState('');
   const [minRating, setMinRating] = useState('');
+  const [searchContributor, setSearchContributor] = useState('');
+  const [searchContributorDropdownOpen, setSearchContributorDropdownOpen] = useState(false);
+  const [searchContributorSuggestions, setSearchContributorSuggestions] = useState([]);
+  const [searchContributorSuggestionsLoading, setSearchContributorSuggestionsLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
@@ -40,6 +43,7 @@ export default function Playlists() {
     (overrides = {}) => {
       const p = {};
       if (searchName.trim()) p.name = searchName.trim();
+      if (searchContributor.trim()) p.owner = searchContributor.trim();
       const mt = minTracks.trim() ? parseInt(minTracks, 10) : null;
       const ml = minListens.trim() ? parseInt(minListens, 10) : null;
       const mr = minRating.trim() ? parseFloat(minRating) : null;
@@ -52,16 +56,15 @@ export default function Playlists() {
       }
       p.page = overrides.page ?? page;
       p.limit = overrides.limit ?? pageSize;
-      if (activeTab === 'mine') p.contributions = 1;
       return p;
     },
-    [searchName, minTracks, minListens, minRating, sortBy, sortOrder, page, pageSize, activeTab]
+    [searchName, searchContributor, minTracks, minListens, minRating, sortBy, sortOrder, page, pageSize]
   );
 
   const resetPageRef = useRef(false);
   useEffect(() => {
     resetPageRef.current = true;
-  }, [activeTab, sortBy, sortOrder, minTracks, minListens, minRating]);
+  }, [activeTab, sortBy, sortOrder, searchContributor, minTracks, minListens, minRating]);
 
   const fetchList = useCallback(() => {
     setLoading(true);
@@ -89,7 +92,21 @@ export default function Playlists() {
 
   useEffect(() => {
     fetchList();
-  }, [activeTab, sortBy, sortOrder, minTracks, minListens, minRating, page, pageSize]);
+  }, [activeTab, sortBy, sortOrder, searchContributor, minTracks, minListens, minRating, page, pageSize]);
+
+  useEffect(() => {
+    if (!searchContributorDropdownOpen) return;
+    const c = searchContributor.trim();
+    const t = setTimeout(() => {
+      setSearchContributorSuggestionsLoading(true);
+      playlistsApi
+        .contributors(c)
+        .then(setSearchContributorSuggestions)
+        .catch(() => setSearchContributorSuggestions([]))
+        .finally(() => setSearchContributorSuggestionsLoading(false));
+    }, 200);
+    return () => clearTimeout(t);
+  }, [searchContributor, searchContributorDropdownOpen]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -137,6 +154,7 @@ export default function Playlists() {
 
   const clearFilters = () => {
     setSearchName('');
+    setSearchContributor('');
     setMinTracks('');
     setMinListens('');
     setMinRating('');
@@ -163,7 +181,7 @@ export default function Playlists() {
               </button>
             ))}
           </nav>
-          {user && activeTab === 'contributions' && (
+          {user && activeTab === 'mine' && (
             <button
               type="button"
               onClick={() => setCreateModalOpen(true)}
@@ -198,6 +216,42 @@ export default function Playlists() {
               className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
               autoComplete="off"
             />
+          </div>
+          <div className="relative min-w-[140px] flex-1">
+            <label className="mb-1 block text-xs text-gray-400">Contributor</label>
+            <input
+              type="text"
+              value={searchContributor}
+              onChange={(e) => setSearchContributor(e.target.value)}
+              onFocus={() => setSearchContributorDropdownOpen(true)}
+              onBlur={() => setTimeout(() => setSearchContributorDropdownOpen(false), 150)}
+              placeholder="Filter by owner…"
+              className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+              autoComplete="off"
+            />
+            {searchContributorDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-auto rounded-lg border border-groove-600 bg-groove-800 py-1 shadow-lg">
+                {searchContributorSuggestionsLoading ? (
+                  <p className="px-3 py-2 text-sm text-gray-500">Loading…</p>
+                ) : searchContributorSuggestions.length > 0 ? (
+                  searchContributorSuggestions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      className="w-full px-3 py-2 text-left text-sm text-white hover:bg-groove-700"
+                      onClick={() => {
+                        setSearchContributor(name);
+                        setSearchContributorDropdownOpen(false);
+                      }}
+                    >
+                      {name}
+                    </button>
+                  ))
+                ) : (
+                  <p className="px-3 py-2 text-sm text-gray-500">No contributors found</p>
+                )}
+              </div>
+            )}
           </div>
           <div className="w-full sm:w-auto">
             <label className="mb-1 block text-xs text-gray-400">Sort by</label>
@@ -367,9 +421,7 @@ export default function Playlists() {
           {list.length === 0 ? (
             <p className="px-6 py-12 text-center text-gray-500">
               {activeTab === 'all' && 'No public playlists yet.'}
-              {activeTab === 'mine' &&
-                'No public playlists from you yet. Create a playlist and make it public to share.'}
-              {activeTab === 'contributions' && 'No playlists yet. Create one to get started.'}
+              {activeTab === 'mine' && 'No playlists yet. Create one to get started.'}
             </p>
           ) : (
             list.map((pl) => (

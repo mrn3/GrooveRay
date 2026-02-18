@@ -74,6 +74,7 @@ function parsePlaylistQuery(query) {
   const limitRaw = query.limit != null ? parseInt(query.limit, 10) : 20;
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(100, Math.max(1, limitRaw)) : 20;
   const contributions = query.contributions === '1' || query.contributions === true;
+  const owner = typeof query.owner === 'string' ? query.owner.trim() : '';
   const minTracks = query.minTracks != null ? parseInt(query.minTracks, 10) : null;
   const minListens = query.minListens != null ? parseInt(query.minListens, 10) : null;
   const minRating = query.minRating != null ? parseFloat(query.minRating) : null;
@@ -84,6 +85,7 @@ function parsePlaylistQuery(query) {
     page: Number.isFinite(page) ? page : 1,
     limit,
     contributions,
+    owner: owner || null,
     minTracks: Number.isFinite(minTracks) && minTracks >= 0 ? minTracks : null,
     minListens: Number.isFinite(minListens) && minListens >= 0 ? minListens : null,
     minRating: Number.isFinite(minRating) && minRating >= 0 && minRating <= 5 ? minRating : null,
@@ -155,6 +157,10 @@ router.get('/', authMiddleware, async (req, res) => {
     where.push('p.name LIKE ?');
     params.push(`%${opts.name}%`);
   }
+  if (opts.owner) {
+    where.push('u.username LIKE ?');
+    params.push(`%${opts.owner.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`);
+  }
   const list = await db.all(
     `SELECT p.*, u.username as owner_name,
       (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = p.id) as track_count,
@@ -199,6 +205,10 @@ router.get('/public', optionalAuth, async (req, res) => {
     where.push('p.name LIKE ?');
     params.push(`%${opts.name}%`);
   }
+  if (opts.owner) {
+    where.push('u.username LIKE ?');
+    params.push(`%${opts.owner.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`);
+  }
   const list = await db.all(
     `SELECT p.*, u.username as owner_name,
       (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = p.id) as track_count,
@@ -235,6 +245,31 @@ router.get('/public', optionalAuth, async (req, res) => {
   const start = (opts.page - 1) * opts.limit;
   const items = filtered.slice(start, start + opts.limit);
   res.json({ items, total });
+});
+
+router.get('/contributors', optionalAuth, async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const limit = 20;
+  const pattern = q ? `%${q.replace(/%/g, '\\%').replace(/_/g, '\\_')}%` : '%';
+  let rows;
+  if (req.userId) {
+    rows = await db.all(
+      `SELECT DISTINCT u.username FROM playlists p
+       JOIN users u ON u.id = p.user_id
+       WHERE (p.is_public = 1 OR p.user_id = ?) AND u.username LIKE ?
+       ORDER BY u.username LIMIT ?`,
+      [req.userId, pattern, limit]
+    );
+  } else {
+    rows = await db.all(
+      `SELECT DISTINCT u.username FROM playlists p
+       JOIN users u ON u.id = p.user_id
+       WHERE p.is_public = 1 AND u.username LIKE ?
+       ORDER BY u.username LIMIT ?`,
+      [pattern, limit]
+    );
+  }
+  res.json(rows.map((r) => r.username));
 });
 
 router.get('/by-slug/:slug', optionalAuth, async (req, res) => {
