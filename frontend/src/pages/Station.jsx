@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { stations as stationsApi, songs as songsApi } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,7 @@ function serverPosition(startedAt, durationSeconds) {
 
 export default function Station() {
   const { slugOrId } = useParams();
+  const navigate = useNavigate();
   const [station, setStation] = useState(null);
   const [queue, setQueue] = useState([]);
   const [songs, setSongs] = useState([]);
@@ -39,6 +40,8 @@ export default function Station() {
   const [editImageUrl, setEditImageUrl] = useState('');
   const [savingImage, setSavingImage] = useState(false);
   const [addToQueueError, setAddToQueueError] = useState('');
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const socketRef = useRef(null);
   const youtubePlayerRef = useRef(null);
   const [youtubeApiReady, setYoutubeApiReady] = useState(false);
@@ -203,6 +206,17 @@ export default function Station() {
       setAddSongInput('');
     } catch (err) {
       setAddToQueueError(err.message || err.error || 'Failed to add to queue');
+    }
+  };
+
+  const handleDeleteStation = async () => {
+    if (!station) return;
+    setDeleting(true);
+    try {
+      await stationsApi.delete(station.id);
+      navigate('/stations');
+    } catch (_) {
+      setDeleting(false);
     }
   };
 
@@ -426,6 +440,42 @@ export default function Station() {
                     setEditImageUrl(station.image_url || '');
                   }}
                   className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isOwner && (
+            <div className="mb-6">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpen(true)}
+                className="text-sm text-red-400 hover:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
+              >
+                Delete station
+              </button>
+            </div>
+          )}
+
+          {deleteConfirmOpen && (
+            <div className="mb-6 rounded-xl border border-red-900/50 bg-groove-900/80 p-4">
+              <p className="text-white mb-3">Permanently delete this station? Queue, chat, and ratings will be removed. This cannot be undone.</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleDeleteStation}
+                  disabled={deleting}
+                  className="rounded-lg bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-500 disabled:opacity-50"
+                >
+                  {deleting ? 'Deleting…' : 'Delete'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setDeleteConfirmOpen(false); setDeleting(false); }}
+                  disabled={deleting}
+                  className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700 disabled:opacity-50"
                 >
                   Cancel
                 </button>

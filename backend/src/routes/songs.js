@@ -84,6 +84,7 @@ router.get('/:id/stream', async (req, res) => {
 function parseSearchSort(query) {
   const title = typeof query.title === 'string' ? query.title.trim() : '';
   const artist = typeof query.artist === 'string' ? query.artist.trim() : '';
+  const contributor = typeof query.contributor === 'string' ? query.contributor.trim() : '';
   const durationMin = query.durationMin != null ? parseInt(query.durationMin, 10) : null;
   const durationMax = query.durationMax != null ? parseInt(query.durationMax, 10) : null;
   const minListensMe = query.minListensMe != null ? parseInt(query.minListensMe, 10) : null;
@@ -100,6 +101,7 @@ function parseSearchSort(query) {
   return {
     title: title || null,
     artist: artist || null,
+    contributor: contributor || null,
     durationMin: Number.isFinite(durationMin) ? durationMin : null,
     durationMax: Number.isFinite(durationMax) ? durationMax : null,
     minListensMe: Number.isFinite(minListensMe) && minListensMe >= 0 ? minListensMe : null,
@@ -122,6 +124,10 @@ function applyFilterSort(list, opts) {
   if (opts.artist) {
     const a = opts.artist.toLowerCase();
     out = out.filter((s) => (s.artist || '').toLowerCase().includes(a));
+  }
+  if (opts.contributor) {
+    const c = opts.contributor.toLowerCase();
+    out = out.filter((s) => (s.uploader_name || '').toLowerCase().includes(c));
   }
   if (opts.durationMin != null) {
     out = out.filter((s) => (s.duration_seconds ?? 0) >= opts.durationMin);
@@ -172,6 +178,10 @@ router.get('/public', optionalAuth, async (req, res) => {
     where.push('s.artist LIKE ?');
     params.push(`%${opts.artist}%`);
   }
+  if (opts.contributor) {
+    where.push('u.username LIKE ?');
+    params.push(`%${opts.contributor}%`);
+  }
   if (opts.durationMin != null) {
     where.push('(s.duration_seconds IS NULL OR s.duration_seconds >= ?)');
     params.push(opts.durationMin);
@@ -209,6 +219,31 @@ router.get('/public', optionalAuth, async (req, res) => {
   const start = (opts.page - 1) * opts.limit;
   const items = filtered.slice(start, start + opts.limit);
   res.json({ items, total });
+});
+
+router.get('/contributors', optionalAuth, async (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const limit = 20;
+  const pattern = q ? `%${q}%` : '%';
+  let rows;
+  if (req.userId) {
+    rows = await db.all(
+      `SELECT DISTINCT u.username FROM songs s
+       JOIN users u ON u.id = s.user_id
+       WHERE (s.is_public = 1 OR s.user_id = ?) AND u.username LIKE ?
+       ORDER BY u.username LIMIT ?`,
+      [req.userId, pattern, limit]
+    );
+  } else {
+    rows = await db.all(
+      `SELECT DISTINCT u.username FROM songs s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.is_public = 1 AND u.username LIKE ?
+       ORDER BY u.username LIMIT ?`,
+      [pattern, limit]
+    );
+  }
+  res.json(rows.map((r) => r.username));
 });
 
 router.use(authMiddleware);
@@ -340,6 +375,63 @@ router.get('/favorites', async (req, res) => {
   let ordered = allIds.map((id) => byId[id]).filter(Boolean);
   if (!opts.sortBy) {
     ordered = ordered.sort((a, b) => {
+      const ra = a.rating ?? 0;
+      const rb = b.rating ?? 0;
+      if (ra !== rb) return rb - ra;
+      return (b.listen_count ?? 0) - (a.listen_count ?? 0);
+    });
+  }
+  const filtered = applyFilterSort(ordered, opts);
+  const total = filtered.length;
+  const start = (opts.page - 1) * opts.limit;
+  const items = filtered.slice(start, start + opts.limit);
+  res.json({ items, total });
+});
+
+router.get('/mine', async (req, res) => {
+  const userId = req.userId;
+  const opts = parseSearchSort(req.query);
+  const contributionRows = await db.all('SELECT id FROM songs WHERE user_id = ?', [userId]);
+  const contributionIds = contributionRows.map((r) => r.id);
+  const ratedRows = await db.all('SELECT song_id FROM user_song_ratings WHERE user_id = ? AND rating > 0', [userId]);
+  const listenedRows = await db.all('SELECT song_id FROM user_song_listens WHERE user_id = ? AND listen_count > 0', [userId]);
+  const favoriteIds = [...new Set([...ratedRows.map((r) => r.song_id), ...listenedRows.map((r) => r.song_id)])];
+  const allIds = [...new Set([...contributionIds, ...favoriteIds])];
+  if (allIds.length === 0) {
+    return res.json({ items: [], total: 0 });
+  }
+  const placeholders = allIds.map(() => '?').join(',');
+  const list = await db.all(
+    `SELECT s.*, u.username as uploader_name
+     FROM songs s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.id IN (${placeholders})`,
+    allIds
+  );
+  if (list.length > 0) {
+    const songIds = list.map((s) => s.id);
+    const totals = await db.all(
+      `SELECT song_id, SUM(listen_count) as total_listen_count
+       FROM user_song_listens
+       WHERE song_id IN (${placeholders})
+       GROUP BY song_id`,
+      songIds
+    );
+    const totalMap = Object.fromEntries(totals.map((r) => [r.song_id, r.total_listen_count]));
+    list.forEach((s) => {
+      s.total_listen_count = totalMap[s.id] ?? 0;
+    });
+  }
+  const withCommunity = await attachCommunityRatings(list);
+  const withStats = await attachUserStats(withCommunity, userId);
+  const byId = Object.fromEntries(withStats.map((s) => [s.id, s]));
+  let ordered = allIds.map((id) => byId[id]).filter(Boolean);
+  if (!opts.sortBy) {
+    const isContribution = (s) => contributionIds.includes(s.id);
+    ordered = ordered.sort((a, b) => {
+      const aContrib = isContribution(a) ? 1 : 0;
+      const bContrib = isContribution(b) ? 1 : 0;
+      if (aContrib !== bContrib) return bContrib - aContrib;
       const ra = a.rating ?? 0;
       const rb = b.rating ?? 0;
       if (ra !== rb) return rb - ra;

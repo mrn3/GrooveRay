@@ -6,8 +6,7 @@ import { useAuth } from '../context/AuthContext';
 
 const TABS = [
   { id: 'all', label: 'All Songs' },
-  { id: 'favorites', label: 'My Songs' },
-  { id: 'mine', label: 'My Contributions' },
+  { id: 'mine', label: 'My Songs' },
 ];
 
 export default function Songs() {
@@ -36,6 +35,10 @@ export default function Songs() {
   const [searchArtistDropdownOpen, setSearchArtistDropdownOpen] = useState(false);
   const [searchArtistSuggestions, setSearchArtistSuggestions] = useState([]);
   const [searchArtistSuggestionsLoading, setSearchArtistSuggestionsLoading] = useState(false);
+  const [searchContributor, setSearchContributor] = useState('');
+  const [searchContributorDropdownOpen, setSearchContributorDropdownOpen] = useState(false);
+  const [searchContributorSuggestions, setSearchContributorSuggestions] = useState([]);
+  const [searchContributorSuggestionsLoading, setSearchContributorSuggestionsLoading] = useState(false);
   const searchPanelRef = useRef(null);
   const [durationMin, setDurationMin] = useState('');
   const [durationMax, setDurationMax] = useState('');
@@ -57,6 +60,7 @@ export default function Songs() {
     const p = {};
     if (searchTitle.trim()) p.title = searchTitle.trim();
     if (searchArtist.trim()) p.artist = searchArtist.trim();
+    if (searchContributor.trim()) p.contributor = searchContributor.trim();
     const dMin = durationMin.trim() ? parseInt(durationMin, 10) : null;
     const dMax = durationMax.trim() ? parseInt(durationMax, 10) : null;
     if (Number.isFinite(dMin)) p.durationMin = dMin;
@@ -76,12 +80,12 @@ export default function Songs() {
     p.page = overrides.page ?? page;
     p.limit = overrides.limit ?? pageSize;
     return p;
-  }, [searchTitle, searchArtist, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity, sortBy, sortOrder, page, pageSize]);
+  }, [searchTitle, searchArtist, searchContributor, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity, sortBy, sortOrder, page, pageSize]);
 
   const resetPageRef = useRef(false);
   useEffect(() => {
     resetPageRef.current = true;
-  }, [activeTab, sortBy, sortOrder, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity]);
+  }, [activeTab, sortBy, sortOrder, searchContributor, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity]);
 
   const fetchList = useCallback(() => {
     setLoading(true);
@@ -93,10 +97,8 @@ export default function Songs() {
     }
     const params = buildSearchParams({ page: pageToUse });
     const promise = activeTab === 'mine'
-      ? songsApi.list(params)
-      : activeTab === 'favorites'
-        ? songsApi.listFavorites(params)
-        : songsApi.listPublic(params);
+      ? songsApi.listMine(params)
+      : songsApi.listPublic(params);
     promise
       .then((data) => {
         setList(data?.items ?? []);
@@ -110,7 +112,7 @@ export default function Songs() {
   useEffect(() => {
     fetchList();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: do not refetch when only searchTitle/searchArtist change
-  }, [activeTab, sortBy, sortOrder, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity, page, pageSize]);
+  }, [activeTab, sortBy, sortOrder, searchContributor, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity, page, pageSize]);
 
   useEffect(() => {
     return () => {
@@ -202,9 +204,21 @@ export default function Songs() {
     return () => clearTimeout(timer);
   }, [searchArtist, searchArtistDropdownOpen]);
 
+  // Search contributor autocomplete
+  useEffect(() => {
+    if (!searchContributorDropdownOpen) return;
+    const c = searchContributor.trim();
+    const timer = setTimeout(() => {
+      setSearchContributorSuggestionsLoading(true);
+      songsApi.contributors(c).then(setSearchContributorSuggestions).catch(() => setSearchContributorSuggestions([])).finally(() => setSearchContributorSuggestionsLoading(false));
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [searchContributor, searchContributorDropdownOpen]);
+
   const closeSearchDropdowns = () => {
     setTitleDropdownOpen(false);
     setSearchArtistDropdownOpen(false);
+    setSearchContributorDropdownOpen(false);
   };
 
   useEffect(() => {
@@ -377,9 +391,8 @@ export default function Songs() {
     }
   };
 
-  const showEditActions = () => activeTab === 'mine';
-  const showListenCount = activeTab === 'favorites' || activeTab === 'all';
-  const showRating = activeTab === 'favorites' || activeTab === 'all';
+  const showListenCount = activeTab === 'all' || activeTab === 'mine';
+  const showRating = activeTab === 'all' || activeTab === 'mine';
 
   if (loading) return <div className="flex justify-center py-12"><div className="h-8 w-8 animate-spin rounded-full border-2 border-ray-500 border-t-transparent" /></div>;
   if (error) return <p className="text-red-400">{error}</p>;
@@ -447,7 +460,7 @@ export default function Songs() {
               </button>
             ))}
           </nav>
-          {activeTab === 'mine' && (
+          {user && activeTab === 'mine' && (
             <button
               type="button"
               onClick={openAddModal}
@@ -536,6 +549,40 @@ export default function Songs() {
               </ul>
             )}
           </div>
+          <div className="relative min-w-[140px] flex-1">
+            <label className="mb-1 block text-xs text-gray-400">Contributor</label>
+            <input
+              type="text"
+              value={searchContributor}
+              onChange={(e) => setSearchContributor(e.target.value)}
+              onFocus={() => setSearchContributorDropdownOpen(true)}
+              onKeyDown={(e) => e.key === 'Escape' && closeSearchDropdowns()}
+              placeholder="Filter by contributor…"
+              className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+              autoComplete="off"
+            />
+            {searchContributorDropdownOpen && (
+              <ul className="absolute z-20 mt-1 max-h-40 w-full overflow-auto rounded border border-groove-600 bg-groove-800 py-1 shadow-lg">
+                {searchContributorSuggestionsLoading ? (
+                  <li className="px-3 py-2 text-sm text-gray-400">Searching…</li>
+                ) : searchContributorSuggestions.length > 0 ? (
+                  searchContributorSuggestions.map((name) => (
+                    <li key={name}>
+                      <button
+                        type="button"
+                        onClick={() => { setSearchContributor(name); setSearchContributorDropdownOpen(false); }}
+                        className="w-full px-3 py-1.5 text-left text-sm text-white hover:bg-groove-600 focus:bg-groove-600 focus:outline-none"
+                      >
+                        {name}
+                      </button>
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-3 py-2 text-sm text-gray-400">Type to search contributors</li>
+                )}
+              </ul>
+            )}
+          </div>
           <div className="w-full sm:w-auto">
             <label className="mb-1 block text-xs text-gray-400">Sort by</label>
             <select
@@ -578,6 +625,7 @@ export default function Songs() {
             onClick={() => {
               setSearchTitle('');
               setSearchArtist('');
+              setSearchContributor('');
               setDurationMin('');
               setDurationMax('');
               setMinListensMe('');
@@ -1040,7 +1088,7 @@ export default function Songs() {
                     <p className="truncate font-medium text-white">{song.title}</p>
                     <p className="truncate text-sm text-gray-400">
                       {song.artist} · {song.source}
-                      {song.uploader_name && song.user_id !== user?.id && (
+                      {song.uploader_name && (
                         <span className="text-gray-500"> · {song.uploader_name}</span>
                       )}
                     </p>
@@ -1052,7 +1100,7 @@ export default function Songs() {
               </span>
               {showListenCount && (
                 <span className="flex-shrink-0 text-xs text-gray-400" title="Listens">
-                  {(activeTab === 'all' || activeTab === 'favorites') ? (
+                  {(activeTab === 'all' || activeTab === 'mine') ? (
                     <span className="flex items-center gap-2">
                       <span className="flex items-center gap-1" title="Listens by everyone">
                         <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1103,54 +1151,6 @@ export default function Songs() {
                       '—'
                     )}
                   </span>
-                </>
-              )}
-              {showEditActions() && (
-                <>
-                  <button
-                    type="button"
-                    aria-label={song.is_public ? 'Make private' : 'Make public'}
-                    title={song.is_public ? 'Public' : 'Private'}
-                    disabled={togglingId === song.id}
-                    className="flex-shrink-0 rounded px-2 py-1 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-ray-500 disabled:opacity-50"
-                    onClick={(e) => handleSetPublic(e, song)}
-                  >
-                    {togglingId === song.id ? (
-                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                    ) : song.is_public ? (
-                      <span className="rounded bg-green-500/20 px-2 py-0.5 text-green-400">Public</span>
-                    ) : (
-                      <span className="rounded bg-groove-600 px-2 py-0.5 text-gray-400">Private</span>
-                    )}
-                  </button>
-                  {editingId !== song.id && (
-                    <button
-                      type="button"
-                      aria-label="Edit song"
-                      title="Edit"
-                      className="flex-shrink-0 rounded p-1.5 text-gray-400 transition hover:bg-groove-700 hover:text-ray-400 focus:outline-none focus:ring-2 focus:ring-ray-500"
-                      onClick={(e) => startRename(e, song)}
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                      </svg>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    aria-label="Delete song"
-                    className="flex-shrink-0 rounded p-1.5 text-gray-400 transition hover:bg-groove-700 hover:text-red-400 focus:outline-none focus:ring-2 focus:ring-ray-500"
-                    onClick={(e) => handleDelete(e, song)}
-                    disabled={deletingId === song.id}
-                  >
-                    {deletingId === song.id ? (
-                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
-                    ) : (
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    )}
-                  </button>
                 </>
               )}
             </div>

@@ -117,6 +117,8 @@ export default function Song() {
   const [listensHoverScope, setListensHoverScope] = useState(null);
   const [contentTab, setContentTab] = useState('description');
   const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editArtist, setEditArtist] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editLyrics, setEditLyrics] = useState('');
   const [editGuitarTab, setEditGuitarTab] = useState('');
@@ -200,15 +202,28 @@ export default function Song() {
   const handleSaveEdit = async (e) => {
     e.preventDefault();
     if (!song?.id || !isOwner) return;
+    const newTitle = editTitle.trim();
+    if (!newTitle) return;
     setSaving(true);
     try {
       const updated = await songsApi.update(song.id, {
+        title: newTitle,
+        artist: (editArtist || '').trim() || null,
         description: editDescription.trim() || null,
         lyrics: editLyrics.trim() || null,
         guitar_tab: editGuitarTab.trim() || null,
       });
       setSong((s) =>
-        s ? { ...s, description: updated.description, lyrics: updated.lyrics, guitar_tab: updated.guitar_tab } : null
+        s
+          ? {
+              ...s,
+              title: updated.title,
+              artist: updated.artist,
+              description: updated.description,
+              lyrics: updated.lyrics,
+              guitar_tab: updated.guitar_tab,
+            }
+          : null
       );
       setEditOpen(false);
     } catch (e) {
@@ -266,6 +281,8 @@ export default function Song() {
               <button
                 type="button"
                 onClick={() => {
+                  setEditTitle(song.title || '');
+                  setEditArtist(song.artist || '');
                   setEditDescription(song.description || '');
                   setEditLyrics(song.lyrics || '');
                   setEditGuitarTab(song.guitar_tab || '');
@@ -273,7 +290,7 @@ export default function Song() {
                 }}
                 className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
               >
-                Edit description, lyrics & tab
+                Edit song
               </button>
             )}
           </div>
@@ -425,8 +442,28 @@ export default function Song() {
             className="w-full max-w-lg rounded-xl border border-groove-700 bg-groove-900 p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="mb-4 text-lg font-semibold text-white">Edit description, lyrics & guitar tab</h2>
+            <h2 className="mb-4 text-lg font-semibold text-white">Edit song</h2>
             <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Title</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500"
+                  placeholder="Song title"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Artist</label>
+                <input
+                  type="text"
+                  value={editArtist}
+                  onChange={(e) => setEditArtist(e.target.value)}
+                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500"
+                  placeholder="Artist name"
+                />
+              </div>
               <div>
                 <label className="mb-1 block text-sm text-gray-400">Description</label>
                 <textarea

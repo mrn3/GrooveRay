@@ -294,6 +294,20 @@ router.patch('/:id', authMiddleware, async (req, res) => {
   res.json(updated);
 });
 
+router.delete('/:id', authMiddleware, async (req, res) => {
+  const station = await db.get('SELECT id, owner_id FROM stations WHERE id = ?', [req.params.id]);
+  if (!station) return res.status(404).json({ error: 'Station not found' });
+  if (station.owner_id !== req.userId) return res.status(403).json({ error: 'Only the station owner can delete it' });
+  const id = req.params.id;
+  await db.run('DELETE FROM station_votes WHERE station_id = ?', [id]);
+  await db.run('DELETE FROM station_now_playing WHERE station_id = ?', [id]);
+  await db.run('DELETE FROM station_queue WHERE station_id = ?', [id]);
+  await db.run('DELETE FROM user_station_ratings WHERE station_id = ?', [id]);
+  await db.run('DELETE FROM station_chat_messages WHERE station_id = ?', [id]);
+  await db.run('DELETE FROM stations WHERE id = ?', [id]);
+  res.status(204).send();
+});
+
 router.get('/:id/queue', async (req, res) => {
   res.json(await getQueue(req.params.id));
 });

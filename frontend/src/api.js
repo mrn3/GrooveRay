@@ -56,9 +56,11 @@ function buildSearchParams(params) {
 export const songs = {
   list: (params) => request(`/songs${buildSearchParams(params)}`),
   listFavorites: (params) => request(`/songs/favorites${buildSearchParams(params)}`),
+  listMine: (params) => request(`/songs/mine${buildSearchParams(params)}`),
   listPublic: (params) => request(`/songs/public${buildSearchParams(params)}`),
   titles: (q) => request(`/songs/titles${q != null && q !== '' ? `?q=${encodeURIComponent(q)}` : ''}`),
   artists: (q) => request(`/songs/artists${q != null && q !== '' ? `?q=${encodeURIComponent(q)}` : ''}`),
+  contributors: (q) => request(`/songs/contributors${q != null && q !== '' ? `?q=${encodeURIComponent(q)}` : ''}`),
   get: (id) => request(`/songs/${id}`),
   ratings: (id, params) => request(`/songs/${id}/ratings${buildSearchParams(params)}`),
   listens: (id) => request(`/songs/${id}/listens`),
@@ -141,6 +143,7 @@ export const stations = {
     request('/stations', { method: 'POST', body: JSON.stringify({ name, description, type }) }),
   update: (id, payload) =>
     request(`/stations/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  delete: (id) => request(`/stations/${id}`, { method: 'DELETE' }),
   setRating: (id, rating) =>
     request(`/stations/${id}/rating`, { method: 'PATCH', body: JSON.stringify({ rating }) }),
   queue: (id) => request(`/stations/${id}/queue`),
