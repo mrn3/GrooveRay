@@ -329,7 +329,7 @@ export default function Song() {
                 }}
                 className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
               >
-                Edit song
+                Edit
               </button>
             )}
           </div>
@@ -481,7 +481,7 @@ export default function Song() {
             className="w-full max-w-lg rounded-xl border border-groove-700 bg-groove-900 p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="mb-4 text-lg font-semibold text-white">Edit song</h2>
+            <h2 className="mb-4 text-lg font-semibold text-white">Edit</h2>
             <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
               <div>
                 <label className="mb-1 block text-sm text-gray-400">Title</label>

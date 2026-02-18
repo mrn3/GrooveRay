@@ -5,8 +5,7 @@ import { stations as stationsApi } from '../api';
 
 const TABS = [
   { id: 'all', label: 'All Stations' },
-  { id: 'mine', label: 'My Stations' },
-  { id: 'contributions', label: 'My Contributions' },
+  { id: 'mine', label: 'My Stations & Contributions' },
 ];
 
 export default function Stations() {
@@ -20,7 +19,7 @@ export default function Stations() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [searchTitle, setSearchTitle] = useState('');
-  const [searchOwner, setSearchOwner] = useState('');
+  const [searchContributor, setSearchContributor] = useState('');
   const [sortBy, setSortBy] = useState('');
   const [sortOrder, setSortOrder] = useState('desc');
   const [filtersExpanded, setFiltersExpanded] = useState(false);
@@ -42,7 +41,7 @@ export default function Stations() {
         limit: overrides.limit ?? pageSize,
       };
       if (searchTitle.trim()) p.title = searchTitle.trim();
-      if (searchOwner.trim()) p.owner = searchOwner.trim();
+      if (searchContributor.trim()) p.contributor = searchContributor.trim();
       if (sortBy) {
         p.sortBy = sortBy;
         p.sortOrder = sortOrder;
@@ -53,12 +52,12 @@ export default function Stations() {
       if (Number.isFinite(rm) && rm >= 1 && rm <= 5) p.minRatingMe = rm;
       return p;
     },
-    [activeTab, page, pageSize, searchTitle, searchOwner, sortBy, sortOrder, minRatingCommunity, minRatingMe]
+    [activeTab, page, pageSize, searchTitle, searchContributor, sortBy, sortOrder, minRatingCommunity, minRatingMe]
   );
 
   useEffect(() => {
     resetPageRef.current = true;
-  }, [activeTab, sortBy, sortOrder, minRatingCommunity, minRatingMe]);
+  }, [activeTab, sortBy, sortOrder, minRatingCommunity, minRatingMe, searchContributor]);
 
   const fetchList = useCallback(() => {
     setLoading(true);
@@ -85,7 +84,7 @@ export default function Stations() {
 
   useEffect(() => {
     fetchList();
-  }, [activeTab, sortBy, sortOrder, minRatingCommunity, minRatingMe, page, pageSize]);
+  }, [activeTab, sortBy, sortOrder, minRatingCommunity, minRatingMe, searchContributor, page, pageSize]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -109,7 +108,7 @@ export default function Stations() {
 
   const clearFilters = () => {
     setSearchTitle('');
-    setSearchOwner('');
+    setSearchContributor('');
     setMinRatingCommunity('');
     setMinRatingMe('');
     setSortBy('');
@@ -145,7 +144,7 @@ export default function Stations() {
               </button>
             ))}
           </nav>
-          {user && activeTab === 'contributions' && (
+          {user && activeTab === 'mine' && (
             <button
               type="button"
               onClick={() => setCreateModalOpen(true)}
@@ -282,12 +281,12 @@ export default function Stations() {
             />
           </div>
           <div className="min-w-[140px] flex-1">
-            <label className="mb-1 block text-xs text-gray-400">Owner</label>
+            <label className="mb-1 block text-xs text-gray-400">Contributor</label>
             <input
               type="text"
-              value={searchOwner}
-              onChange={(e) => setSearchOwner(e.target.value)}
-              placeholder="Search by owner…"
+              value={searchContributor}
+              onChange={(e) => setSearchContributor(e.target.value)}
+              placeholder="Filter by contributor…"
               className="w-full rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
               autoComplete="off"
             />
@@ -379,8 +378,7 @@ export default function Stations() {
       <div className="space-y-1 rounded-xl border border-groove-700 bg-groove-900/50">
         {list.length === 0 ? (
           <p className="px-6 py-12 text-center text-gray-500">
-            {activeTab === 'mine' && 'No stations yet. Add one with the + button.'}
-            {activeTab === 'contributions' && 'No stations where you’ve voted yet.'}
+            {activeTab === 'mine' && 'No stations yet. Create one with the + button or vote on a station to see it here.'}
             {activeTab === 'all' && 'No stations match your filters.'}
           </p>
         ) : (

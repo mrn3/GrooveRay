@@ -10,9 +10,10 @@ const MAX_LIST = 1000;
 const SORT_KEYS = ['name', 'created_at', 'community_avg_rating', 'listener_count'];
 
 function parseListQuery(query) {
-  const tab = ['all', 'mine', 'contributions'].includes(query.tab) ? query.tab : 'all';
+  const tab = ['all', 'mine'].includes(query.tab) ? query.tab : 'all';
   const title = typeof query.title === 'string' ? query.title.trim() : '';
   const owner = typeof query.owner === 'string' ? query.owner.trim() : '';
+  const contributor = typeof query.contributor === 'string' ? query.contributor.trim() : '';
   const sortBy = SORT_KEYS.includes(query.sortBy) ? query.sortBy : 'created_at';
   const sortOrder = query.sortOrder === 'asc' || query.sortOrder === 'desc' ? query.sortOrder : 'desc';
   const page = query.page != null ? Math.max(1, parseInt(query.page, 10)) : 1;
@@ -24,6 +25,7 @@ function parseListQuery(query) {
     tab,
     title: title || null,
     owner: owner || null,
+    contributor: contributor || null,
     sortBy,
     sortOrder,
     page: Number.isFinite(page) ? page : 1,
@@ -133,22 +135,17 @@ router.get('/', optionalAuth, async (req, res) => {
     if (!userId) {
       return res.json({ items: [], total: 0 });
     }
-    conditions.push('s.owner_id = ?');
-    params.push(userId);
-  } else if (opts.tab === 'contributions') {
-    if (!userId) {
-      return res.json({ items: [], total: 0 });
-    }
-    conditions.push('s.id IN (SELECT DISTINCT station_id FROM station_votes WHERE user_id = ?)');
-    params.push(userId);
+    conditions.push('(s.owner_id = ? OR s.id IN (SELECT DISTINCT station_id FROM station_votes WHERE user_id = ?))');
+    params.push(userId, userId);
   }
   if (opts.title) {
     conditions.push('s.name LIKE ?');
     params.push(`%${opts.title.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`);
   }
-  if (opts.owner) {
+  const byUsername = opts.contributor || opts.owner;
+  if (byUsername) {
     conditions.push('u.username LIKE ?');
-    params.push(`%${opts.owner.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`);
+    params.push(`%${byUsername.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`);
   }
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
