@@ -295,10 +295,10 @@ export default function Dashboard() {
         </div>
       ) : data ? (
         <div className="space-y-10">
-          {/* Songs: three columns in one row */}
+          {/* Songs: columns wrap on narrow screens */}
           <section>
             <h2 className="mb-3 text-lg font-semibold text-white">Songs</h2>
-            <div className="flex gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <SongListColumn
                 title="Most Listens"
                 items={data.songs?.popular}
@@ -337,10 +337,10 @@ export default function Dashboard() {
             </div>
           </section>
 
-          {/* Playlists: same three-column list layout as Songs */}
+          {/* Playlists: columns wrap on narrow screens */}
           <section>
             <h2 className="mb-3 text-lg font-semibold text-white">Playlists</h2>
-            <div className="flex gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <PlaylistListColumn
                 title="Most Listens"
                 items={data.playlists?.popular}
@@ -379,10 +379,10 @@ export default function Dashboard() {
             </div>
           </section>
 
-          {/* Stations: same three-column list layout as Songs, with proper thumbnails (image_url) */}
+          {/* Stations: columns wrap on narrow screens */}
           <section>
             <h2 className="mb-3 text-lg font-semibold text-white">Stations</h2>
-            <div className="flex gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <StationListColumn
                 title="Most Listens"
                 items={data.stations?.popular}

@@ -1,11 +1,35 @@
 import { Router } from 'express';
+import path from 'path';
+import fs from 'fs';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
 import { v4 as uuid } from 'uuid';
+import { fileURLToPath } from 'url';
 import db from '../db/schema.js';
 import { JWT_SECRET } from '../middleware/auth.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const router = Router();
+
+const avatarsDir = path.join(__dirname, '../../uploads/avatars');
+if (!fs.existsSync(avatarsDir)) fs.mkdirSync(avatarsDir, { recursive: true });
+
+const avatarUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_, __, cb) => cb(null, avatarsDir),
+    filename: (_, file, cb) => {
+      const ext = (file.originalname && path.extname(file.originalname).toLowerCase()) || '.jpg';
+      const safeExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext) ? ext : '.jpg';
+      cb(null, `${uuid()}${safeExt}`);
+    },
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (_, file, cb) => {
+    const ok = file.mimetype && /^image\/(jpeg|png|gif|webp)$/.test(file.mimetype);
+    cb(null, !!ok);
+  },
+});
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const FRONTEND_URL = process.env.FRONTEND_URL || process.env.CORS_ORIGIN || 'http://localhost:5173';
@@ -58,7 +82,7 @@ router.get('/me', async (req, res) => {
   try {
     const payload = jwt.verify(auth.slice(7), JWT_SECRET);
     const user = await db.get(
-      'SELECT id, username, email, name, location, google_id, youtube_cookies FROM users WHERE id = ?',
+      'SELECT id, username, email, name, location, google_id, youtube_cookies, avatar_url FROM users WHERE id = ?',
       [payload.userId]
     );
     if (!user) return res.status(401).json({ error: 'User not found' });
@@ -81,7 +105,7 @@ router.patch('/me', async (req, res) => {
   try {
     const payload = jwt.verify(auth.slice(7), JWT_SECRET);
     const userId = payload.userId;
-    const { username, name, location, youtube_cookies } = req.body || {};
+    const { username, name, location, youtube_cookies, avatar_url: avatarUrl } = req.body || {};
     const updates = [];
     const params = [];
     if (typeof username === 'string') {
@@ -104,11 +128,43 @@ router.patch('/me', async (req, res) => {
       updates.push('youtube_cookies = ?');
       params.push(typeof youtube_cookies === 'string' ? youtube_cookies.trim() || null : null);
     }
+    if (avatarUrl !== undefined) {
+      updates.push('avatar_url = ?');
+      params.push(typeof avatarUrl === 'string' ? avatarUrl.trim() || null : null);
+    }
     if (updates.length === 0) return res.status(400).json({ error: 'No fields to update' });
     params.push(userId);
     await db.run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, params);
     const user = await db.get(
-      'SELECT id, username, email, name, location, google_id, youtube_cookies FROM users WHERE id = ?',
+      'SELECT id, username, email, name, location, google_id, youtube_cookies, avatar_url FROM users WHERE id = ?',
+      [userId]
+    );
+    const { youtube_cookies: yc, ...rest } = user;
+    const cookieText = yc && String(yc).trim();
+    res.json({
+      ...rest,
+      has_google_account: !!user.google_id,
+      has_youtube_cookies: !!cookieText,
+      youtube_cookies: cookieText || undefined,
+    });
+  } catch (e) {
+    if (e.name === 'JsonWebTokenError') return res.status(401).json({ error: 'Invalid token' });
+    throw e;
+  }
+});
+
+router.post('/me/avatar', avatarUpload.single('avatar'), async (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith('Bearer ')) return res.status(401).json({ error: 'Not authenticated' });
+  if (!req.file) return res.status(400).json({ error: 'No image file uploaded' });
+  try {
+    const payload = jwt.verify(auth.slice(7), JWT_SECRET);
+    const userId = payload.userId;
+    const filename = req.file.filename;
+    const avatarUrl = `/api/uploads/avatars/${filename}`;
+    await db.run('UPDATE users SET avatar_url = ? WHERE id = ?', [avatarUrl, userId]);
+    const user = await db.get(
+      'SELECT id, username, email, name, location, google_id, youtube_cookies, avatar_url FROM users WHERE id = ?',
       [userId]
     );
     const { youtube_cookies: yc, ...rest } = user;

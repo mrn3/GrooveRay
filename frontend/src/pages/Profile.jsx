@@ -16,6 +16,8 @@ export default function Profile() {
   const [savingCookies, setSavingCookies] = useState(false);
   const [cookiesInfoOpen, setCookiesInfoOpen] = useState(false);
   const [clearingCookies, setClearingCookies] = useState(false);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -76,6 +78,39 @@ export default function Profile() {
     }
   };
 
+  const handleAvatarUpload = async () => {
+    if (!avatarFile) return;
+    setError('');
+    setMessage('');
+    setUploadingAvatar(true);
+    try {
+      await authApi.uploadAvatar(avatarFile);
+      await refreshUser();
+      setAvatarFile(null);
+      setMessage('Avatar updated.');
+    } catch (err) {
+      setError(err.message || 'Failed to upload avatar');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setError('');
+    setMessage('');
+    try {
+      await authApi.updateProfile({ avatar_url: null });
+      await refreshUser();
+      setAvatarFile(null);
+      setMessage('Avatar removed.');
+    } catch (err) {
+      setError(err.message || 'Failed to remove avatar');
+    }
+  };
+
+  const displayName = user?.name || user?.username || 'User';
+  const initials = displayName.split(/\s+/).map((s) => s[0]).join('').toUpperCase().slice(0, 2);
+
   if (!user) return null;
 
   return (
@@ -88,6 +123,46 @@ export default function Profile() {
         {error && (
           <p className="rounded-lg bg-red-500/20 px-3 py-2 text-sm text-red-400">{error}</p>
         )}
+
+        <div>
+          <label className="mb-1 block text-sm text-gray-400">Avatar</label>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-groove-600 bg-groove-800">
+              {user.avatar_url ? (
+                <img src={user.avatar_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-2xl font-medium text-ray-400">{initials}</span>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
+                  className="block max-w-full text-sm text-gray-400 file:mr-2 file:rounded-lg file:border-0 file:bg-groove-700 file:px-3 file:py-1.5 file:text-sm file:text-white file:hover:bg-groove-600"
+                />
+                <button
+                  type="button"
+                  onClick={handleAvatarUpload}
+                  disabled={!avatarFile || uploadingAvatar}
+                  className="rounded-lg bg-ray-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-ray-500 disabled:opacity-50"
+                >
+                  {uploadingAvatar ? 'Uploading…' : 'Upload'}
+                </button>
+              </div>
+              {user.avatar_url && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  className="text-left text-sm text-gray-400 hover:text-white"
+                >
+                  Remove avatar
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
 
         <div>
           <label className="mb-1 block text-sm text-gray-400">Username</label>

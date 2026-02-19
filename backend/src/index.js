@@ -31,6 +31,7 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173', crede
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/uploads/avatars', express.static(path.join(__dirname, '../uploads/avatars')));
 app.use('/api/songs', songRoutes);
 app.use('/api/youtube', youtubeRoutes);
 app.use('/api/stations', stationRoutes);

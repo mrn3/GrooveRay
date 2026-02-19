@@ -297,6 +297,9 @@ async function ensureSchema() {
     await exec('ALTER TABLE users ADD COLUMN youtube_cookies TEXT NULL');
   } catch (_) {}
   try {
+    await exec('ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500) NULL');
+  } catch (_) {}
+  try {
     await exec(
       `CREATE TABLE IF NOT EXISTS playlist_listen_events (
         id VARCHAR(36) PRIMARY KEY,

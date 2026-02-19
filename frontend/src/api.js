@@ -39,6 +39,16 @@ export const auth = {
   me: () => request('/auth/me'),
   updateProfile: (payload) =>
     request('/auth/me', { method: 'PATCH', body: JSON.stringify(payload) }),
+  /** Upload avatar image (file). Returns updated user. */
+  uploadAvatar: (file) => {
+    const form = new FormData();
+    form.append('avatar', file);
+    return fetch(`${API}/auth/me/avatar`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: form,
+    }).then((r) => (r.ok ? r.json() : r.json().then((d) => Promise.reject(new Error(d.error || 'Upload failed')))));
+  },
   /** Full URL to start Google OAuth (redirects away). Pass next path e.g. "/songs". */
   googleAuthUrl: (next = 'songs') => `${apiBase}/api/auth/google?next=${encodeURIComponent(next.startsWith('/') ? next : `/${next}`)}`,
 };

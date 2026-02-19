@@ -22,7 +22,12 @@ export function YouTubeCookiesInstructions({ showScreenshot = true, className = 
           Install the Chrome extension{' '}
           <a href={COOKIES_EXTENSION_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>Get cookies.txt LOCALLY</a>.
         </li>
-        <li>Go to <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className={linkClass}>youtube.com</a> and make sure you're signed in.</li>
+        <li>
+          Go to <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className={linkClass}>youtube.com</a> and make sure you're signed in.
+          {showScreenshot && (
+            <img src="/youtube-screenshot.png" alt="YouTube homepage while signed in" className="mt-2 block max-w-full rounded border border-groove-600" />
+          )}
+        </li>
         <li>
           Use the extension to export cookies in Netscape format and click the Copy button.
           {showScreenshot && (

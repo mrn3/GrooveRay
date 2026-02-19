@@ -812,7 +812,7 @@ export default function Songs() {
             ) : addMode === 'youtube_no_cookies' ? (
               <div className="space-y-4">
                 <div className="text-sm text-gray-400">
-                  <YouTubeCookiesInstructions showScreenshot={false} />
+                  <YouTubeCookiesInstructions showScreenshot={true} />
                 </div>
                 <button
                   type="button"
