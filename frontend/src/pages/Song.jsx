@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { songs as songsApi } from '../api';
+import { songs as songsApi, images as imagesApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 import { selfHostedImageUrl } from '../utils/images';
@@ -132,6 +132,7 @@ export default function Song() {
   const [saving, setSaving] = useState(false);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [findingThumbnail, setFindingThumbnail] = useState(false);
 
   function parseArtistString(str) {
     if (!str || typeof str !== 'string') return [];
@@ -349,6 +350,60 @@ export default function Song() {
                         Remove
                       </button>
                     )}
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {song.youtube_id && (
+                        <button
+                          type="button"
+                          disabled={findingThumbnail || uploadingThumbnail}
+                          onClick={async () => {
+                            if (!song?.id || !song.youtube_id) return;
+                            setFindingThumbnail(true);
+                            setError('');
+                            try {
+                              const { url, fallbackUrl } = await imagesApi.youtubeThumbnail(song.youtube_id);
+                              let result;
+                              try {
+                                result = await imagesApi.fetchFromUrl(url, 'thumbnail');
+                              } catch (_) {
+                                result = await imagesApi.fetchFromUrl(fallbackUrl, 'thumbnail');
+                              }
+                              const updated = await songsApi.update(song.id, { thumbnail_url: result.url });
+                              setSong(updated);
+                            } catch (e) {
+                              setError(e.message || 'Failed to use YouTube thumbnail');
+                            } finally {
+                              setFindingThumbnail(false);
+                            }
+                          }}
+                          className="rounded border border-groove-600 px-2 py-1 text-xs text-gray-400 hover:bg-groove-700 disabled:opacity-50"
+                        >
+                          Use YouTube thumbnail
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={findingThumbnail || uploadingThumbnail}
+                        onClick={async () => {
+                          if (!song?.id) return;
+                          setFindingThumbnail(true);
+                          setError('');
+                          try {
+                            const query = [song.title, song.artist].filter(Boolean).join(' ').trim() || song.title || 'music';
+                            const { url } = await imagesApi.search(query);
+                            const { url: hostedUrl } = await imagesApi.fetchFromUrl(url, 'thumbnail');
+                            const updated = await songsApi.update(song.id, { thumbnail_url: hostedUrl });
+                            setSong(updated);
+                          } catch (e) {
+                            setError(e.message || 'Failed to find image online');
+                          } finally {
+                            setFindingThumbnail(false);
+                          }
+                        }}
+                        className="rounded border border-groove-600 px-2 py-1 text-xs text-gray-400 hover:bg-groove-700 disabled:opacity-50"
+                      >
+                        Find image online
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

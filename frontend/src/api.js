@@ -193,6 +193,22 @@ export const dashboard = {
   get: (params) => request(`/dashboard${buildSearchParams(params || {})}`),
 };
 
+// Images: fetch from URL (download, resize, host) and image search
+export const images = {
+  /** Fetch image from URL, resize, save on server. type: 'avatar'|'thumbnail'|'playlist'|'station'. Returns { url }. */
+  fetchFromUrl: (url, type) =>
+    request('/images/fetch-from-url', {
+      method: 'POST',
+      body: JSON.stringify({ url, type }),
+    }),
+  /** Search for an image by query (e.g. playlist name). Returns { url }. Requires UNSPLASH_ACCESS_KEY on server. */
+  search: (q) =>
+    request(`/images/search${q != null && q !== '' ? `?q=${encodeURIComponent(q)}` : ''}`),
+  /** Get YouTube thumbnail URLs for a video ID. Returns { url, fallbackUrl }. */
+  youtubeThumbnail: (id) =>
+    request(`/images/youtube-thumbnail${id != null && id !== '' ? `?id=${encodeURIComponent(id)}` : ''}`),
+};
+
 // Playlists
 export const playlists = {
   list: (params) => request(`/playlists${buildSearchParams(params)}`),

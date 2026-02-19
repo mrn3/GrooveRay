@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { selfHostedImageUrl } from '../utils/images';
-import { auth as authApi } from '../api';
+import { auth as authApi, images as imagesApi } from '../api';
 import { YouTubeCookiesInstructions } from '../content/youtubeCookiesInstructions';
 
 export default function Profile() {
@@ -19,6 +19,7 @@ export default function Profile() {
   const [clearingCookies, setClearingCookies] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [findingAvatar, setFindingAvatar] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -150,6 +151,30 @@ export default function Profile() {
                   className="rounded-lg bg-ray-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-ray-500 disabled:opacity-50"
                 >
                   {uploadingAvatar ? 'Uploading…' : 'Upload'}
+                </button>
+                <button
+                  type="button"
+                  disabled={findingAvatar || uploadingAvatar}
+                  onClick={async () => {
+                    setFindingAvatar(true);
+                    setError('');
+                    setMessage('');
+                    try {
+                      const query = (user?.name || user?.username || 'avatar').trim() || 'avatar';
+                      const { url } = await imagesApi.search(query);
+                      const { url: hostedUrl } = await imagesApi.fetchFromUrl(url, 'avatar');
+                      await authApi.updateProfile({ avatar_url: hostedUrl });
+                      await refreshUser();
+                      setMessage('Avatar updated from search.');
+                    } catch (err) {
+                      setError(err.message || 'Failed to find image online');
+                    } finally {
+                      setFindingAvatar(false);
+                    }
+                  }}
+                  className="rounded-lg border border-groove-600 px-3 py-1.5 text-sm text-gray-300 hover:bg-groove-700 disabled:opacity-50"
+                >
+                  {findingAvatar ? 'Finding…' : 'Find image online'}
                 </button>
               </div>
               {user.avatar_url && (

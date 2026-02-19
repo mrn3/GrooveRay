@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { stations as stationsApi, songs as songsApi } from '../api';
+import { stations as stationsApi, songs as songsApi, images as imagesApi } from '../api';
 import { selfHostedImageUrl } from '../utils/images';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
@@ -40,6 +40,7 @@ export default function Station() {
   const [editImageOpen, setEditImageOpen] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [savingImage, setSavingImage] = useState(false);
+  const [findingImage, setFindingImage] = useState(false);
   const [addToQueueError, setAddToQueueError] = useState('');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -438,6 +439,28 @@ export default function Station() {
                   className="rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50"
                 >
                   {savingImage ? 'Uploading…' : 'Upload'}
+                </button>
+                <button
+                  type="button"
+                  disabled={findingImage || savingImage}
+                  onClick={async () => {
+                    if (!station?.id) return;
+                    setFindingImage(true);
+                    try {
+                      const query = (station.name || 'radio station').trim();
+                      const { url } = await imagesApi.search(query);
+                      const { url: hostedUrl } = await imagesApi.fetchFromUrl(url, 'station');
+                      const updated = await stationsApi.update(station.id, { image_url: hostedUrl });
+                      setStation(updated);
+                      setEditImageOpen(false);
+                    } catch (_) {}
+                    finally {
+                      setFindingImage(false);
+                    }
+                  }}
+                  className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700 disabled:opacity-50"
+                >
+                  {findingImage ? 'Finding…' : 'Find image online'}
                 </button>
                 {station.image_url && (
                   <button

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { playlists as playlistsApi, songs as songsApi } from '../api';
+import { playlists as playlistsApi, songs as songsApi, images as imagesApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 import { selfHostedImageUrl } from '../utils/images';
@@ -87,6 +87,7 @@ export default function Playlist() {
   const [saving, setSaving] = useState(false);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [findingThumbnail, setFindingThumbnail] = useState(false);
 
   const fetchPlaylist = useCallback(() => {
     if (!id && !slug) return;
@@ -592,6 +593,29 @@ export default function Playlist() {
                     className="rounded-lg bg-ray-600 px-3 py-2 text-sm font-medium text-white hover:bg-ray-500 disabled:opacity-50"
                   >
                     {uploadingThumbnail ? 'Uploading…' : 'Upload'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={findingThumbnail || uploadingThumbnail}
+                    onClick={async () => {
+                      if (!playlist?.id) return;
+                      setFindingThumbnail(true);
+                      setError('');
+                      try {
+                        const query = (playlist.name || 'playlist').trim();
+                        const { url } = await imagesApi.search(query);
+                        const { url: hostedUrl } = await imagesApi.fetchFromUrl(url, 'playlist');
+                        const updated = await playlistsApi.update(playlist.id, { thumbnail_url: hostedUrl });
+                        setPlaylist(updated);
+                      } catch (e) {
+                        setError(e.message || 'Failed to find image online');
+                      } finally {
+                        setFindingThumbnail(false);
+                      }
+                    }}
+                    className="rounded-lg border border-groove-600 px-3 py-2 text-sm text-gray-400 hover:bg-groove-700 disabled:opacity-50"
+                  >
+                    {findingThumbnail ? 'Finding…' : 'Find image online'}
                   </button>
                   {playlist?.thumbnail_url && (
                     <button

@@ -12,6 +12,7 @@ import youtubeRoutes from './routes/youtube.js';
 import stationRoutes, { advanceStationPlayback } from './routes/stations.js';
 import playlistRoutes from './routes/playlists.js';
 import dashboardRoutes from './routes/dashboard.js';
+import imageRoutes from './routes/images.js';
 import { setIO, addStationListener, removeStationListener, removeSocketFromStations, emitStationUpdate } from './socket.js';
 import db from './db/schema.js';
 import { JWT_SECRET } from './middleware/auth.js';
@@ -40,6 +41,7 @@ app.use('/api/youtube', youtubeRoutes);
 app.use('/api/stations', stationRoutes);
 app.use('/api/playlists', playlistRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/images', imageRoutes);
 
 // Production: serve built frontend from ../frontend/dist
 const frontendDist = path.join(__dirname, '../../frontend/dist');
