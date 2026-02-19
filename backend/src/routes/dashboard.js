@@ -212,7 +212,7 @@ router.get('/', async (req, res) => {
   // --- Stations: no listen events; popular/trending = by rating count or avg; highest rated; new ---
   const [createdCondSt, createdParamsSt] = createdAtCondition(period);
   const stationPopular = await db.all(
-    `SELECT s.id, s.name, s.slug, s.description, s.created_at, u.username as owner_name,
+    `SELECT s.id, s.name, s.slug, s.description, s.image_url, s.created_at, u.username as owner_name,
        (SELECT COALESCE(AVG(rating), 0) FROM user_station_ratings WHERE station_id = s.id) as community_avg_rating,
        (SELECT COUNT(*) FROM user_station_ratings WHERE station_id = s.id) as community_rating_count
      FROM stations s
@@ -223,7 +223,7 @@ router.get('/', async (req, res) => {
   );
   const stationTrending = [...stationPopular];
   const stationHighestRated = await db.all(
-    `SELECT s.id, s.name, s.slug, s.description, s.created_at, u.username as owner_name,
+    `SELECT s.id, s.name, s.slug, s.description, s.image_url, s.created_at, u.username as owner_name,
        (SELECT COALESCE(AVG(rating), 0) FROM user_station_ratings WHERE station_id = s.id) as community_avg_rating,
        (SELECT COUNT(*) FROM user_station_ratings WHERE station_id = s.id) as community_rating_count
      FROM stations s
@@ -234,7 +234,7 @@ router.get('/', async (req, res) => {
     [LIMIT]
   );
   const stationNew = await db.all(
-    `SELECT s.id, s.name, s.slug, s.description, s.created_at, u.username as owner_name,
+    `SELECT s.id, s.name, s.slug, s.description, s.image_url, s.created_at, u.username as owner_name,
        (SELECT COALESCE(AVG(rating), 0) FROM user_station_ratings WHERE station_id = s.id) as community_avg_rating,
        (SELECT COUNT(*) FROM user_station_ratings WHERE station_id = s.id) as community_rating_count
      FROM stations s

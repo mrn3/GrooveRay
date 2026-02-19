@@ -95,7 +95,8 @@ function SongListColumn({ title, items, emptyMessage, metaFn }) {
   );
 }
 
-function PlaylistCard({ playlist }) {
+/** Compact playlist row: same layout as SongListRow — play button + thumbnail + name/owner + meta. */
+function PlaylistListRow({ playlist, meta }) {
   const { play } = usePlayer();
   const { user } = useAuth();
   const linkTo = playlist.slug ? `/playlists/by/${playlist.slug}` : `/playlists/${playlist.id}`;
@@ -121,57 +122,100 @@ function PlaylistCard({ playlist }) {
   return (
     <Link
       to={linkTo}
-      className="group flex w-40 flex-shrink-0 flex-col rounded-xl border border-groove-700 bg-groove-900/80 p-3 transition hover:border-groove-600 hover:bg-groove-800"
+      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 transition hover:bg-groove-800"
     >
-      <div className="relative mb-2 aspect-square w-full overflow-hidden rounded-lg bg-groove-800">
+      <button
+        type="button"
+        onClick={handlePlay}
+        disabled={(playlist.track_count ?? 0) === 0}
+        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-groove-700 text-ray-400 hover:bg-groove-600 disabled:pointer-events-none disabled:opacity-50"
+        aria-label={(playlist.track_count ?? 0) === 0 ? 'Playlist has no tracks' : 'Play playlist'}
+      >
+        <span className="text-xs">▶</span>
+      </button>
+      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700">
         {playlist.thumbnail_url ? (
           <img src={playlist.thumbnail_url} alt="" className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-4xl text-ray-500">♫</div>
+          <span className="text-sm text-ray-400">♫</span>
         )}
-        <button
-          type="button"
-          onClick={handlePlay}
-          disabled={(playlist.track_count ?? 0) === 0}
-          className="absolute bottom-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-ray-600 text-white shadow-lg opacity-0 transition group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ray-400 disabled:pointer-events-none disabled:opacity-50"
-          aria-label="Play"
-        >
-          <span className="ml-0.5 text-lg">▶</span>
-        </button>
       </div>
-      <p className="truncate text-sm font-medium text-white" title={playlist.name}>{playlist.name}</p>
-      <p className="truncate text-xs text-gray-400">{playlist.owner_name} · {(playlist.track_count ?? 0)} tracks</p>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-white" title={playlist.name}>{playlist.name}</p>
+        <p className="truncate text-xs text-gray-400" title={playlist.owner_name}>
+          {playlist.owner_name}{playlist.track_count != null ? ` · ${playlist.track_count} tracks` : ''}
+        </p>
+      </div>
+      {meta != null && (
+        <span className="flex-shrink-0 text-xs text-gray-400">{meta}</span>
+      )}
     </Link>
   );
 }
 
-function StationCard({ station }) {
+function PlaylistListColumn({ title, items, emptyMessage, metaFn }) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-groove-700 bg-groove-900/40 p-3">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
+      {!items?.length ? (
+        <p className="py-2 text-center text-xs text-gray-500">{emptyMessage}</p>
+      ) : (
+        <ul className="space-y-0.5">
+          {items.map((pl) => (
+            <li key={pl.id}>
+              <PlaylistListRow playlist={pl} meta={metaFn ? metaFn(pl) : null} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Compact station row: same layout as SongListRow — link + thumbnail (image_url) + name/owner + meta. */
+function StationListRow({ station, meta }) {
   const linkTo = `/stations/${station.slug || station.id}`;
-  const rating = station.community_avg_rating != null ? Number(station.community_avg_rating).toFixed(1) : '—';
   return (
     <Link
       to={linkTo}
-      className="flex w-40 flex-shrink-0 flex-col rounded-xl border border-groove-700 bg-groove-900/80 p-3 transition hover:border-groove-600 hover:bg-groove-800"
+      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 transition hover:bg-groove-800"
     >
-      <div className="mb-2 flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg bg-groove-800 text-4xl text-ray-500">
-        📻
+      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-groove-700 text-ray-400">
+        <span className="text-xs">▶</span>
       </div>
-      <p className="truncate text-sm font-medium text-white" title={station.name}>{station.name}</p>
-      <p className="truncate text-xs text-gray-400">{station.owner_name} · ★ {rating}</p>
+      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700">
+        {station.image_url ? (
+          <img src={station.image_url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span className="text-sm text-ray-400">◇</span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-white" title={station.name}>{station.name}</p>
+        <p className="truncate text-xs text-gray-400" title={station.owner_name}>{station.owner_name || '—'}</p>
+      </div>
+      {meta != null && (
+        <span className="flex-shrink-0 text-xs text-gray-400">{meta}</span>
+      )}
     </Link>
   );
 }
 
-function SectionRow({ title, items, emptyMessage, renderCard }) {
-  if (!items?.length) return null;
+function StationListColumn({ title, items, emptyMessage, metaFn }) {
   return (
-    <div className="mb-8">
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
-      <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-track-groove-800 scrollbar-thumb-groove-600">
-        {items.map((item) => (
-          <div key={item.id}>{renderCard(item)}</div>
-        ))}
-      </div>
+    <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-groove-700 bg-groove-900/40 p-3">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
+      {!items?.length ? (
+        <p className="py-2 text-center text-xs text-gray-500">{emptyMessage}</p>
+      ) : (
+        <ul className="space-y-0.5">
+          {items.map((station) => (
+            <li key={station.id}>
+              <StationListRow station={station} meta={metaFn ? metaFn(station) : null} />
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -230,7 +274,7 @@ export default function Dashboard() {
             <h2 className="mb-3 text-lg font-semibold text-white">Songs</h2>
             <div className="flex gap-4">
               <SongListColumn
-                title="Most popular"
+                title="Most Listens"
                 items={data.songs?.popular}
                 emptyMessage="No songs in this period."
                 metaFn={(s) => (
@@ -264,26 +308,82 @@ export default function Dashboard() {
             </div>
           </section>
 
-          {/* Playlists */}
-          <section className="rounded-xl border border-groove-700 bg-groove-900/40 p-5">
-            <h2 className="mb-4 text-lg font-semibold text-white">Playlists</h2>
-            <SectionRow title="Most popular" items={data.playlists?.popular} renderCard={(p) => <PlaylistCard playlist={p} />} />
-            <SectionRow title="Highest rated" items={data.playlists?.highestRated} renderCard={(p) => <PlaylistCard playlist={p} />} />
-            <SectionRow title="New" items={data.playlists?.new} renderCard={(p) => <PlaylistCard playlist={p} />} />
-            {!(data.playlists?.popular?.length || data.playlists?.highestRated?.length || data.playlists?.new?.length) && (
-              <p className="py-4 text-center text-sm text-gray-500">No playlists in this period.</p>
-            )}
+          {/* Playlists: same three-column list layout as Songs */}
+          <section>
+            <h2 className="mb-3 text-lg font-semibold text-white">Playlists</h2>
+            <div className="flex gap-4">
+              <PlaylistListColumn
+                title="Most Listens"
+                items={data.playlists?.popular}
+                emptyMessage="No playlists in this period."
+                metaFn={(p) => (
+                  <span className="flex items-center gap-1" title="Listens">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    {(p.total_listen_count ?? 0) > 0 ? p.total_listen_count : '—'}
+                  </span>
+                )}
+              />
+              <PlaylistListColumn
+                title="Highest rated"
+                items={data.playlists?.highestRated}
+                emptyMessage="No rated playlists."
+                metaFn={(p) =>
+                  p.community_rating_count > 0 ? (
+                    <span className="text-amber-400">
+                      {Number(p.community_avg_rating).toFixed(1)} ★ ({p.community_rating_count})
+                    </span>
+                  ) : '—'
+                }
+              />
+              <PlaylistListColumn
+                title="New"
+                items={data.playlists?.new}
+                emptyMessage="No new playlists."
+                metaFn={(p) => formatRelativeTime(p.created_at)}
+              />
+            </div>
           </section>
 
-          {/* Stations */}
-          <section className="rounded-xl border border-groove-700 bg-groove-900/40 p-5">
-            <h2 className="mb-4 text-lg font-semibold text-white">Stations</h2>
-            <SectionRow title="Most popular" items={data.stations?.popular} renderCard={(s) => <StationCard station={s} />} />
-            <SectionRow title="Highest rated" items={data.stations?.highestRated} renderCard={(s) => <StationCard station={s} />} />
-            <SectionRow title="New" items={data.stations?.new} renderCard={(s) => <StationCard station={s} />} />
-            {!(data.stations?.popular?.length || data.stations?.highestRated?.length || data.stations?.new?.length) && (
-              <p className="py-4 text-center text-sm text-gray-500">No stations in this period.</p>
-            )}
+          {/* Stations: same three-column list layout as Songs, with proper thumbnails (image_url) */}
+          <section>
+            <h2 className="mb-3 text-lg font-semibold text-white">Stations</h2>
+            <div className="flex gap-4">
+              <StationListColumn
+                title="Most Listens"
+                items={data.stations?.popular}
+                emptyMessage="No stations in this period."
+                metaFn={(s) => (
+                  <span className="flex items-center gap-1" title="Listens">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    {(s.listener_count ?? 0) > 0 ? s.listener_count : '—'}
+                  </span>
+                )}
+              />
+              <StationListColumn
+                title="Highest rated"
+                items={data.stations?.highestRated}
+                emptyMessage="No rated stations."
+                metaFn={(s) =>
+                  s.community_rating_count > 0 ? (
+                    <span className="text-amber-400">
+                      {Number(s.community_avg_rating).toFixed(1)} ★ ({s.community_rating_count})
+                    </span>
+                  ) : '—'
+                }
+              />
+              <StationListColumn
+                title="New"
+                items={data.stations?.new}
+                emptyMessage="No new stations."
+                metaFn={(s) => formatRelativeTime(s.created_at)}
+              />
+            </div>
           </section>
         </div>
       ) : null}
