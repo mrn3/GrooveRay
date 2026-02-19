@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { stations as stationsApi } from '../api';
 
@@ -18,10 +18,11 @@ export default function Stations() {
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [searchParams] = useSearchParams();
   const [searchTitle, setSearchTitle] = useState('');
   const [searchContributor, setSearchContributor] = useState('');
-  const [sortBy, setSortBy] = useState('');
-  const [sortOrder, setSortOrder] = useState('desc');
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || '');
+  const [sortOrder, setSortOrder] = useState(() => (searchParams.get('sortOrder') === 'asc' || searchParams.get('sortOrder') === 'desc' ? searchParams.get('sortOrder') : 'desc'));
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [minRatingCommunity, setMinRatingCommunity] = useState('');
   const [minRatingMe, setMinRatingMe] = useState('');

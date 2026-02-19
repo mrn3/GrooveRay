@@ -4,6 +4,8 @@ import { dashboard as dashboardApi, playlists as playlistsApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
 
+const TOP_N = 5;
+
 const PERIODS = [
   { id: 'day', label: 'Today' },
   { id: 'week', label: 'This week' },
@@ -76,20 +78,30 @@ function SongListRow({ song, meta }) {
   );
 }
 
-function SongListColumn({ title, items, emptyMessage, metaFn }) {
+function SongListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
+  const displayItems = items?.slice(0, TOP_N) ?? [];
   return (
     <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-groove-700 bg-groove-900/40 p-3">
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
-      {!items?.length ? (
+      {!displayItems.length ? (
         <p className="py-2 text-center text-xs text-gray-500">{emptyMessage}</p>
       ) : (
-        <ul className="space-y-0.5">
-          {items.map((song) => (
-            <li key={song.id}>
-              <SongListRow song={song} meta={metaFn ? metaFn(song) : null} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-0.5">
+            {displayItems.map((song) => (
+              <li key={song.id}>
+                <SongListRow song={song} meta={metaFn ? metaFn(song) : null} />
+              </li>
+            ))}
+          </ul>
+          {seeAllTo && (
+            <p className="mt-2 border-t border-groove-700 pt-2 text-center">
+              <Link to={seeAllTo} className="text-sm text-ray-400 hover:text-ray-300 hover:underline">
+                See All
+              </Link>
+            </p>
+          )}
+        </>
       )}
     </div>
   );
@@ -153,20 +165,30 @@ function PlaylistListRow({ playlist, meta }) {
   );
 }
 
-function PlaylistListColumn({ title, items, emptyMessage, metaFn }) {
+function PlaylistListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
+  const displayItems = items?.slice(0, TOP_N) ?? [];
   return (
     <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-groove-700 bg-groove-900/40 p-3">
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
-      {!items?.length ? (
+      {!displayItems.length ? (
         <p className="py-2 text-center text-xs text-gray-500">{emptyMessage}</p>
       ) : (
-        <ul className="space-y-0.5">
-          {items.map((pl) => (
-            <li key={pl.id}>
-              <PlaylistListRow playlist={pl} meta={metaFn ? metaFn(pl) : null} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-0.5">
+            {displayItems.map((pl) => (
+              <li key={pl.id}>
+                <PlaylistListRow playlist={pl} meta={metaFn ? metaFn(pl) : null} />
+              </li>
+            ))}
+          </ul>
+          {seeAllTo && (
+            <p className="mt-2 border-t border-groove-700 pt-2 text-center">
+              <Link to={seeAllTo} className="text-sm text-ray-400 hover:text-ray-300 hover:underline">
+                See All
+              </Link>
+            </p>
+          )}
+        </>
       )}
     </div>
   );
@@ -201,20 +223,30 @@ function StationListRow({ station, meta }) {
   );
 }
 
-function StationListColumn({ title, items, emptyMessage, metaFn }) {
+function StationListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
+  const displayItems = items?.slice(0, TOP_N) ?? [];
   return (
     <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-groove-700 bg-groove-900/40 p-3">
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
-      {!items?.length ? (
+      {!displayItems.length ? (
         <p className="py-2 text-center text-xs text-gray-500">{emptyMessage}</p>
       ) : (
-        <ul className="space-y-0.5">
-          {items.map((station) => (
-            <li key={station.id}>
-              <StationListRow station={station} meta={metaFn ? metaFn(station) : null} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-0.5">
+            {displayItems.map((station) => (
+              <li key={station.id}>
+                <StationListRow station={station} meta={metaFn ? metaFn(station) : null} />
+              </li>
+            ))}
+          </ul>
+          {seeAllTo && (
+            <p className="mt-2 border-t border-groove-700 pt-2 text-center">
+              <Link to={seeAllTo} className="text-sm text-ray-400 hover:text-ray-300 hover:underline">
+                See All
+              </Link>
+            </p>
+          )}
+        </>
       )}
     </div>
   );
@@ -277,6 +309,7 @@ export default function Dashboard() {
                 title="Most Listens"
                 items={data.songs?.popular}
                 emptyMessage="No songs in this period."
+                seeAllTo="/songs?sortBy=total_listen_count&sortOrder=desc"
                 metaFn={(s) => (
                   <span className="flex items-center gap-1" title="Listens by everyone">
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -291,6 +324,7 @@ export default function Dashboard() {
                 title="Highest rated"
                 items={data.songs?.highestRated}
                 emptyMessage="No rated songs."
+                seeAllTo="/songs?sortBy=community_avg_rating&sortOrder=desc"
                 metaFn={(s) =>
                   s.community_rating_count > 0 ? (
                     <span className="text-amber-400">
@@ -303,6 +337,7 @@ export default function Dashboard() {
                 title="New"
                 items={data.songs?.new}
                 emptyMessage="No new songs."
+                seeAllTo="/songs?sortBy=created_at&sortOrder=desc"
                 metaFn={(s) => formatRelativeTime(s.created_at)}
               />
             </div>
@@ -316,6 +351,7 @@ export default function Dashboard() {
                 title="Most Listens"
                 items={data.playlists?.popular}
                 emptyMessage="No playlists in this period."
+                seeAllTo="/playlists?sortBy=total_listen_count&sortOrder=desc"
                 metaFn={(p) => (
                   <span className="flex items-center gap-1" title="Listens">
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -330,6 +366,7 @@ export default function Dashboard() {
                 title="Highest rated"
                 items={data.playlists?.highestRated}
                 emptyMessage="No rated playlists."
+                seeAllTo="/playlists?sortBy=community_avg_rating&sortOrder=desc"
                 metaFn={(p) =>
                   p.community_rating_count > 0 ? (
                     <span className="text-amber-400">
@@ -342,6 +379,7 @@ export default function Dashboard() {
                 title="New"
                 items={data.playlists?.new}
                 emptyMessage="No new playlists."
+                seeAllTo="/playlists?sortBy=created_at&sortOrder=desc"
                 metaFn={(p) => formatRelativeTime(p.created_at)}
               />
             </div>
@@ -355,6 +393,7 @@ export default function Dashboard() {
                 title="Most Listens"
                 items={data.stations?.popular}
                 emptyMessage="No stations in this period."
+                seeAllTo="/stations?sortBy=listener_count&sortOrder=desc"
                 metaFn={(s) => (
                   <span className="flex items-center gap-1" title="Listens">
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -369,6 +408,7 @@ export default function Dashboard() {
                 title="Highest rated"
                 items={data.stations?.highestRated}
                 emptyMessage="No rated stations."
+                seeAllTo="/stations?sortBy=community_avg_rating&sortOrder=desc"
                 metaFn={(s) =>
                   s.community_rating_count > 0 ? (
                     <span className="text-amber-400">
@@ -381,6 +421,7 @@ export default function Dashboard() {
                 title="New"
                 items={data.stations?.new}
                 emptyMessage="No new stations."
+                seeAllTo="/stations?sortBy=created_at&sortOrder=desc"
                 metaFn={(s) => formatRelativeTime(s.created_at)}
               />
             </div>

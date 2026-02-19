@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { songs as songsApi, youtube as youtubeApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
@@ -47,8 +47,9 @@ export default function Songs() {
   const [minListensEveryone, setMinListensEveryone] = useState('');
   const [minRatingMe, setMinRatingMe] = useState('');
   const [minRatingCommunity, setMinRatingCommunity] = useState('');
-  const [sortBy, setSortBy] = useState('');
-  const [sortOrder, setSortOrder] = useState('desc');
+  const [searchParams] = useSearchParams();
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || '');
+  const [sortOrder, setSortOrder] = useState(() => (searchParams.get('sortOrder') === 'asc' || searchParams.get('sortOrder') === 'desc' ? searchParams.get('sortOrder') : 'desc'));
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -606,6 +607,7 @@ export default function Songs() {
               <option value="total_listen_count">Listens (everyone)</option>
               <option value="rating">My rating</option>
               <option value="community_avg_rating">Community rating</option>
+              <option value="created_at">Created</option>
             </select>
           </div>
           {sortBy && (

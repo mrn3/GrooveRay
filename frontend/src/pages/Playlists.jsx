@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { playlists as playlistsApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
@@ -23,9 +23,10 @@ export default function Playlists() {
   const [creating, setCreating] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   // Search, filter, sort
+  const [searchParams] = useSearchParams();
   const [searchName, setSearchName] = useState('');
-  const [sortBy, setSortBy] = useState('');
-  const [sortOrder, setSortOrder] = useState('desc');
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sortBy') || '');
+  const [sortOrder, setSortOrder] = useState(() => (searchParams.get('sortOrder') === 'asc' || searchParams.get('sortOrder') === 'desc' ? searchParams.get('sortOrder') : 'desc'));
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [minTracks, setMinTracks] = useState('');
   const [minListens, setMinListens] = useState('');

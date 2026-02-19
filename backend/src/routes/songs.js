@@ -91,7 +91,7 @@ function parseSearchSort(query) {
   const minListensEveryone = query.minListensEveryone != null ? parseInt(query.minListensEveryone, 10) : null;
   const minRatingMe = query.minRatingMe != null ? parseInt(query.minRatingMe, 10) : null;
   const minRatingCommunity = query.minRatingCommunity != null ? parseFloat(query.minRatingCommunity) : null;
-  const sortBy = ['title', 'artist', 'duration_seconds', 'listen_count', 'total_listen_count', 'rating', 'community_avg_rating'].includes(query.sortBy)
+  const sortBy = ['title', 'artist', 'duration_seconds', 'listen_count', 'total_listen_count', 'rating', 'community_avg_rating', 'created_at'].includes(query.sortBy)
     ? query.sortBy
     : null;
   const sortOrder = query.sortOrder === 'asc' || query.sortOrder === 'desc' ? query.sortOrder : 'desc';
@@ -157,6 +157,11 @@ function applyFilterSort(list, opts) {
         va = (va ?? '').toLowerCase();
         vb = (vb ?? '').toLowerCase();
         return order * (va < vb ? -1 : va > vb ? 1 : 0);
+      }
+      if (key === 'created_at') {
+        va = va ? new Date(va).getTime() : 0;
+        vb = vb ? new Date(vb).getTime() : 0;
+        return order * (va - vb);
       }
       va = Number(va) ?? 0;
       vb = Number(vb) ?? 0;
