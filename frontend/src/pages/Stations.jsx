@@ -5,7 +5,7 @@ import { stations as stationsApi } from '../api';
 
 const TABS = [
   { id: 'all', label: 'All Stations' },
-  { id: 'mine', label: 'My Stations & Contributions' },
+  { id: 'mine', label: 'My Stations' },
 ];
 
 export default function Stations() {

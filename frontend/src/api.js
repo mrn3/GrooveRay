@@ -158,6 +158,11 @@ export const stations = {
     request(`/stations/${id}/chat${buildSearchParams(params)}`),
 };
 
+// Dashboard (songs, playlists, stations by period: day, week, month, year, all)
+export const dashboard = {
+  get: (params) => request(`/dashboard${buildSearchParams(params || {})}`),
+};
+
 // Playlists
 export const playlists = {
   list: (params) => request(`/playlists${buildSearchParams(params)}`),

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import Logo from './Logo';
 
 const nav = [
+  { to: '/', label: 'Dashboard' },
   { to: '/songs', label: 'Songs' },
   { to: '/playlists', label: 'Playlists' },
   { to: '/stations', label: 'Stations' },
@@ -15,7 +16,7 @@ export default function Layout() {
     <>
       <header className="sticky top-0 z-40 border-b border-groove-700 bg-groove-950/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <NavLink to="/songs" className="flex items-center font-semibold text-ray-400">
+          <NavLink to="/" className="flex items-center font-semibold text-ray-400">
             <Logo className="h-7 w-7" />
           </NavLink>
           <nav className="flex items-center gap-1">
@@ -23,6 +24,7 @@ export default function Layout() {
               <NavLink
                 key={to}
                 to={to}
+                end={to === '/'}
                 className={({ isActive }) =>
                   `rounded-lg px-3 py-2 text-sm font-medium transition ${isActive ? 'bg-groove-700 text-ray-400' : 'text-gray-400 hover:bg-groove-800 hover:text-white'}`
                 }

@@ -5,6 +5,7 @@ import PlayerBar from './components/PlayerBar';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AuthCallback from './pages/AuthCallback';
+import Dashboard from './pages/Dashboard';
 import Songs from './pages/Songs';
 import Upload from './pages/Upload';
 import YouTube from './pages/YouTube';
@@ -30,7 +31,7 @@ export default function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/songs" replace />} />
+          <Route index element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="songs" element={<ProtectedRoute><Songs /></ProtectedRoute>} />
           <Route path="songs/:id" element={<ProtectedRoute><Song /></ProtectedRoute>} />
           <Route path="upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />

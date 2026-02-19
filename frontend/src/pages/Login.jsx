@@ -16,7 +16,7 @@ export default function Login() {
     setError('');
     try {
       await login(username, password);
-      navigate('/songs');
+      navigate('/');
     } catch (err) {
       setError(err.message || 'Login failed');
     }
@@ -59,7 +59,7 @@ export default function Login() {
             <>
               <p className="text-center text-sm text-gray-500">or</p>
               <a
-                href={authApi.googleAuthUrl('songs')}
+                href={authApi.googleAuthUrl('/')}
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-groove-600 bg-groove-800 py-3 font-medium text-white transition hover:bg-groove-700"
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24">

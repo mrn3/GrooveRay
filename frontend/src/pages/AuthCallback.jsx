@@ -18,7 +18,7 @@ export default function AuthCallback() {
       return;
     }
     const token = searchParams.get('token');
-    const next = searchParams.get('next') || '/songs';
+    const next = searchParams.get('next') || '/';
     if (!token) {
       setMessage('Missing token');
       setTimeout(() => navigate('/login', { replace: true }), 2000);
