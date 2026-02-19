@@ -135,15 +135,15 @@ export default function Profile() {
             {user.has_youtube_cookies ? 'Edit cookies' : 'Set YouTube cookies'}
           </button>
           <details className="mt-2">
-            <summary className="cursor-pointer text-sm text-ray-400 hover:text-ray-300">How to get YouTube cookies</summary>
-            <div className="mt-2 rounded-lg bg-groove-800 p-3 text-xs text-gray-400">
+            <summary className="cursor-pointer text-base text-ray-400 hover:text-ray-300">How to get YouTube cookies</summary>
+            <div className="mt-2 rounded-lg bg-groove-800 p-3 text-base text-gray-400">
               <p className="mb-2">To add songs from YouTube, we need cookies from your browser (while logged into YouTube).</p>
               <ol className="list-decimal list-inside space-y-1">
                 <li>
                   Install the Chrome extension{' '}
                   <a href={COOKIES_EXTENSION_URL} target="_blank" rel="noopener noreferrer" className="text-ray-400 underline hover:text-ray-300">Get cookies.txt LOCALLY</a>.
                 </li>
-                <li>Go to youtube.com and make sure you're signed in.</li>
+                <li>Go to <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="text-ray-400 underline hover:text-ray-300">youtube.com</a> and make sure you're signed in.</li>
                 <li>
                   Use the extension to export cookies in Netscape format and click the Copy button.
                   <img src="/cookies-extension-screenshot.png" alt="Get cookies.txt extension with Netscape format and Copy button" className="mt-2 block max-w-full rounded border border-groove-600" />
