@@ -86,7 +86,7 @@ function SongListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
         <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
         {seeAllTo && (
           <Link to={seeAllTo} className="text-sm text-ray-400 hover:text-ray-300 hover:underline">
-            See All
+            View All
           </Link>
         )}
       </div>
@@ -171,7 +171,7 @@ function PlaylistListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
         <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
         {seeAllTo && (
           <Link to={seeAllTo} className="text-sm text-ray-400 hover:text-ray-300 hover:underline">
-            See All
+            View All
           </Link>
         )}
       </div>
@@ -227,7 +227,7 @@ function StationListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
         <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
         {seeAllTo && (
           <Link to={seeAllTo} className="text-sm text-ray-400 hover:text-ray-300 hover:underline">
-            See All
+            View All
           </Link>
         )}
       </div>
