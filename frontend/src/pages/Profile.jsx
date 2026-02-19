@@ -2,12 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { auth as authApi } from '../api';
 
-const COOKIES_INSTRUCTIONS = `To add songs from YouTube, we need cookies from your browser (while logged into YouTube).
-
-1. Install a "cookies.txt" extension in Chrome, e.g. "Get cookies.txt LOCALLY".
-2. Go to youtube.com and make sure you're signed in.
-3. Use the extension to export cookies in Netscape format and copy the text.
-4. Paste the entire contents into the "YouTube cookies" field below and save.`;
+const COOKIES_EXTENSION_URL = 'https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc';
 
 export default function Profile() {
   const { user, refreshUser } = useAuth();
@@ -130,9 +125,18 @@ export default function Profile() {
           />
           <details className="mt-2">
             <summary className="cursor-pointer text-sm text-ray-400 hover:text-ray-300">How to get YouTube cookies</summary>
-            <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-groove-800 p-3 text-xs text-gray-400">
-              {COOKIES_INSTRUCTIONS}
-            </pre>
+            <div className="mt-2 rounded-lg bg-groove-800 p-3 text-xs text-gray-400">
+              <p className="mb-2">To add songs from YouTube, we need cookies from your browser (while logged into YouTube).</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>
+                  Install the Chrome extension{' '}
+                  <a href={COOKIES_EXTENSION_URL} target="_blank" rel="noopener noreferrer" className="text-ray-400 underline hover:text-ray-300">Get cookies.txt LOCALLY</a>.
+                </li>
+                <li>Go to youtube.com and make sure you're signed in.</li>
+                <li>Use the extension to export cookies in Netscape format and copy the text.</li>
+                <li>Paste the entire contents into the "YouTube cookies" field below and save.</li>
+              </ol>
+            </div>
           </details>
         </div>
 
