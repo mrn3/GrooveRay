@@ -160,7 +160,7 @@ export default function Profile() {
                       Use the extension to export cookies in Netscape format and click the Copy button.
                       <img src="/cookies-extension-screenshot.png" alt="Get cookies.txt extension with Netscape format and Copy button" className="mt-2 block max-w-full rounded border border-groove-600" />
                     </li>
-                    <li>Click &quot;Edit Cookies&quot; and paste the entire contents into the modal, then save.</li>
+                    <li>Go to your <a href="https://grooveray.com/profile" className="text-ray-400 underline hover:text-ray-300">profile</a>, click &quot;Edit Cookies&quot; and paste the entire contents into the modal, then save.</li>
                   </ol>
                 </div>
               )}
@@ -180,7 +180,7 @@ export default function Profile() {
               onClick={() => setEditCookiesOpen(true)}
               className="rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-sm font-medium text-white hover:bg-groove-700 focus:outline-none focus:ring-1 focus:ring-ray-500"
             >
-              {user.has_youtube_cookies ? 'Edit Cookies' : 'Set YouTube cookies'}
+              {user.has_youtube_cookies ? 'Edit cookies' : 'Edit cookies'}
             </button>
             {user.has_youtube_cookies && (
               <button
@@ -189,7 +189,7 @@ export default function Profile() {
                 disabled={clearingCookies}
                 className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ray-500"
               >
-                {clearingCookies ? 'Clearing…' : 'Clear Cookies'}
+                {clearingCookies ? 'Clearing…' : 'Clear cookies'}
               </button>
             )}
           </div>
