@@ -469,7 +469,7 @@ export default function Songs() {
               </button>
             ))}
           </nav>
-          {user && activeTab === 'mine' && (
+          {user && (
             <button
               type="button"
               onClick={openAddModal}

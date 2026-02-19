@@ -145,7 +145,7 @@ export default function Stations() {
               </button>
             ))}
           </nav>
-          {user && activeTab === 'mine' && (
+          {user && (
             <button
               type="button"
               onClick={() => setCreateModalOpen(true)}

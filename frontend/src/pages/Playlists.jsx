@@ -182,7 +182,7 @@ export default function Playlists() {
               </button>
             ))}
           </nav>
-          {user && activeTab === 'mine' && (
+          {user && (
             <button
               type="button"
               onClick={() => setCreateModalOpen(true)}
