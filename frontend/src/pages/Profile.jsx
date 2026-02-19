@@ -116,6 +116,11 @@ export default function Profile() {
           <p className="mb-2 text-xs text-gray-500">
             {user.has_youtube_cookies ? 'Cookies are set. Paste new text below to replace.' : 'Required for “Add from YouTube”. Paste Netscape-format cookies here.'}
           </p>
+          {user.has_youtube_cookies && user.youtube_cookies && (
+            <pre className="mb-2 max-h-48 overflow-auto rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 font-mono text-xs text-gray-300 whitespace-pre-wrap break-all">
+              {user.youtube_cookies}
+            </pre>
+          )}
           <textarea
             value={youtubeCookies}
             onChange={(e) => { setYoutubeCookies(e.target.value); setCookiesDirty(true); }}

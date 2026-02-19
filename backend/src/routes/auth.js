@@ -63,10 +63,12 @@ router.get('/me', async (req, res) => {
     );
     if (!user) return res.status(401).json({ error: 'User not found' });
     const { youtube_cookies, ...rest } = user;
+    const cookieText = youtube_cookies && String(youtube_cookies).trim();
     res.json({
       ...rest,
       has_google_account: !!user.google_id,
-      has_youtube_cookies: !!(youtube_cookies && String(youtube_cookies).trim()),
+      has_youtube_cookies: !!cookieText,
+      youtube_cookies: cookieText || undefined,
     });
   } catch {
     res.status(401).json({ error: 'Invalid token' });
@@ -110,10 +112,12 @@ router.patch('/me', async (req, res) => {
       [userId]
     );
     const { youtube_cookies: yc, ...rest } = user;
+    const cookieText = yc && String(yc).trim();
     res.json({
       ...rest,
       has_google_account: !!user.google_id,
-      has_youtube_cookies: !!(yc && String(yc).trim()),
+      has_youtube_cookies: !!cookieText,
+      youtube_cookies: cookieText || undefined,
     });
   } catch (e) {
     if (e.name === 'JsonWebTokenError') return res.status(401).json({ error: 'Invalid token' });
