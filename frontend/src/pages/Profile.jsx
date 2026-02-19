@@ -9,19 +9,18 @@ export default function Profile() {
   const [username, setUsername] = useState('');
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
-  const [youtubeCookies, setYoutubeCookies] = useState('');
-  const [cookiesDirty, setCookiesDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [editCookiesOpen, setEditCookiesOpen] = useState(false);
+  const [modalCookies, setModalCookies] = useState('');
+  const [savingCookies, setSavingCookies] = useState(false);
 
   useEffect(() => {
     if (user) {
       setUsername(user.username || '');
       setName(user.name || '');
       setLocation(user.location || '');
-      setYoutubeCookies('');
-      setCookiesDirty(false);
     }
   }, [user?.id]);
 
@@ -36,16 +35,28 @@ export default function Profile() {
         name: name.trim() || undefined,
         location: location.trim() || undefined,
       };
-      if (cookiesDirty) payload.youtube_cookies = youtubeCookies;
       const updated = await authApi.updateProfile(payload);
       await refreshUser();
-      setMessage(updated.has_youtube_cookies && cookiesDirty ? 'Profile and cookies saved.' : 'Profile saved.');
-      setYoutubeCookies('');
-      setCookiesDirty(false);
+      setMessage('Profile saved.');
     } catch (err) {
       setError(err.message || 'Failed to save profile');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveCookies = async () => {
+    setSavingCookies(true);
+    try {
+      await authApi.updateProfile({ youtube_cookies: modalCookies.trim() || undefined });
+      await refreshUser();
+      setModalCookies('');
+      setEditCookiesOpen(false);
+      setMessage('Cookies saved.');
+    } catch (err) {
+      setError(err.message || 'Failed to save cookies');
+    } finally {
+      setSavingCookies(false);
     }
   };
 
@@ -109,20 +120,20 @@ export default function Profile() {
         <div>
           <label className="mb-1 block text-sm text-gray-400">YouTube cookies</label>
           <p className="mb-2 text-xs text-gray-500">
-            {user.has_youtube_cookies ? 'Cookies are set. Paste new text below to replace.' : 'Required for “Add from YouTube”. Paste Netscape-format cookies here.'}
+            {user.has_youtube_cookies ? 'Cookies are set.' : 'Required for “Add from YouTube”. '}
           </p>
           {user.has_youtube_cookies && user.youtube_cookies && (
             <pre className="mb-2 max-h-48 overflow-auto rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 font-mono text-xs text-gray-300 whitespace-pre-wrap break-all">
               {user.youtube_cookies}
             </pre>
           )}
-          <textarea
-            value={youtubeCookies}
-            onChange={(e) => { setYoutubeCookies(e.target.value); setCookiesDirty(true); }}
-            placeholder={user.has_youtube_cookies ? 'Leave blank to keep current cookies, or paste new export to replace' : 'Paste your cookies.txt export here (Netscape format)'}
-            rows={6}
-            className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 font-mono text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
-          />
+          <button
+            type="button"
+            onClick={() => setEditCookiesOpen(true)}
+            className="text-sm text-ray-400 underline hover:text-ray-300"
+          >
+            {user.has_youtube_cookies ? 'Edit cookies' : 'Set YouTube cookies'}
+          </button>
           <details className="mt-2">
             <summary className="cursor-pointer text-sm text-ray-400 hover:text-ray-300">How to get YouTube cookies</summary>
             <div className="mt-2 rounded-lg bg-groove-800 p-3 text-xs text-gray-400">
@@ -137,11 +148,48 @@ export default function Profile() {
                   Use the extension to export cookies in Netscape format and click the Copy button.
                   <img src="/cookies-extension-screenshot.png" alt="Get cookies.txt extension with Netscape format and Copy button" className="mt-2 block max-w-full rounded border border-groove-600" />
                 </li>
-                <li>Paste the entire contents into the "YouTube cookies" field below and save.</li>
+                <li>Click &quot;Edit cookies&quot; above and paste the entire contents into the modal, then save.</li>
               </ol>
             </div>
           </details>
         </div>
+
+        {editCookiesOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !savingCookies && setEditCookiesOpen(false)}>
+            <div className="w-full max-w-lg rounded-xl border border-groove-600 bg-groove-800 p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <h2 className="mb-2 text-lg font-medium text-white">YouTube cookies</h2>
+              <p className="mb-3 text-xs text-gray-500">
+                Paste your cookies.txt export here (Netscape format). Leave blank to clear existing cookies.
+              </p>
+              <textarea
+                value={modalCookies}
+                onChange={(e) => setModalCookies(e.target.value)}
+                placeholder="Paste your cookies.txt export here (Netscape format)"
+                rows={8}
+                className="mb-4 w-full rounded-lg border border-groove-600 bg-groove-700 px-4 py-2 font-mono text-sm text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setEditCookiesOpen(false); setModalCookies(''); }}
+                  disabled={savingCookies}
+                  className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveCookies}
+                  disabled={savingCookies}
+                  className="rounded-lg bg-ray-600 px-4 py-2 text-sm font-medium text-white hover:bg-ray-500 disabled:opacity-50"
+                >
+                  {savingCookies ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <button
           type="submit"
