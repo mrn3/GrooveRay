@@ -133,7 +133,10 @@ export default function Profile() {
                   <a href={COOKIES_EXTENSION_URL} target="_blank" rel="noopener noreferrer" className="text-ray-400 underline hover:text-ray-300">Get cookies.txt LOCALLY</a>.
                 </li>
                 <li>Go to youtube.com and make sure you're signed in.</li>
-                <li>Use the extension to export cookies in Netscape format and copy the text.</li>
+                <li>
+                  Use the extension to export cookies in Netscape format and click the Copy button.
+                  <img src="/cookies-extension-screenshot.png" alt="Get cookies.txt extension with Netscape format and Copy button" className="mt-2 block max-w-full rounded border border-groove-600" />
+                </li>
                 <li>Paste the entire contents into the "YouTube cookies" field below and save.</li>
               </ol>
             </div>
