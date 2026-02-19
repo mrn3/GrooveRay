@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { auth as authApi } from '../api';
-
-const COOKIES_EXTENSION_URL = 'https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc';
+import { YouTubeCookiesInstructions } from '../content/youtubeCookiesInstructions';
 
 export default function Profile() {
   const { user, refreshUser } = useAuth();
@@ -149,19 +148,7 @@ export default function Profile() {
               </button>
               {cookiesInfoOpen && (
                 <div className="absolute left-0 top-full z-10 mt-1 w-[40rem] max-w-[calc(100vw-2rem)] rounded-lg border border-groove-600 bg-groove-800 p-3 text-sm text-gray-400 shadow-xl">
-                  <p className="mb-2">To add songs from YouTube, we need cookies from your browser (while logged into YouTube).</p>
-                  <ol className="list-decimal list-inside space-y-1">
-                    <li>
-                      Install the Chrome extension{' '}
-                      <a href={COOKIES_EXTENSION_URL} target="_blank" rel="noopener noreferrer" className="text-ray-400 underline hover:text-ray-300">Get cookies.txt LOCALLY</a>.
-                    </li>
-                    <li>Go to <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="text-ray-400 underline hover:text-ray-300">youtube.com</a> and make sure you're signed in.</li>
-                    <li>
-                      Use the extension to export cookies in Netscape format and click the Copy button.
-                      <img src="/cookies-extension-screenshot.png" alt="Get cookies.txt extension with Netscape format and Copy button" className="mt-2 block max-w-full rounded border border-groove-600" />
-                    </li>
-                    <li>Go to your <a href="https://grooveray.com/profile" className="text-ray-400 underline hover:text-ray-300">profile</a>, click &quot;Edit Cookies&quot; and paste the entire contents into the modal, then save.</li>
-                  </ol>
+                  <YouTubeCookiesInstructions showScreenshot />
                 </div>
               )}
             </div>

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { songs as songsApi, youtube as youtubeApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
+import { YouTubeCookiesInstructions } from '../content/youtubeCookiesInstructions';
 
 const TABS = [
   { id: 'all', label: 'All Songs' },
@@ -810,15 +811,9 @@ export default function Songs() {
               </div>
             ) : addMode === 'youtube_no_cookies' ? (
               <div className="space-y-4">
-                <p className="text-gray-300">
-                  To add songs from YouTube, you need to set up your YouTube cookies in your profile first.
-                </p>
-                <ol className="list-inside list-decimal space-y-2 text-sm text-gray-400">
-                  <li>Install a &quot;cookies.txt&quot; extension in Chrome (e.g. <strong className="text-gray-300">Get cookies.txt LOCALLY</strong>).</li>
-                  <li>Go to <a href="https://www.youtube.com" target="_blank" rel="noreferrer" className="text-ray-400 hover:underline">youtube.com</a> and sign in.</li>
-                  <li>Use the extension to export cookies in <strong className="text-gray-300">Netscape format</strong> and copy the text.</li>
-                  <li>Open your <strong className="text-gray-300">Profile</strong>, paste the cookies into the &quot;YouTube cookies&quot; field, and save.</li>
-                </ol>
+                <div className="text-sm text-gray-400">
+                  <YouTubeCookiesInstructions showScreenshot={false} />
+                </div>
                 <button
                   type="button"
                   onClick={() => { closeAddModal(); navigate('/profile'); }}
