@@ -148,7 +148,7 @@ export default function Profile() {
                 <span className="text-xs font-medium">?</span>
               </button>
               {cookiesInfoOpen && (
-                <div className="absolute left-0 top-full z-10 mt-1 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-groove-600 bg-groove-800 p-3 text-sm text-gray-400 shadow-xl">
+                <div className="absolute left-0 top-full z-10 mt-1 w-[40rem] max-w-[calc(100vw-2rem)] rounded-lg border border-groove-600 bg-groove-800 p-3 text-sm text-gray-400 shadow-xl">
                   <p className="mb-2">To add songs from YouTube, we need cookies from your browser (while logged into YouTube).</p>
                   <ol className="list-decimal list-inside space-y-1">
                     <li>
