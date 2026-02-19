@@ -38,7 +38,7 @@ router.get('/', async (req, res) => {
   let songPopular = [];
   if (period === 'all') {
     const rows = await db.all(
-      `SELECT s.id, s.title, s.artist, s.duration_seconds, s.thumbnail_url, s.created_at, u.username as uploader_name,
+      `SELECT s.id, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url, s.created_at, u.username as uploader_name,
         COALESCE(SUM(l.listen_count), 0) as total_listen_count
        FROM songs s
        JOIN users u ON u.id = s.user_id
@@ -53,7 +53,7 @@ router.get('/', async (req, res) => {
     songPopular = rows;
   } else {
     const rows = await db.all(
-      `SELECT s.id, s.title, s.artist, s.duration_seconds, s.thumbnail_url, s.created_at, u.username as uploader_name,
+      `SELECT s.id, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url, s.created_at, u.username as uploader_name,
         COUNT(e.id) as period_listens
        FROM song_listen_events e
        JOIN songs s ON s.id = e.song_id
@@ -74,7 +74,7 @@ router.get('/', async (req, res) => {
   let songHighestRated;
   if (period === 'all') {
     songHighestRated = await db.all(
-      `SELECT s.id, s.title, s.artist, s.duration_seconds, s.thumbnail_url, s.created_at, u.username as uploader_name,
+      `SELECT s.id, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url, s.created_at, u.username as uploader_name,
         (SELECT AVG(rating) FROM user_song_ratings WHERE song_id = s.id) as community_avg_rating,
         (SELECT COUNT(*) FROM user_song_ratings WHERE song_id = s.id) as community_rating_count
        FROM songs s
@@ -96,7 +96,7 @@ router.get('/', async (req, res) => {
     } else {
       const ph = ids.map(() => '?').join(',');
       songHighestRated = await db.all(
-        `SELECT s.id, s.title, s.artist, s.duration_seconds, s.thumbnail_url, s.created_at, u.username as uploader_name,
+        `SELECT s.id, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url, s.created_at, u.username as uploader_name,
           (SELECT AVG(rating) FROM user_song_ratings WHERE song_id = s.id) as community_avg_rating,
           (SELECT COUNT(*) FROM user_song_ratings WHERE song_id = s.id) as community_rating_count
          FROM songs s
@@ -112,7 +112,7 @@ router.get('/', async (req, res) => {
 
   // --- Songs: new (created in period) ---
   const songNew = await db.all(
-    `SELECT s.id, s.title, s.artist, s.duration_seconds, s.thumbnail_url, s.created_at, u.username as uploader_name
+    `SELECT s.id, s.title, s.artist, s.source, s.file_path, s.duration_seconds, s.thumbnail_url, s.created_at, u.username as uploader_name
      FROM songs s
      JOIN users u ON u.id = s.user_id
      WHERE s.is_public = 1 AND ${createdCondSongs}
