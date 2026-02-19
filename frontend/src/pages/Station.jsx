@@ -618,6 +618,43 @@ export default function Station() {
       </div>
 
       <section className="mt-8">
+        <h2 className="mb-3 text-lg font-medium text-white">Queue (most upvoted first)</h2>
+        <div className="space-y-2 rounded-xl border border-groove-700 bg-groove-900/50 overflow-hidden">
+          {queueWithoutNowPlaying.length === 0 ? (
+            <p className="px-6 py-12 text-center text-gray-500">Queue is empty. Add songs above.</p>
+          ) : (
+            queueWithoutNowPlaying.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-4 border-b border-groove-700 px-6 py-3 last:border-0 hover:bg-groove-800/50"
+              >
+                <button
+                  type="button"
+                  onClick={() => handleVote(item.id)}
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-groove-600 text-ray-400 transition hover:bg-ray-500/20"
+                  title="Upvote"
+                >
+                  <span className="font-semibold">↑</span>
+                </button>
+                <span className="w-8 flex-shrink-0 text-center font-mono text-gray-400">{item.votes ?? 0}</span>
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
+                  {item.thumbnail_url ? (
+                    <img src={item.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-lg">◇</span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-white">{item.title}</p>
+                  <p className="text-sm text-gray-400">{item.artist}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      <section>
         <h2 className="mb-3 text-lg font-medium text-white">Chat</h2>
         <div className="flex flex-col rounded-xl border border-groove-700 bg-groove-900/50 overflow-hidden" style={{ minHeight: 280 }}>
           <div ref={chatListRef} className="flex-1 overflow-auto p-4 space-y-3" style={{ maxHeight: 320 }}>
@@ -683,43 +720,6 @@ export default function Station() {
             </form>
           ) : (
             <p className="border-t border-groove-700 px-4 py-3 text-center text-sm text-gray-500">Sign in to chat</p>
-          )}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-lg font-medium text-white">Queue (most upvoted first)</h2>
-        <div className="space-y-2 rounded-xl border border-groove-700 bg-groove-900/50 overflow-hidden">
-          {queueWithoutNowPlaying.length === 0 ? (
-            <p className="px-6 py-12 text-center text-gray-500">Queue is empty. Add songs above.</p>
-          ) : (
-            queueWithoutNowPlaying.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center gap-4 border-b border-groove-700 px-6 py-3 last:border-0 hover:bg-groove-800/50"
-              >
-                <button
-                  type="button"
-                  onClick={() => handleVote(item.id)}
-                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-groove-600 text-ray-400 transition hover:bg-ray-500/20"
-                  title="Upvote"
-                >
-                  <span className="font-semibold">↑</span>
-                </button>
-                <span className="w-8 flex-shrink-0 text-center font-mono text-gray-400">{item.votes ?? 0}</span>
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
-                  {item.thumbnail_url ? (
-                    <img src={item.thumbnail_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-lg">◇</span>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-white">{item.title}</p>
-                  <p className="text-sm text-gray-400">{item.artist}</p>
-                </div>
-              </div>
-            ))
           )}
         </div>
       </section>
