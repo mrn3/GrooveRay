@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { songs as songsApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
+import { selfHostedImageUrl } from '../utils/images';
 
 function formatRatingDate(updatedAt) {
   if (!updatedAt) return '—';
@@ -129,6 +130,8 @@ export default function Song() {
   const [editLyrics, setEditLyrics] = useState('');
   const [editGuitarTab, setEditGuitarTab] = useState('');
   const [saving, setSaving] = useState(false);
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
 
   function parseArtistString(str) {
     if (!str || typeof str !== 'string') return [];
@@ -285,11 +288,69 @@ export default function Song() {
       <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="mb-4 flex items-center gap-4">
-            <div className="relative flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-groove-700 text-3xl text-ray-500">
-              {song.thumbnail_url ? (
-                <img src={song.thumbnail_url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span>♫</span>
+            <div className="flex flex-shrink-0 flex-col items-start gap-2">
+              <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl bg-groove-700 text-3xl text-ray-500">
+                {selfHostedImageUrl(song.thumbnail_url) ? (
+                  <img src={selfHostedImageUrl(song.thumbnail_url)} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span>♫</span>
+                )}
+              </div>
+              {isOwner && (
+                <div className="flex flex-col gap-1">
+                  <label className="flex cursor-pointer items-center gap-1 text-xs text-gray-400 hover:text-gray-300">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      className="hidden"
+                      onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
+                    />
+                    <span>{thumbnailFile ? thumbnailFile.name : 'Choose image…'}</span>
+                  </label>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      disabled={!thumbnailFile || uploadingThumbnail}
+                      onClick={async () => {
+                        if (!thumbnailFile || !song?.id) return;
+                        setUploadingThumbnail(true);
+                        try {
+                          const updated = await songsApi.uploadThumbnail(song.id, thumbnailFile);
+                          setSong(updated);
+                          setThumbnailFile(null);
+                        } catch (e) {
+                          setError(e.message);
+                        } finally {
+                          setUploadingThumbnail(false);
+                        }
+                      }}
+                      className="rounded bg-ray-600 px-2 py-1 text-xs font-medium text-white hover:bg-ray-500 disabled:opacity-50"
+                    >
+                      {uploadingThumbnail ? 'Uploading…' : 'Upload'}
+                    </button>
+                    {song.thumbnail_url && (
+                      <button
+                        type="button"
+                        disabled={uploadingThumbnail}
+                        onClick={async () => {
+                          if (!song?.id) return;
+                          setUploadingThumbnail(true);
+                          try {
+                            const updated = await songsApi.update(song.id, { thumbnail_url: null });
+                            setSong(updated);
+                          } catch (e) {
+                            setError(e.message);
+                          } finally {
+                            setUploadingThumbnail(false);
+                          }
+                        }}
+                        className="rounded border border-groove-600 px-2 py-1 text-xs text-gray-400 hover:bg-groove-700 disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
             <div className="min-w-0">

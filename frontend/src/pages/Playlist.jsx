@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { playlists as playlistsApi, songs as songsApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
+import { selfHostedImageUrl } from '../utils/images';
 
 function formatRatingDate(updatedAt) {
   if (!updatedAt) return '—';
@@ -82,9 +83,10 @@ export default function Playlist() {
   const [editOpen, setEditOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
-  const [editThumbnail, setEditThumbnail] = useState('');
   const [editPublic, setEditPublic] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
 
   const fetchPlaylist = useCallback(() => {
     if (!id && !slug) return;
@@ -198,7 +200,6 @@ export default function Playlist() {
       const updated = await playlistsApi.update(playlist.id, {
         name: editName.trim(),
         description: editDesc.trim() || null,
-        thumbnail_url: editThumbnail.trim() || null,
         is_public: editPublic,
       });
       setPlaylist(updated);
@@ -279,8 +280,8 @@ export default function Playlist() {
         <div className="min-w-0 flex-1">
           <div className="mb-4 flex items-center gap-4">
             <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-groove-700 text-3xl text-ray-500">
-              {playlist.thumbnail_url ? (
-                <img src={playlist.thumbnail_url} alt="" className="h-full w-full object-cover" />
+              {selfHostedImageUrl(playlist.thumbnail_url) ? (
+                <img src={selfHostedImageUrl(playlist.thumbnail_url)} alt="" className="h-full w-full object-cover" />
               ) : (
                 <span>♫</span>
               )}
@@ -290,7 +291,7 @@ export default function Playlist() {
                   onClick={() => {
                     setEditName(playlist.name);
                     setEditDesc(playlist.description || '');
-                    setEditThumbnail(playlist.thumbnail_url || '');
+                    setThumbnailFile(null);
                     setEditPublic(!!playlist.is_public);
                     setEditOpen(true);
                   }}
@@ -329,7 +330,7 @@ export default function Playlist() {
                   onClick={() => {
                     setEditName(playlist.name);
                     setEditDesc(playlist.description || '');
-                    setEditThumbnail(playlist.thumbnail_url || '');
+                    setThumbnailFile(null);
                     setEditPublic(!!playlist.is_public);
                     setEditOpen(true);
                   }}
@@ -503,9 +504,9 @@ export default function Playlist() {
                   )}
                 </button>
                 <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700">
-                  {track.thumbnail_url ? (
-                    <img src={track.thumbnail_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
+{selfHostedImageUrl(track.thumbnail_url) ? (
+                  <img src={selfHostedImageUrl(track.thumbnail_url)} alt="" className="h-full w-full object-cover" />
+                ) : (
                     <span className="text-ray-400">◇</span>
                   )}
                 </div>
@@ -560,14 +561,60 @@ export default function Playlist() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-gray-400">Thumbnail image URL</label>
-                <input
-                  type="url"
-                  value={editThumbnail}
-                  onChange={(e) => setEditThumbnail(e.target.value)}
-                  placeholder="https://…"
-                  className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500"
-                />
+                <label className="mb-1 block text-sm text-gray-400">Cover image</label>
+                <p className="mb-2 text-xs text-gray-500">Upload an image to use as the playlist thumbnail (we host it).</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-gray-300 hover:bg-groove-700">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      className="hidden"
+                      onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
+                    />
+                    {thumbnailFile ? thumbnailFile.name : 'Choose image…'}
+                  </label>
+                  <button
+                    type="button"
+                    disabled={!thumbnailFile || uploadingThumbnail}
+                    onClick={async () => {
+                      if (!thumbnailFile || !playlist?.id) return;
+                      setUploadingThumbnail(true);
+                      try {
+                        const updated = await playlistsApi.uploadThumbnail(playlist.id, thumbnailFile);
+                        setPlaylist(updated);
+                        setThumbnailFile(null);
+                      } catch (e) {
+                        setError(e.message);
+                      } finally {
+                        setUploadingThumbnail(false);
+                      }
+                    }}
+                    className="rounded-lg bg-ray-600 px-3 py-2 text-sm font-medium text-white hover:bg-ray-500 disabled:opacity-50"
+                  >
+                    {uploadingThumbnail ? 'Uploading…' : 'Upload'}
+                  </button>
+                  {playlist?.thumbnail_url && (
+                    <button
+                      type="button"
+                      disabled={uploadingThumbnail}
+                      onClick={async () => {
+                        if (!playlist?.id) return;
+                        setUploadingThumbnail(true);
+                        try {
+                          const updated = await playlistsApi.update(playlist.id, { thumbnail_url: null });
+                          setPlaylist(updated);
+                        } catch (e) {
+                          setError(e.message);
+                        } finally {
+                          setUploadingThumbnail(false);
+                        }
+                      }}
+                      className="rounded-lg border border-groove-600 px-3 py-2 text-sm text-gray-400 hover:bg-groove-700 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
               </div>
               <label className="flex cursor-pointer items-center gap-2">
                 <input

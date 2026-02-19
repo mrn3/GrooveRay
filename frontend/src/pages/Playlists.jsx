@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { playlists as playlistsApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
+import { selfHostedImageUrl } from '../utils/images';
 
 const TABS = [
   { id: 'all', label: 'All Playlists' },
@@ -441,8 +442,8 @@ export default function Playlists() {
                   <span className="text-sm">▶</span>
                 </button>
                 <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-500">
-                  {pl.thumbnail_url ? (
-                    <img src={pl.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                  {selfHostedImageUrl(pl.thumbnail_url) ? (
+                    <img src={selfHostedImageUrl(pl.thumbnail_url)} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <span className="text-xl">♫</span>
                   )}

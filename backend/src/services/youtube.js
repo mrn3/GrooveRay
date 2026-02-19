@@ -153,7 +153,7 @@ export async function addYouTube(userId, url) {
       let title = path.basename(audioFile, ext);
       let artist = 'YouTube';
       let durationSeconds = 0;
-      let thumbnailUrl = null;
+      const thumbnailUrl = null; // We only use self-hosted uploads; user can add thumbnail on song page
       let youtubeId = null;
       let description = null;
       if (jsonFile) {
@@ -162,7 +162,6 @@ export async function addYouTube(userId, url) {
           title = info.title || title;
           artist = info.uploader || info.channel || artist;
           durationSeconds = Math.round(Number(info.duration) || 0);
-          thumbnailUrl = info.thumbnail && typeof info.thumbnail === 'string' ? info.thumbnail : null;
           if (info.id && typeof info.id === 'string') youtubeId = info.id;
           const rawDesc = info.description;
           if (rawDesc && typeof rawDesc === 'string' && rawDesc.trim()) {

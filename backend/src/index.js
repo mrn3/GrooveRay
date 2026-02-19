@@ -32,6 +32,9 @@ app.use(express.json());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/uploads/avatars', express.static(path.join(__dirname, '../uploads/avatars')));
+app.use('/api/uploads/thumbnails', express.static(path.join(__dirname, '../uploads/thumbnails')));
+app.use('/api/uploads/playlists', express.static(path.join(__dirname, '../uploads/playlists')));
+app.use('/api/uploads/stations', express.static(path.join(__dirname, '../uploads/stations')));
 app.use('/api/songs', songRoutes);
 app.use('/api/youtube', youtubeRoutes);
 app.use('/api/stations', stationRoutes);

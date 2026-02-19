@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { selfHostedImageUrl } from '../utils/images';
 import Logo from './Logo';
 
 const nav = [
@@ -41,8 +42,8 @@ function AvatarMenu({ user, logout }) {
         aria-label="Account menu"
         aria-expanded={open}
       >
-        {user?.avatar_url ? (
-          <img src={user.avatar_url} alt="" className="h-full w-full object-cover" />
+        {selfHostedImageUrl(user?.avatar_url) ? (
+          <img src={selfHostedImageUrl(user.avatar_url)} alt="" className="h-full w-full object-cover" />
         ) : (
           <span className="text-sm font-medium text-ray-400">{initials}</span>
         )}

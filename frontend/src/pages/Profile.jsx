@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { selfHostedImageUrl } from '../utils/images';
 import { auth as authApi } from '../api';
 import { YouTubeCookiesInstructions } from '../content/youtubeCookiesInstructions';
 
@@ -128,8 +129,8 @@ export default function Profile() {
           <label className="mb-1 block text-sm text-gray-400">Avatar</label>
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-groove-600 bg-groove-800">
-              {user.avatar_url ? (
-                <img src={user.avatar_url} alt="" className="h-full w-full object-cover" />
+              {selfHostedImageUrl(user.avatar_url) ? (
+                <img src={selfHostedImageUrl(user.avatar_url)} alt="" className="h-full w-full object-cover" />
               ) : (
                 <span className="text-2xl font-medium text-ray-400">{initials}</span>
               )}

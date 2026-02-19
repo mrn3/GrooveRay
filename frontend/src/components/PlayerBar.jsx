@@ -1,4 +1,5 @@
 import { usePlayer } from '../context/PlayerContext';
+import { selfHostedImageUrl } from '../utils/images';
 
 export default function PlayerBar() {
   const { current, playing, progress, duration, toggle, seek, stationMode } = usePlayer();
@@ -11,8 +12,8 @@ export default function PlayerBar() {
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-groove-700 bg-groove-900/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
-          {current.thumbnail_url ? (
-            <img src={current.thumbnail_url} alt="" className="h-full w-full object-cover" />
+          {selfHostedImageUrl(current.thumbnail_url) ? (
+            <img src={selfHostedImageUrl(current.thumbnail_url)} alt="" className="h-full w-full object-cover" />
           ) : (
             <span className="text-lg">◇</span>
           )}

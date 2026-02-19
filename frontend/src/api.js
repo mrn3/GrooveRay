@@ -79,6 +79,16 @@ export const songs = {
     request(`/songs/${id}`, { method: 'PATCH', body: JSON.stringify({ is_public: isPublic }) }),
   update: (id, payload) =>
     request(`/songs/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  /** Upload thumbnail image (file). Returns updated song. */
+  uploadThumbnail: (id, file) => {
+    const form = new FormData();
+    form.append('thumbnail', file);
+    return fetch(`${API}/songs/${id}/thumbnail`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: form,
+    }).then((r) => (r.ok ? r.json() : r.json().then((d) => Promise.reject(new Error(d.error || 'Upload failed')))));
+  },
   delete: (id) => request(`/songs/${id}`, { method: 'DELETE' }),
   recordPlay: (id) => request(`/songs/${id}/played`, { method: 'POST' }),
   setRating: (id, rating) =>
@@ -153,6 +163,16 @@ export const stations = {
     request('/stations', { method: 'POST', body: JSON.stringify({ name, description, type }) }),
   update: (id, payload) =>
     request(`/stations/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  /** Upload station image (file). Returns updated station. */
+  uploadImage: (id, file) => {
+    const form = new FormData();
+    form.append('image', file);
+    return fetch(`${API}/stations/${id}/image`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: form,
+    }).then((r) => (r.ok ? r.json() : r.json().then((d) => Promise.reject(new Error(d.error || 'Upload failed')))));
+  },
   delete: (id) => request(`/stations/${id}`, { method: 'DELETE' }),
   setRating: (id, rating) =>
     request(`/stations/${id}/rating`, { method: 'PATCH', body: JSON.stringify({ rating }) }),
@@ -188,6 +208,16 @@ export const playlists = {
     }),
   update: (id, payload) =>
     request(`/playlists/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  /** Upload playlist thumbnail image (file). Returns updated playlist. */
+  uploadThumbnail: (id, file) => {
+    const form = new FormData();
+    form.append('thumbnail', file);
+    return fetch(`${API}/playlists/${id}/thumbnail`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: form,
+    }).then((r) => (r.ok ? r.json() : r.json().then((d) => Promise.reject(new Error(d.error || 'Upload failed')))));
+  },
   share: (id) => request(`/playlists/${id}/share`, { method: 'POST' }),
   delete: (id) => request(`/playlists/${id}`, { method: 'DELETE' }),
   tracks: (id) => request(`/playlists/${id}/tracks`),

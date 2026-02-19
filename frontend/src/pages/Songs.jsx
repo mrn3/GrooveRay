@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { songs as songsApi, youtube as youtubeApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
+import { selfHostedImageUrl } from '../utils/images';
 import { YouTubeCookiesInstructions } from '../content/youtubeCookiesInstructions';
 
 const TABS = [
@@ -1001,8 +1002,8 @@ export default function Songs() {
                 )}
               </button>
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
-                {song.thumbnail_url ? (
-                  <img src={song.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                {selfHostedImageUrl(song.thumbnail_url) ? (
+                  <img src={selfHostedImageUrl(song.thumbnail_url)} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <span className="text-lg">◇</span>
                 )}

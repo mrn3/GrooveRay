@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { dashboard as dashboardApi, playlists as playlistsApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
+import { selfHostedImageUrl } from '../utils/images';
 import { useAuth } from '../context/AuthContext';
 
 const TOP_N = 5;
@@ -61,8 +62,8 @@ function SongListRow({ song, meta }) {
         {isActive && playing ? <span className="text-xs">⏸</span> : <span className="text-xs">▶</span>}
       </button>
       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700">
-        {song.thumbnail_url ? (
-          <img src={song.thumbnail_url} alt="" className="h-full w-full object-cover" />
+        {selfHostedImageUrl(song.thumbnail_url) ? (
+          <img src={selfHostedImageUrl(song.thumbnail_url)} alt="" className="h-full w-full object-cover" />
         ) : (
           <span className="text-sm text-ray-400">◇</span>
         )}
@@ -144,8 +145,8 @@ function PlaylistListRow({ playlist, meta }) {
         <span className="text-xs">▶</span>
       </button>
       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700">
-        {playlist.thumbnail_url ? (
-          <img src={playlist.thumbnail_url} alt="" className="h-full w-full object-cover" />
+        {selfHostedImageUrl(playlist.thumbnail_url) ? (
+          <img src={selfHostedImageUrl(playlist.thumbnail_url)} alt="" className="h-full w-full object-cover" />
         ) : (
           <span className="text-sm text-ray-400">♫</span>
         )}
@@ -202,8 +203,8 @@ function StationListRow({ station, meta }) {
         <span className="text-xs">▶</span>
       </div>
       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700">
-        {station.image_url ? (
-          <img src={station.image_url} alt="" className="h-full w-full object-cover" />
+        {selfHostedImageUrl(station.image_url) ? (
+          <img src={selfHostedImageUrl(station.image_url)} alt="" className="h-full w-full object-cover" />
         ) : (
           <span className="text-sm text-ray-400">◇</span>
         )}

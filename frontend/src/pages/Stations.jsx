@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { stations as stationsApi } from '../api';
+import { selfHostedImageUrl } from '../utils/images';
 
 const TABS = [
   { id: 'all', label: 'All Stations' },
@@ -393,8 +394,8 @@ export default function Stations() {
               tabIndex={0}
             >
               <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-500">
-                {station.image_url ? (
-                  <img src={station.image_url} alt="" className="h-full w-full object-cover" />
+                {selfHostedImageUrl(station.image_url) ? (
+                  <img src={selfHostedImageUrl(station.image_url)} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <span className="text-xl">◇</span>
                 )}

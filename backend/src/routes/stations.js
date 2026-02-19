@@ -1,8 +1,32 @@
 import { Router } from 'express';
+import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
+import { fileURLToPath } from 'url';
 import { v4 as uuid } from 'uuid';
 import db from '../db/schema.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { emitStationUpdate, getStationListenerCounts, getStationListenerCount } from '../socket.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const imagesDir = path.join(__dirname, '../../uploads/stations');
+if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
+
+const imageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_, __, cb) => cb(null, imagesDir),
+    filename: (_, file, cb) => {
+      const ext = (file.originalname && path.extname(file.originalname).toLowerCase()) || '.jpg';
+      const safeExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext) ? ext : '.jpg';
+      cb(null, `${uuid()}${safeExt}`);
+    },
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (_, file, cb) => {
+    const ok = file.mimetype && /^image\/(jpeg|png|gif|webp)$/.test(file.mimetype);
+    cb(null, !!ok);
+  },
+});
 
 const router = Router();
 
@@ -284,6 +308,20 @@ router.patch('/:id', authMiddleware, async (req, res) => {
   if (updates.length === 0) return res.status(400).json({ error: 'No valid fields to update' });
   params.push(req.params.id);
   await db.run(`UPDATE stations SET ${updates.join(', ')} WHERE id = ?`, params);
+  const updated = await db.get(
+    `SELECT s.*, u.username as owner_name FROM stations s JOIN users u ON u.id = s.owner_id WHERE s.id = ?`,
+    [req.params.id]
+  );
+  res.json(updated);
+});
+
+router.post('/:id/image', authMiddleware, imageUpload.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No image file uploaded' });
+  const station = await db.get('SELECT id, owner_id FROM stations WHERE id = ?', [req.params.id]);
+  if (!station) return res.status(404).json({ error: 'Station not found' });
+  if (station.owner_id !== req.userId) return res.status(403).json({ error: 'Only the station creator can edit' });
+  const imageUrl = `/api/uploads/stations/${req.file.filename}`;
+  await db.run('UPDATE stations SET image_url = ? WHERE id = ?', [imageUrl, req.params.id]);
   const updated = await db.get(
     `SELECT s.*, u.username as owner_name FROM stations s JOIN users u ON u.id = s.owner_id WHERE s.id = ?`,
     [req.params.id]

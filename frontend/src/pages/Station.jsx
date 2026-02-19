@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { stations as stationsApi, songs as songsApi } from '../api';
+import { selfHostedImageUrl } from '../utils/images';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 
@@ -37,7 +38,7 @@ export default function Station() {
   const chatListRef = useRef(null);
   const chatInputRef = useRef(null);
   const [editImageOpen, setEditImageOpen] = useState(false);
-  const [editImageUrl, setEditImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState(null);
   const [savingImage, setSavingImage] = useState(false);
   const [addToQueueError, setAddToQueueError] = useState('');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -335,8 +336,8 @@ export default function Station() {
             {nowPlaying?.item && (
               <div className="mt-3 flex flex-wrap items-center gap-4">
                 <div className="flex h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-groove-700">
-                  {nowPlaying.item.thumbnail_url ? (
-                    <img src={nowPlaying.item.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                  {selfHostedImageUrl(nowPlaying.item.thumbnail_url) ? (
+                    <img src={selfHostedImageUrl(nowPlaying.item.thumbnail_url)} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <span className="flex h-full w-full items-center justify-center text-xl text-ray-400">◇</span>
                   )}
@@ -355,8 +356,8 @@ export default function Station() {
         <div className="min-w-0 flex-1">
           <div className="mb-8 flex items-center gap-4">
             <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-groove-700 text-3xl text-ray-500">
-              {station.image_url ? (
-                <img src={station.image_url} alt="" className="h-full w-full object-cover" />
+              {selfHostedImageUrl(station.image_url) ? (
+                <img src={selfHostedImageUrl(station.image_url)} alt="" className="h-full w-full object-cover" />
               ) : (
                 <span>◇</span>
               )}
@@ -364,7 +365,7 @@ export default function Station() {
                 <button
                   type="button"
                   onClick={() => {
-                    setEditImageUrl(station.image_url || '');
+                    setImageFile(null);
                     setEditImageOpen(true);
                   }}
                   className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/60 text-sm font-medium text-white opacity-0 transition hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ray-500"
@@ -407,37 +408,63 @@ export default function Station() {
           {editImageOpen && isOwner && (
             <div className="mb-6 rounded-xl border border-groove-700 bg-groove-900/50 p-4">
               <h3 className="mb-2 text-sm font-medium text-white">Station image</h3>
-              <p className="mb-3 text-xs text-gray-400">Enter an image URL (e.g. from Imgur, or a direct link to an image).</p>
+              <p className="mb-3 text-xs text-gray-400">Upload an image to use as the station cover (we host it).</p>
               <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="url"
-                  value={editImageUrl}
-                  onChange={(e) => setEditImageUrl(e.target.value)}
-                  placeholder="https://…"
-                  className="min-w-0 flex-1 rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
-                />
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="hidden"
+                    onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                  />
+                  {imageFile ? imageFile.name : 'Choose image…'}
+                </label>
                 <button
                   type="button"
+                  disabled={!imageFile || savingImage}
                   onClick={async () => {
+                    if (!imageFile || !station?.id) return;
                     setSavingImage(true);
                     try {
-                      const updated = await stationsApi.update(station.id, { image_url: editImageUrl || null });
+                      const updated = await stationsApi.uploadImage(station.id, imageFile);
                       setStation(updated);
+                      setImageFile(null);
                       setEditImageOpen(false);
-                    } finally {
+                    } catch (_) {}
+                    finally {
                       setSavingImage(false);
                     }
                   }}
-                  disabled={savingImage}
                   className="rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50"
                 >
-                  {savingImage ? 'Saving…' : 'Save'}
+                  {savingImage ? 'Uploading…' : 'Upload'}
                 </button>
+                {station.image_url && (
+                  <button
+                    type="button"
+                    disabled={savingImage}
+                    onClick={async () => {
+                      if (!station?.id) return;
+                      setSavingImage(true);
+                      try {
+                        const updated = await stationsApi.update(station.id, { image_url: null });
+                        setStation(updated);
+                        setEditImageOpen(false);
+                      } catch (_) {}
+                      finally {
+                        setSavingImage(false);
+                      }
+                    }}
+                    className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700 disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
                     setEditImageOpen(false);
-                    setEditImageUrl(station.image_url || '');
+                    setImageFile(null);
                   }}
                   className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700"
                 >
@@ -541,11 +568,11 @@ export default function Station() {
               {/* Video is shown in hero area when music video; only track info here */}
               <div className="flex gap-4">
                 <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
-                  {nowPlaying.item.thumbnail_url ? (
-                    <img src={nowPlaying.item.thumbnail_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-2xl">◇</span>
-                  )}
+{selfHostedImageUrl(nowPlaying.item.thumbnail_url) ? (
+                  <img src={selfHostedImageUrl(nowPlaying.item.thumbnail_url)} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-2xl">◇</span>
+                )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-white">{nowPlaying.item.title}</p>
@@ -638,9 +665,9 @@ export default function Station() {
                 </button>
                 <span className="w-8 flex-shrink-0 text-center font-mono text-gray-400">{item.votes ?? 0}</span>
                 <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
-                  {item.thumbnail_url ? (
-                    <img src={item.thumbnail_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
+{selfHostedImageUrl(item.thumbnail_url) ? (
+                  <img src={selfHostedImageUrl(item.thumbnail_url)} alt="" className="h-full w-full object-cover" />
+                ) : (
                     <span className="text-lg">◇</span>
                   )}
                 </div>

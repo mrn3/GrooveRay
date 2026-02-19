@@ -52,13 +52,32 @@ async function attachUserStats(list, userId) {
 }
 
 const uploadsDir = path.join(__dirname, '../../uploads');
+const thumbnailsDir = path.join(__dirname, '../../uploads/thumbnails');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+if (!fs.existsSync(thumbnailsDir)) fs.mkdirSync(thumbnailsDir, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (_, __, cb) => cb(null, uploadsDir),
   filename: (_, file, cb) => cb(null, `${uuid()}${path.extname(file.originalname) || '.mp3'}`),
 });
 const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } }); // 100MB
+
+const thumbnailStorage = multer.diskStorage({
+  destination: (_, __, cb) => cb(null, thumbnailsDir),
+  filename: (_, file, cb) => {
+    const ext = (file.originalname && path.extname(file.originalname).toLowerCase()) || '.jpg';
+    const safeExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext) ? ext : '.jpg';
+    cb(null, `${uuid()}${safeExt}`);
+  },
+});
+const thumbnailUpload = multer({
+  storage: thumbnailStorage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (_, file, cb) => {
+    const ok = file.mimetype && /^image\/(jpeg|png|gif|webp)$/.test(file.mimetype);
+    cb(null, !!ok);
+  },
+});
 
 const router = Router();
 
@@ -253,19 +272,6 @@ router.get('/contributors', optionalAuth, async (req, res) => {
 
 router.use(authMiddleware);
 
-async function fetchThumbnailForTrack(artist, title) {
-  const term = encodeURIComponent(`${artist} ${title}`.trim());
-  const url = `https://itunes.apple.com/search?term=${term}&media=music&entity=song&limit=1`;
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    const track = data?.results?.[0];
-    return track?.artworkUrl100 || track?.artworkUrl60 || null;
-  } catch (_) {
-    return null;
-  }
-}
-
 router.post('/upload', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const { title, artist, description: bodyDesc, lyrics: bodyLyrics, guitar_tab: bodyGuitarTab } = req.body || {};
@@ -294,13 +300,6 @@ router.post('/upload', upload.single('file'), async (req, res) => {
      VALUES (?, ?, ?, ?, 'upload', ?, ?, 1, ?, ?, ?, ?)`,
     [id, req.userId, finalTitle, finalArtist, req.file.filename, durationSeconds, null, description, lyrics, guitarTab]
   );
-  let thumbnailUrl = null;
-  try {
-    thumbnailUrl = await fetchThumbnailForTrack(finalArtist, finalTitle);
-    if (thumbnailUrl) {
-      await db.run('UPDATE songs SET thumbnail_url = ? WHERE id = ?', [thumbnailUrl, id]);
-    }
-  } catch (_) {}
   const song = await db.get('SELECT * FROM songs WHERE id = ?', [id]);
   res.status(201).json(song);
 });
@@ -660,10 +659,14 @@ router.patch('/:id', async (req, res) => {
   const song = await db.get('SELECT * FROM songs WHERE id = ?', [req.params.id]);
   if (!song) return res.status(404).json({ error: 'Song not found' });
   if (song.user_id !== req.userId) return res.status(403).json({ error: 'You can only update your own songs' });
-  const { is_public, title, artist, description, lyrics, guitar_tab } = req.body || {};
+  const { is_public, title, artist, description, lyrics, guitar_tab, thumbnail_url } = req.body || {};
 
   const updates = [];
   const values = [];
+  if (thumbnail_url !== undefined) {
+    updates.push('thumbnail_url = ?');
+    values.push(thumbnail_url === null || thumbnail_url === '' ? null : String(thumbnail_url));
+  }
   if (typeof is_public === 'boolean') {
     updates.push('is_public = ?');
     values.push(is_public ? 1 : 0);
@@ -690,10 +693,24 @@ router.patch('/:id', async (req, res) => {
     updates.push('guitar_tab = ?');
     values.push(guitar_tab === null || guitar_tab === '' ? null : String(guitar_tab).trim());
   }
-  if (updates.length === 0) return res.status(400).json({ error: 'Provide at least one of: is_public, title, artist, description, lyrics, guitar_tab' });
+  if (updates.length === 0) return res.status(400).json({ error: 'Provide at least one of: is_public, title, artist, description, lyrics, guitar_tab, thumbnail_url' });
 
   values.push(req.params.id);
   await db.run(`UPDATE songs SET ${updates.join(', ')} WHERE id = ?`, values);
+  const updated = await db.get(
+    `SELECT s.*, u.username as uploader_name FROM songs s JOIN users u ON u.id = s.user_id WHERE s.id = ?`,
+    [req.params.id]
+  );
+  res.json(updated);
+});
+
+router.post('/:id/thumbnail', authMiddleware, thumbnailUpload.single('thumbnail'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No image file uploaded' });
+  const song = await db.get('SELECT id, user_id FROM songs WHERE id = ?', [req.params.id]);
+  if (!song) return res.status(404).json({ error: 'Song not found' });
+  if (song.user_id !== req.userId) return res.status(403).json({ error: 'You can only update your own songs' });
+  const thumbnailUrl = `/api/uploads/thumbnails/${req.file.filename}`;
+  await db.run('UPDATE songs SET thumbnail_url = ? WHERE id = ?', [thumbnailUrl, req.params.id]);
   const updated = await db.get(
     `SELECT s.*, u.username as uploader_name FROM songs s JOIN users u ON u.id = s.user_id WHERE s.id = ?`,
     [req.params.id]
