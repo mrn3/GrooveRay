@@ -82,26 +82,24 @@ function SongListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
   const displayItems = items?.slice(0, TOP_N) ?? [];
   return (
     <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-groove-700 bg-groove-900/40 p-3">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
+        {seeAllTo && (
+          <Link to={seeAllTo} className="text-sm text-ray-400 hover:text-ray-300 hover:underline">
+            See All
+          </Link>
+        )}
+      </div>
       {!displayItems.length ? (
         <p className="py-2 text-center text-xs text-gray-500">{emptyMessage}</p>
       ) : (
-        <>
-          <ul className="space-y-0.5">
-            {displayItems.map((song) => (
-              <li key={song.id}>
-                <SongListRow song={song} meta={metaFn ? metaFn(song) : null} />
-              </li>
-            ))}
-          </ul>
-          {seeAllTo && (
-            <p className="mt-2 border-t border-groove-700 pt-2 text-center">
-              <Link to={seeAllTo} className="text-sm text-ray-400 hover:text-ray-300 hover:underline">
-                See All
-              </Link>
-            </p>
-          )}
-        </>
+        <ul className="space-y-0.5">
+          {displayItems.map((song) => (
+            <li key={song.id}>
+              <SongListRow song={song} meta={metaFn ? metaFn(song) : null} />
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -169,26 +167,24 @@ function PlaylistListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
   const displayItems = items?.slice(0, TOP_N) ?? [];
   return (
     <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-groove-700 bg-groove-900/40 p-3">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
+        {seeAllTo && (
+          <Link to={seeAllTo} className="text-sm text-ray-400 hover:text-ray-300 hover:underline">
+            See All
+          </Link>
+        )}
+      </div>
       {!displayItems.length ? (
         <p className="py-2 text-center text-xs text-gray-500">{emptyMessage}</p>
       ) : (
-        <>
-          <ul className="space-y-0.5">
-            {displayItems.map((pl) => (
-              <li key={pl.id}>
-                <PlaylistListRow playlist={pl} meta={metaFn ? metaFn(pl) : null} />
-              </li>
-            ))}
-          </ul>
-          {seeAllTo && (
-            <p className="mt-2 border-t border-groove-700 pt-2 text-center">
-              <Link to={seeAllTo} className="text-sm text-ray-400 hover:text-ray-300 hover:underline">
-                See All
-              </Link>
-            </p>
-          )}
-        </>
+        <ul className="space-y-0.5">
+          {displayItems.map((pl) => (
+            <li key={pl.id}>
+              <PlaylistListRow playlist={pl} meta={metaFn ? metaFn(pl) : null} />
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -227,26 +223,24 @@ function StationListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
   const displayItems = items?.slice(0, TOP_N) ?? [];
   return (
     <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-groove-700 bg-groove-900/40 p-3">
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
+        {seeAllTo && (
+          <Link to={seeAllTo} className="text-sm text-ray-400 hover:text-ray-300 hover:underline">
+            See All
+          </Link>
+        )}
+      </div>
       {!displayItems.length ? (
         <p className="py-2 text-center text-xs text-gray-500">{emptyMessage}</p>
       ) : (
-        <>
-          <ul className="space-y-0.5">
-            {displayItems.map((station) => (
-              <li key={station.id}>
-                <StationListRow station={station} meta={metaFn ? metaFn(station) : null} />
-              </li>
-            ))}
-          </ul>
-          {seeAllTo && (
-            <p className="mt-2 border-t border-groove-700 pt-2 text-center">
-              <Link to={seeAllTo} className="text-sm text-ray-400 hover:text-ray-300 hover:underline">
-                See All
-              </Link>
-            </p>
-          )}
-        </>
+        <ul className="space-y-0.5">
+          {displayItems.map((station) => (
+            <li key={station.id}>
+              <StationListRow station={station} meta={metaFn ? metaFn(station) : null} />
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
