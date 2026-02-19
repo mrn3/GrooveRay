@@ -65,7 +65,7 @@ export default function Profile() {
   const handleClearCookies = async () => {
     setClearingCookies(true);
     try {
-      await authApi.updateProfile({ youtube_cookies: undefined });
+      await authApi.updateProfile({ youtube_cookies: null });
       await refreshUser();
       setModalCookies('');
       setEditCookiesOpen(false);
