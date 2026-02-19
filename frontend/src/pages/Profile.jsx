@@ -15,6 +15,8 @@ export default function Profile() {
   const [editCookiesOpen, setEditCookiesOpen] = useState(false);
   const [modalCookies, setModalCookies] = useState('');
   const [savingCookies, setSavingCookies] = useState(false);
+  const [cookiesInfoOpen, setCookiesInfoOpen] = useState(false);
+  const [clearingCookies, setClearingCookies] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -57,6 +59,21 @@ export default function Profile() {
       setError(err.message || 'Failed to save cookies');
     } finally {
       setSavingCookies(false);
+    }
+  };
+
+  const handleClearCookies = async () => {
+    setClearingCookies(true);
+    try {
+      await authApi.updateProfile({ youtube_cookies: undefined });
+      await refreshUser();
+      setModalCookies('');
+      setEditCookiesOpen(false);
+      setMessage('Cookies cleared.');
+    } catch (err) {
+      setError(err.message || 'Failed to clear cookies');
+    } finally {
+      setClearingCookies(false);
     }
   };
 
@@ -118,7 +135,37 @@ export default function Profile() {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm text-gray-400">YouTube cookies</label>
+          <div className="mb-1 flex items-center gap-1.5">
+            <label className="block text-sm text-gray-400">YouTube cookies</label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setCookiesInfoOpen((o) => !o)}
+                onBlur={() => setTimeout(() => setCookiesInfoOpen(false), 150)}
+                className="flex h-5 w-5 items-center justify-center rounded-full border border-gray-500 text-gray-400 hover:border-ray-500 hover:text-ray-400 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                aria-label="How to get YouTube cookies"
+              >
+                <span className="text-xs font-medium">?</span>
+              </button>
+              {cookiesInfoOpen && (
+                <div className="absolute left-0 top-full z-10 mt-1 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-groove-600 bg-groove-800 p-3 text-sm text-gray-400 shadow-xl">
+                  <p className="mb-2">To add songs from YouTube, we need cookies from your browser (while logged into YouTube).</p>
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>
+                      Install the Chrome extension{' '}
+                      <a href={COOKIES_EXTENSION_URL} target="_blank" rel="noopener noreferrer" className="text-ray-400 underline hover:text-ray-300">Get cookies.txt LOCALLY</a>.
+                    </li>
+                    <li>Go to <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="text-ray-400 underline hover:text-ray-300">youtube.com</a> and make sure you're signed in.</li>
+                    <li>
+                      Use the extension to export cookies in Netscape format and click the Copy button.
+                      <img src="/cookies-extension-screenshot.png" alt="Get cookies.txt extension with Netscape format and Copy button" className="mt-2 block max-w-full rounded border border-groove-600" />
+                    </li>
+                    <li>Click &quot;Edit Cookies&quot; and paste the entire contents into the modal, then save.</li>
+                  </ol>
+                </div>
+              )}
+            </div>
+          </div>
           <p className="mb-2 text-xs text-gray-500">
             {user.has_youtube_cookies ? 'Cookies are set.' : 'Required for “Add from YouTube”. '}
           </p>
@@ -127,31 +174,25 @@ export default function Profile() {
               {user.youtube_cookies}
             </pre>
           )}
-          <button
-            type="button"
-            onClick={() => setEditCookiesOpen(true)}
-            className="text-sm text-ray-400 underline hover:text-ray-300"
-          >
-            {user.has_youtube_cookies ? 'Edit cookies' : 'Set YouTube cookies'}
-          </button>
-          <details className="mt-2">
-            <summary className="cursor-pointer text-base text-ray-400 hover:text-ray-300">How to get YouTube cookies</summary>
-            <div className="mt-2 rounded-lg bg-groove-800 p-3 text-base text-gray-400">
-              <p className="mb-2">To add songs from YouTube, we need cookies from your browser (while logged into YouTube).</p>
-              <ol className="list-decimal list-inside space-y-1">
-                <li>
-                  Install the Chrome extension{' '}
-                  <a href={COOKIES_EXTENSION_URL} target="_blank" rel="noopener noreferrer" className="text-ray-400 underline hover:text-ray-300">Get cookies.txt LOCALLY</a>.
-                </li>
-                <li>Go to <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer" className="text-ray-400 underline hover:text-ray-300">youtube.com</a> and make sure you're signed in.</li>
-                <li>
-                  Use the extension to export cookies in Netscape format and click the Copy button.
-                  <img src="/cookies-extension-screenshot.png" alt="Get cookies.txt extension with Netscape format and Copy button" className="mt-2 block max-w-full rounded border border-groove-600" />
-                </li>
-                <li>Click &quot;Edit cookies&quot; above and paste the entire contents into the modal, then save.</li>
-              </ol>
-            </div>
-          </details>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setEditCookiesOpen(true)}
+              className="rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-sm font-medium text-white hover:bg-groove-700 focus:outline-none focus:ring-1 focus:ring-ray-500"
+            >
+              {user.has_youtube_cookies ? 'Edit Cookies' : 'Set YouTube cookies'}
+            </button>
+            {user.has_youtube_cookies && (
+              <button
+                type="button"
+                onClick={handleClearCookies}
+                disabled={clearingCookies}
+                className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-ray-500"
+              >
+                {clearingCookies ? 'Clearing…' : 'Clear Cookies'}
+              </button>
+            )}
+          </div>
         </div>
 
         {editCookiesOpen && (
