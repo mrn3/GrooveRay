@@ -38,6 +38,9 @@ export default function Station() {
   const chatListRef = useRef(null);
   const chatInputRef = useRef(null);
   const [editImageOpen, setEditImageOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editError, setEditError] = useState('');
+  const [savingName, setSavingName] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [savingImage, setSavingImage] = useState(false);
   const [findingImage, setFindingImage] = useState(false);
@@ -362,6 +365,8 @@ export default function Station() {
                 type="button"
                 onClick={() => {
                   setImageFile(null);
+                  setEditName(station?.name ?? '');
+                  setEditError('');
                   setEditImageOpen(true);
                 }}
                 className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
@@ -390,10 +395,12 @@ export default function Station() {
                   type="button"
                   onClick={() => {
                     setImageFile(null);
+                    setEditName(station?.name ?? '');
+                    setEditError('');
                     setEditImageOpen(true);
                   }}
                   className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/60 text-sm font-medium text-white opacity-0 transition hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ray-500"
-                  title="Edit (including image)"
+                  title="Edit name and image"
                 >
                   Edit
                 </button>
@@ -456,10 +463,45 @@ export default function Station() {
 
           {/* Edit modal (station image) */}
           {editImageOpen && isOwner && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !savingImage && setEditImageOpen(false)}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !savingImage && !savingName && setEditImageOpen(false)}>
               <div className="w-full max-w-md rounded-xl border border-groove-700 bg-groove-900 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
                 <h2 className="mb-4 text-lg font-semibold text-white">Edit</h2>
+                {editError && (
+                  <p className="mb-3 rounded-lg bg-red-900/30 px-3 py-2 text-sm text-red-400">{editError}</p>
+                )}
                 <div className="flex flex-col gap-4">
+                  <div>
+                    <label className="mb-1 block text-sm text-gray-400">Station name</label>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="min-w-0 flex-1 rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                        placeholder="Station name"
+                      />
+                      <button
+                        type="button"
+                        disabled={savingName || !editName.trim() || editName.trim() === station?.name}
+                        onClick={async () => {
+                          if (!station?.id || !editName.trim()) return;
+                          setEditError('');
+                          setSavingName(true);
+                          try {
+                            const updated = await stationsApi.update(station.id, { name: editName.trim() });
+                            setStation(updated);
+                          } catch (err) {
+                            setEditError(err.message || 'Failed to update name');
+                          } finally {
+                            setSavingName(false);
+                          }
+                        }}
+                        className="rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50"
+                      >
+                        {savingName ? 'Saving…' : 'Save name'}
+                      </button>
+                    </div>
+                  </div>
                   <div>
                     <label className="mb-1 block text-sm text-gray-400">Station image</label>
                     <p className="mb-3 text-xs text-gray-500">Upload an image to use as the station cover (we host it).</p>
@@ -478,14 +520,16 @@ export default function Station() {
                         disabled={!imageFile || savingImage}
                         onClick={async () => {
                           if (!imageFile || !station?.id) return;
+                          setEditError('');
                           setSavingImage(true);
                           try {
                             const updated = await stationsApi.uploadImage(station.id, imageFile);
                             setStation(updated);
                             setImageFile(null);
                             setEditImageOpen(false);
-                          } catch (_) {}
-                          finally {
+                          } catch (err) {
+                            setEditError(err.message || 'Upload failed');
+                          } finally {
                             setSavingImage(false);
                           }
                         }}
@@ -498,6 +542,7 @@ export default function Station() {
                         disabled={findingImage || savingImage}
                         onClick={async () => {
                           if (!station?.id) return;
+                          setEditError('');
                           setFindingImage(true);
                           try {
                             const query = (station.name || 'radio station').trim();
@@ -506,8 +551,9 @@ export default function Station() {
                             const updated = await stationsApi.update(station.id, { image_url: hostedUrl });
                             setStation(updated);
                             setEditImageOpen(false);
-                          } catch (_) {}
-                          finally {
+                          } catch (err) {
+                            setEditError(err.message || 'Failed to find image online');
+                          } finally {
                             setFindingImage(false);
                           }
                         }}
@@ -521,13 +567,15 @@ export default function Station() {
                           disabled={savingImage}
                           onClick={async () => {
                             if (!station?.id) return;
+                            setEditError('');
                             setSavingImage(true);
                             try {
                               const updated = await stationsApi.update(station.id, { image_url: null });
                               setStation(updated);
                               setEditImageOpen(false);
-                            } catch (_) {}
-                            finally {
+                            } catch (err) {
+                              setEditError(err.message || 'Failed to remove image');
+                            } finally {
                               setSavingImage(false);
                             }
                           }}
@@ -544,6 +592,7 @@ export default function Station() {
                       onClick={() => {
                         setEditImageOpen(false);
                         setImageFile(null);
+                        setEditError('');
                       }}
                       className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700"
                     >
