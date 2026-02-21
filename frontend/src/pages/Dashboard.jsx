@@ -1,9 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { dashboard as dashboardApi, playlists as playlistsApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
+import { useListUpdates } from '../context/ListUpdatesContext';
 import { selfHostedImageUrl } from '../utils/images';
 import { useAuth } from '../context/AuthContext';
+
+function mergeItemInArray(arr, id, patch) {
+  if (!arr?.length) return arr;
+  return arr.map((item) => (String(item.id) === String(id) ? { ...item, ...patch } : item));
+}
 
 const TOP_N = 5;
 
@@ -265,6 +271,61 @@ export default function Dashboard() {
       })
       .finally(() => setLoading(false));
   }, [period]);
+
+  useListUpdates(
+    'songs',
+    useCallback((update) => {
+      setData((prev) =>
+        !prev?.songs
+          ? prev
+          : {
+              ...prev,
+              songs: {
+                ...prev.songs,
+                popular: mergeItemInArray(prev.songs.popular, update.id, update),
+                highestRated: mergeItemInArray(prev.songs.highestRated, update.id, update),
+                new: mergeItemInArray(prev.songs.new, update.id, update),
+              },
+            }
+      );
+    }, [])
+  );
+  useListUpdates(
+    'playlists',
+    useCallback((update) => {
+      setData((prev) =>
+        !prev?.playlists
+          ? prev
+          : {
+              ...prev,
+              playlists: {
+                ...prev.playlists,
+                popular: mergeItemInArray(prev.playlists.popular, update.id, update),
+                highestRated: mergeItemInArray(prev.playlists.highestRated, update.id, update),
+                new: mergeItemInArray(prev.playlists.new, update.id, update),
+              },
+            }
+      );
+    }, [])
+  );
+  useListUpdates(
+    'stations',
+    useCallback((update) => {
+      setData((prev) =>
+        !prev?.stations
+          ? prev
+          : {
+              ...prev,
+              stations: {
+                ...prev.stations,
+                popular: mergeItemInArray(prev.stations.popular, update.id, update),
+                highestRated: mergeItemInArray(prev.stations.highestRated, update.id, update),
+                new: mergeItemInArray(prev.stations.new, update.id, update),
+              },
+            }
+      );
+    }, [])
+  );
 
   return (
     <div>

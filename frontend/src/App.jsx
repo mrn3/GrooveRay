@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import { ListUpdatesProvider } from './context/ListUpdatesContext';
 import Layout from './components/Layout';
 import PlayerBar from './components/PlayerBar';
 import Login from './pages/Login';
@@ -25,8 +26,9 @@ function ProtectedRoute({ children }) {
 
 export default function App() {
   return (
-    <div className="flex min-h-screen flex-col pb-24">
-      <Routes>
+    <ListUpdatesProvider>
+      <div className="flex min-h-screen flex-col pb-24">
+        <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
@@ -44,8 +46,9 @@ export default function App() {
           <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      <PlayerBar />
-    </div>
+        </Routes>
+        <PlayerBar />
+      </div>
+    </ListUpdatesProvider>
   );
 }

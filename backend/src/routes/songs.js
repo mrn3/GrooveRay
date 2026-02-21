@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import { parseFile } from 'music-metadata';
 import db from '../db/schema.js';
 import { authMiddleware, optionalAuth, JWT_SECRET } from '../middleware/auth.js';
+import { emitListUpdate } from '../socket.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -510,6 +511,11 @@ router.post('/:id/played', async (req, res) => {
     'INSERT INTO song_listen_events (id, song_id, user_id, played_at) VALUES (?, ?, ?, NOW())',
     [uuid(), req.params.id, req.userId]
   );
+  const total = await db.get(
+    'SELECT COALESCE(SUM(listen_count), 0) as total_listen_count FROM user_song_listens WHERE song_id = ?',
+    [req.params.id]
+  );
+  emitListUpdate('songs', req.params.id, { total_listen_count: total?.total_listen_count ?? 0 });
   res.status(204).send();
 });
 
@@ -524,6 +530,14 @@ router.patch('/:id/rating', async (req, res) => {
      ON DUPLICATE KEY UPDATE rating = VALUES(rating)`,
     [req.userId, req.params.id, r]
   );
+  const summary = await db.get(
+    'SELECT AVG(rating) as avg_rating, COUNT(*) as rating_count FROM user_song_ratings WHERE song_id = ?',
+    [req.params.id]
+  );
+  emitListUpdate('songs', req.params.id, {
+    community_avg_rating: summary?.avg_rating ?? null,
+    community_rating_count: summary?.rating_count ?? 0,
+  });
   res.status(204).send();
 });
 

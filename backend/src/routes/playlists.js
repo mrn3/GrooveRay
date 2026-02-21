@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { v4 as uuid } from 'uuid';
 import db from '../db/schema.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
+import { emitListUpdate } from '../socket.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const thumbnailsDir = path.join(__dirname, '../../uploads/playlists');
@@ -486,6 +487,14 @@ router.patch('/:id/rating', authMiddleware, async (req, res) => {
      ON DUPLICATE KEY UPDATE rating = VALUES(rating)`,
     [req.userId, req.params.id, r]
   );
+  const summary = await db.get(
+    'SELECT AVG(rating) as avg_rating, COUNT(*) as rating_count FROM user_playlist_ratings WHERE playlist_id = ?',
+    [req.params.id]
+  );
+  emitListUpdate('playlists', req.params.id, {
+    community_avg_rating: summary?.avg_rating ?? null,
+    community_rating_count: summary?.rating_count ?? 0,
+  });
   res.status(204).send();
 });
 
@@ -540,6 +549,11 @@ router.post('/:id/played', authMiddleware, async (req, res) => {
     `INSERT INTO playlist_listen_events (id, playlist_id, user_id, played_at) VALUES (?, ?, ?, NOW())`,
     [uuid(), req.params.id, req.userId]
   );
+  const total = await db.get(
+    'SELECT COALESCE(SUM(listen_count), 0) as total_listen_count FROM user_playlist_listens WHERE playlist_id = ?',
+    [req.params.id]
+  );
+  emitListUpdate('playlists', req.params.id, { total_listen_count: total?.total_listen_count ?? 0 });
   res.status(204).send();
 });
 

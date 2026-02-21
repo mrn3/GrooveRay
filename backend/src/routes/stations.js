@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { v4 as uuid } from 'uuid';
 import db from '../db/schema.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
-import { emitStationUpdate, getStationListenerCounts, getStationListenerCount } from '../socket.js';
+import { emitStationUpdate, emitListUpdate, getStationListenerCounts, getStationListenerCount } from '../socket.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const imagesDir = path.join(__dirname, '../../uploads/stations');
@@ -283,6 +283,14 @@ router.patch('/:id/rating', authMiddleware, async (req, res) => {
     'SELECT rating FROM user_station_ratings WHERE user_id = ? AND station_id = ?',
     [req.userId, req.params.id]
   );
+  const summary = await db.get(
+    'SELECT COALESCE(AVG(rating), 0) as community_avg_rating, COUNT(*) as community_rating_count FROM user_station_ratings WHERE station_id = ?',
+    [req.params.id]
+  );
+  emitListUpdate('stations', req.params.id, {
+    community_avg_rating: summary?.community_avg_rating ?? null,
+    community_rating_count: summary?.community_rating_count ?? 0,
+  });
   res.json({ rating: updated?.rating ?? rating });
 });
 

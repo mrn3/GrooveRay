@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { songs as songsApi, youtube as youtubeApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
+import { useListUpdates } from '../context/ListUpdatesContext';
 import { selfHostedImageUrl } from '../utils/images';
 import { YouTubeCookiesInstructions } from '../content/youtubeCookiesInstructions';
 
@@ -90,6 +91,15 @@ export default function Songs() {
   useEffect(() => {
     resetPageRef.current = true;
   }, [activeTab, sortBy, sortOrder, searchContributor, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity]);
+
+  useListUpdates(
+    'songs',
+    useCallback((update) => {
+      setList((prev) =>
+        prev.map((item) => (String(item.id) === String(update.id) ? { ...item, ...update } : item))
+      );
+    }, [])
+  );
 
   const fetchList = useCallback(() => {
     setLoading(true);

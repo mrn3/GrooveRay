@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { playlists as playlistsApi } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useListUpdates } from '../context/ListUpdatesContext';
 import { usePlayer } from '../context/PlayerContext';
 import { selfHostedImageUrl } from '../utils/images';
 
@@ -67,6 +68,15 @@ export default function Playlists() {
   useEffect(() => {
     resetPageRef.current = true;
   }, [activeTab, sortBy, sortOrder, searchContributor, minTracks, minListens, minRating]);
+
+  useListUpdates(
+    'playlists',
+    useCallback((update) => {
+      setList((prev) =>
+        prev.map((item) => (String(item.id) === String(update.id) ? { ...item, ...update } : item))
+      );
+    }, [])
+  );
 
   const fetchList = useCallback(() => {
     setLoading(true);

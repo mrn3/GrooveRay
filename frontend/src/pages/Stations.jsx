@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useListUpdates } from '../context/ListUpdatesContext';
 import { stations as stationsApi } from '../api';
 import { selfHostedImageUrl } from '../utils/images';
 
@@ -60,6 +61,15 @@ export default function Stations() {
   useEffect(() => {
     resetPageRef.current = true;
   }, [activeTab, sortBy, sortOrder, minRatingCommunity, minRatingMe, searchContributor]);
+
+  useListUpdates(
+    'stations',
+    useCallback((update) => {
+      setList((prev) =>
+        prev.map((item) => (String(item.id) === String(update.id) ? { ...item, ...update } : item))
+      );
+    }, [])
+  );
 
   const fetchList = useCallback(() => {
     setLoading(true);
