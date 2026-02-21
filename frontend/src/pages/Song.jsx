@@ -284,10 +284,43 @@ export default function Song() {
     return <p className="text-red-400">{error || 'Song not found'}</p>;
   }
 
+  const openEditModal = () => {
+    setEditTitle(song.title || '');
+    setEditArtists(parseArtistString(song.artist));
+    setEditArtistInput('');
+    setArtistSuggestions([]);
+    setArtistDropdownOpen(false);
+    setEditDescription(song.description || '');
+    setEditLyrics(song.lyrics || '');
+    setEditGuitarTab(song.guitar_tab || '');
+    setThumbnailFile(null);
+    setEditOpen(true);
+  };
+
   return (
     <div>
       <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
+          {/* Top action bar */}
+          <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-groove-700 pb-4">
+            <button
+              type="button"
+              onClick={handlePlay}
+              className="flex items-center gap-2 rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500"
+            >
+              <span className="text-lg">▶</span> Play
+            </button>
+            {isOwner && (
+              <button
+                type="button"
+                onClick={openEditModal}
+                className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
+              >
+                Edit
+              </button>
+            )}
+          </div>
+
           <div className="mb-4 flex items-center gap-4">
             <div className="flex flex-shrink-0 flex-col items-start gap-2">
               <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl bg-groove-700 text-3xl text-ray-500">
@@ -297,116 +330,6 @@ export default function Song() {
                   <span>♫</span>
                 )}
               </div>
-              {isOwner && (
-                <div className="flex flex-col gap-1">
-                  <label className="flex cursor-pointer items-center gap-1 text-xs text-gray-400 hover:text-gray-300">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/gif,image/webp"
-                      className="hidden"
-                      onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
-                    />
-                    <span>{thumbnailFile ? thumbnailFile.name : 'Choose image…'}</span>
-                  </label>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      disabled={!thumbnailFile || uploadingThumbnail}
-                      onClick={async () => {
-                        if (!thumbnailFile || !song?.id) return;
-                        setUploadingThumbnail(true);
-                        try {
-                          const updated = await songsApi.uploadThumbnail(song.id, thumbnailFile);
-                          setSong(updated);
-                          setThumbnailFile(null);
-                        } catch (e) {
-                          setError(e.message);
-                        } finally {
-                          setUploadingThumbnail(false);
-                        }
-                      }}
-                      className="rounded bg-ray-600 px-2 py-1 text-xs font-medium text-white hover:bg-ray-500 disabled:opacity-50"
-                    >
-                      {uploadingThumbnail ? 'Uploading…' : 'Upload'}
-                    </button>
-                    {song.thumbnail_url && (
-                      <button
-                        type="button"
-                        disabled={uploadingThumbnail}
-                        onClick={async () => {
-                          if (!song?.id) return;
-                          setUploadingThumbnail(true);
-                          try {
-                            const updated = await songsApi.update(song.id, { thumbnail_url: null });
-                            setSong(updated);
-                          } catch (e) {
-                            setError(e.message);
-                          } finally {
-                            setUploadingThumbnail(false);
-                          }
-                        }}
-                        className="rounded border border-groove-600 px-2 py-1 text-xs text-gray-400 hover:bg-groove-700 disabled:opacity-50"
-                      >
-                        Remove
-                      </button>
-                    )}
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {song.youtube_id && (
-                        <button
-                          type="button"
-                          disabled={findingThumbnail || uploadingThumbnail}
-                          onClick={async () => {
-                            if (!song?.id || !song.youtube_id) return;
-                            setFindingThumbnail(true);
-                            setError('');
-                            try {
-                              const { url, fallbackUrl } = await imagesApi.youtubeThumbnail(song.youtube_id);
-                              let result;
-                              try {
-                                result = await imagesApi.fetchFromUrl(url, 'thumbnail');
-                              } catch (_) {
-                                result = await imagesApi.fetchFromUrl(fallbackUrl, 'thumbnail');
-                              }
-                              const updated = await songsApi.update(song.id, { thumbnail_url: result.url });
-                              setSong(updated);
-                            } catch (e) {
-                              setError(e.message || 'Failed to use YouTube thumbnail');
-                            } finally {
-                              setFindingThumbnail(false);
-                            }
-                          }}
-                          className="rounded border border-groove-600 px-2 py-1 text-xs text-gray-400 hover:bg-groove-700 disabled:opacity-50"
-                        >
-                          Use YouTube thumbnail
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        disabled={findingThumbnail || uploadingThumbnail}
-                        onClick={async () => {
-                          if (!song?.id) return;
-                          setFindingThumbnail(true);
-                          setError('');
-                          try {
-                            const query = [song.title, song.artist].filter(Boolean).join(' ').trim() || song.title || 'music';
-                            const { url } = await imagesApi.search(query);
-                            const { url: hostedUrl } = await imagesApi.fetchFromUrl(url, 'thumbnail');
-                            const updated = await songsApi.update(song.id, { thumbnail_url: hostedUrl });
-                            setSong(updated);
-                          } catch (e) {
-                            setError(e.message || 'Failed to find image online');
-                          } finally {
-                            setFindingThumbnail(false);
-                          }
-                        }}
-                        className="rounded border border-groove-600 px-2 py-1 text-xs text-gray-400 hover:bg-groove-700 disabled:opacity-50"
-                      >
-                        Find image online
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold text-white">{song.title}</h1>
@@ -420,35 +343,6 @@ export default function Song() {
           {error && (
             <p className="mb-4 rounded-lg bg-red-900/30 px-4 py-2 text-sm text-red-300">{error}</p>
           )}
-
-          <div className="flex flex-wrap items-center gap-4">
-            <button
-              type="button"
-              onClick={handlePlay}
-              className="flex items-center gap-2 rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500"
-            >
-              <span className="text-lg">▶</span> Play
-            </button>
-            {isOwner && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditTitle(song.title || '');
-                  setEditArtists(parseArtistString(song.artist));
-                  setEditArtistInput('');
-                  setArtistSuggestions([]);
-                  setArtistDropdownOpen(false);
-                  setEditDescription(song.description || '');
-                  setEditLyrics(song.lyrics || '');
-                  setEditGuitarTab(song.guitar_tab || '');
-                  setEditOpen(true);
-                }}
-                className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
-              >
-                Edit
-              </button>
-            )}
-          </div>
 
           {/* Rate & stats */}
           <div className="mt-6 flex flex-wrap items-center gap-6 rounded-xl border border-groove-700 bg-groove-900/50 p-4">
@@ -694,6 +588,114 @@ export default function Song() {
                       </ul>
                     )}
                   </div>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Cover image</label>
+                <p className="mb-2 text-xs text-gray-500">Upload or change the song thumbnail.</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-groove-600 bg-groove-800 px-3 py-2 text-sm text-gray-300 hover:bg-groove-700">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      className="hidden"
+                      onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
+                    />
+                    {thumbnailFile ? thumbnailFile.name : 'Choose image…'}
+                  </label>
+                  <button
+                    type="button"
+                    disabled={!thumbnailFile || uploadingThumbnail}
+                    onClick={async () => {
+                      if (!thumbnailFile || !song?.id) return;
+                      setUploadingThumbnail(true);
+                      try {
+                        const updated = await songsApi.uploadThumbnail(song.id, thumbnailFile);
+                        setSong(updated);
+                        setThumbnailFile(null);
+                      } catch (e) {
+                        setError(e.message);
+                      } finally {
+                        setUploadingThumbnail(false);
+                      }
+                    }}
+                    className="rounded-lg bg-ray-600 px-3 py-2 text-sm font-medium text-white hover:bg-ray-500 disabled:opacity-50"
+                  >
+                    {uploadingThumbnail ? 'Uploading…' : 'Upload'}
+                  </button>
+                  {song.thumbnail_url && (
+                    <button
+                      type="button"
+                      disabled={uploadingThumbnail}
+                      onClick={async () => {
+                        if (!song?.id) return;
+                        setUploadingThumbnail(true);
+                        try {
+                          const updated = await songsApi.update(song.id, { thumbnail_url: null });
+                          setSong(updated);
+                        } catch (e) {
+                          setError(e.message);
+                        } finally {
+                          setUploadingThumbnail(false);
+                        }
+                      }}
+                      className="rounded-lg border border-groove-600 px-3 py-2 text-sm text-gray-400 hover:bg-groove-700 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  )}
+                  {song.youtube_id && (
+                    <button
+                      type="button"
+                      disabled={findingThumbnail || uploadingThumbnail}
+                      onClick={async () => {
+                        if (!song?.id || !song.youtube_id) return;
+                        setFindingThumbnail(true);
+                        setError('');
+                        try {
+                          const { url, fallbackUrl } = await imagesApi.youtubeThumbnail(song.youtube_id);
+                          let result;
+                          try {
+                            result = await imagesApi.fetchFromUrl(url, 'thumbnail');
+                          } catch (_) {
+                            result = await imagesApi.fetchFromUrl(fallbackUrl, 'thumbnail');
+                          }
+                          const updated = await songsApi.update(song.id, { thumbnail_url: result.url });
+                          setSong(updated);
+                        } catch (e) {
+                          setError(e.message || 'Failed to use YouTube thumbnail');
+                        } finally {
+                          setFindingThumbnail(false);
+                        }
+                      }}
+                      className="rounded-lg border border-groove-600 px-3 py-2 text-sm text-gray-400 hover:bg-groove-700 disabled:opacity-50"
+                    >
+                      Use YouTube thumbnail
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={findingThumbnail || uploadingThumbnail}
+                    onClick={async () => {
+                      if (!song?.id) return;
+                      setFindingThumbnail(true);
+                      setError('');
+                      try {
+                        const query = [song.title, song.artist].filter(Boolean).join(' ').trim() || song.title || 'music';
+                        const { url } = await imagesApi.search(query);
+                        const { url: hostedUrl } = await imagesApi.fetchFromUrl(url, 'thumbnail');
+                        const updated = await songsApi.update(song.id, { thumbnail_url: hostedUrl });
+                        setSong(updated);
+                      } catch (e) {
+                        setError(e.message || 'Failed to find image online');
+                      } finally {
+                        setFindingThumbnail(false);
+                      }
+                    }}
+                    className="rounded-lg border border-groove-600 px-3 py-2 text-sm text-gray-400 hover:bg-groove-700 disabled:opacity-50"
+                  >
+                    Find image online
+                  </button>
                 </div>
               </div>
               <div>

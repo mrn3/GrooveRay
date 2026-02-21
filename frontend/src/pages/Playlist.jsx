@@ -275,10 +275,66 @@ export default function Playlist() {
 
   const tracks = playlist.tracks || [];
 
+  const openEditModal = () => {
+    setEditName(playlist.name);
+    setEditDesc(playlist.description || '');
+    setThumbnailFile(null);
+    setEditPublic(!!playlist.is_public);
+    setEditOpen(true);
+  };
+
   return (
     <div>
       <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
+          {/* Top action bar */}
+          <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-groove-700 pb-4">
+            {tracks.length > 0 && (
+              <button
+                type="button"
+                onClick={handlePlay}
+                className="flex items-center gap-2 rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500"
+              >
+                <span className="text-lg">▶</span> Play
+              </button>
+            )}
+            {isOwner && (
+              <>
+                <button
+                  type="button"
+                  onClick={openEditModal}
+                  className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
+                >
+                  Edit
+                </button>
+                {playlist.slug ? (
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
+                  >
+                    {shareCopied ? 'Copied!' : 'Copy'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
+                  >
+                    Share
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="rounded-lg border border-red-900/60 px-4 py-2 text-sm text-red-400 hover:bg-red-900/30"
+                >
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
+
           <div className="mb-4 flex items-center gap-4">
             <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-groove-700 text-3xl text-ray-500">
               {selfHostedImageUrl(playlist.thumbnail_url) ? (
@@ -289,15 +345,9 @@ export default function Playlist() {
               {isOwner && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditName(playlist.name);
-                    setEditDesc(playlist.description || '');
-                    setThumbnailFile(null);
-                    setEditPublic(!!playlist.is_public);
-                    setEditOpen(true);
-                  }}
+                  onClick={openEditModal}
                   className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/60 text-xs font-medium text-white opacity-0 transition hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ray-500"
-                  title="Edit playlist (including thumbnail)"
+                  title="Edit (including cover image)"
                 >
                   Edit
                 </button>
@@ -313,59 +363,6 @@ export default function Playlist() {
           {error && (
             <p className="mb-4 rounded-lg bg-red-900/30 px-4 py-2 text-sm text-red-300">{error}</p>
           )}
-
-          <div className="flex flex-wrap items-center gap-4">
-            {tracks.length > 0 && (
-              <button
-                type="button"
-                onClick={handlePlay}
-                className="flex items-center gap-2 rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500"
-              >
-                <span className="text-lg">▶</span> Play
-              </button>
-            )}
-            {isOwner && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditName(playlist.name);
-                    setEditDesc(playlist.description || '');
-                    setThumbnailFile(null);
-                    setEditPublic(!!playlist.is_public);
-                    setEditOpen(true);
-                  }}
-                  className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
-                >
-                  Edit
-                </button>
-                {playlist.slug ? (
-                  <button
-                    type="button"
-                    onClick={handleShare}
-                    className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
-                  >
-                    {shareCopied ? 'Link copied!' : 'Copy share link'}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleShare}
-                    className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
-                  >
-                    Create share link
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  className="rounded-lg border border-red-900/60 px-4 py-2 text-sm text-red-400 hover:bg-red-900/30"
-                >
-                  Delete playlist
-                </button>
-              </>
-            )}
-          </div>
 
           {/* Rate & stats */}
           <div className="mt-6 flex flex-wrap items-center gap-6 rounded-xl border border-groove-700 bg-groove-900/50 p-4">

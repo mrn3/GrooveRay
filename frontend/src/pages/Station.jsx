@@ -355,6 +355,29 @@ export default function Station() {
 
       <div className="mb-8 flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
+          {/* Top action bar */}
+          {isOwner && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-groove-700 pb-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setImageFile(null);
+                  setEditImageOpen(true);
+                }}
+                className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmOpen(true)}
+                className="rounded-lg border border-red-900/60 px-4 py-2 text-sm text-red-400 hover:bg-red-900/30"
+              >
+                Delete
+              </button>
+            </div>
+          )}
+
           <div className="mb-8 flex items-center gap-4">
             <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-groove-700 text-3xl text-ray-500">
               {selfHostedImageUrl(station.image_url) ? (
@@ -370,11 +393,11 @@ export default function Station() {
                     setEditImageOpen(true);
                   }}
                   className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/60 text-sm font-medium text-white opacity-0 transition hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ray-500"
-                  title="Edit image"
+                  title="Edit (including image)"
                 >
-                  Edit image
+                  Edit
                 </button>
-            )}
+              )}
             </div>
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold text-white">{station.name}</h1>
@@ -406,108 +429,6 @@ export default function Station() {
               </div>
             </div>
           </div>
-          {editImageOpen && isOwner && (
-            <div className="mb-6 rounded-xl border border-groove-700 bg-groove-900/50 p-4">
-              <h3 className="mb-2 text-sm font-medium text-white">Station image</h3>
-              <p className="mb-3 text-xs text-gray-400">Upload an image to use as the station cover (we host it).</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    className="hidden"
-                    onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                  />
-                  {imageFile ? imageFile.name : 'Choose image…'}
-                </label>
-                <button
-                  type="button"
-                  disabled={!imageFile || savingImage}
-                  onClick={async () => {
-                    if (!imageFile || !station?.id) return;
-                    setSavingImage(true);
-                    try {
-                      const updated = await stationsApi.uploadImage(station.id, imageFile);
-                      setStation(updated);
-                      setImageFile(null);
-                      setEditImageOpen(false);
-                    } catch (_) {}
-                    finally {
-                      setSavingImage(false);
-                    }
-                  }}
-                  className="rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50"
-                >
-                  {savingImage ? 'Uploading…' : 'Upload'}
-                </button>
-                <button
-                  type="button"
-                  disabled={findingImage || savingImage}
-                  onClick={async () => {
-                    if (!station?.id) return;
-                    setFindingImage(true);
-                    try {
-                      const query = (station.name || 'radio station').trim();
-                      const { url } = await imagesApi.search(query);
-                      const { url: hostedUrl } = await imagesApi.fetchFromUrl(url, 'station');
-                      const updated = await stationsApi.update(station.id, { image_url: hostedUrl });
-                      setStation(updated);
-                      setEditImageOpen(false);
-                    } catch (_) {}
-                    finally {
-                      setFindingImage(false);
-                    }
-                  }}
-                  className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700 disabled:opacity-50"
-                >
-                  {findingImage ? 'Finding…' : 'Find image online'}
-                </button>
-                {station.image_url && (
-                  <button
-                    type="button"
-                    disabled={savingImage}
-                    onClick={async () => {
-                      if (!station?.id) return;
-                      setSavingImage(true);
-                      try {
-                        const updated = await stationsApi.update(station.id, { image_url: null });
-                        setStation(updated);
-                        setEditImageOpen(false);
-                      } catch (_) {}
-                      finally {
-                        setSavingImage(false);
-                      }
-                    }}
-                    className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700 disabled:opacity-50"
-                  >
-                    Remove
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditImageOpen(false);
-                    setImageFile(null);
-                  }}
-                  className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {isOwner && (
-            <div className="mb-6">
-              <button
-                type="button"
-                onClick={() => setDeleteConfirmOpen(true)}
-                className="text-sm text-red-400 hover:text-red-300 focus:outline-none focus:ring-2 focus:ring-red-500 rounded"
-              >
-                Delete station
-              </button>
-            </div>
-          )}
 
           {deleteConfirmOpen && (
             <div className="mb-6 rounded-xl border border-red-900/50 bg-groove-900/80 p-4">
@@ -529,6 +450,107 @@ export default function Station() {
                 >
                   Cancel
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Edit modal (station image) */}
+          {editImageOpen && isOwner && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !savingImage && setEditImageOpen(false)}>
+              <div className="w-full max-w-md rounded-xl border border-groove-700 bg-groove-900 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                <h2 className="mb-4 text-lg font-semibold text-white">Edit</h2>
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <label className="mb-1 block text-sm text-gray-400">Station image</label>
+                    <p className="mb-3 text-xs text-gray-500">Upload an image to use as the station cover (we host it).</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          className="hidden"
+                          onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                        />
+                        {imageFile ? imageFile.name : 'Choose image…'}
+                      </label>
+                      <button
+                        type="button"
+                        disabled={!imageFile || savingImage}
+                        onClick={async () => {
+                          if (!imageFile || !station?.id) return;
+                          setSavingImage(true);
+                          try {
+                            const updated = await stationsApi.uploadImage(station.id, imageFile);
+                            setStation(updated);
+                            setImageFile(null);
+                            setEditImageOpen(false);
+                          } catch (_) {}
+                          finally {
+                            setSavingImage(false);
+                          }
+                        }}
+                        className="rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50"
+                      >
+                        {savingImage ? 'Uploading…' : 'Upload'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={findingImage || savingImage}
+                        onClick={async () => {
+                          if (!station?.id) return;
+                          setFindingImage(true);
+                          try {
+                            const query = (station.name || 'radio station').trim();
+                            const { url } = await imagesApi.search(query);
+                            const { url: hostedUrl } = await imagesApi.fetchFromUrl(url, 'station');
+                            const updated = await stationsApi.update(station.id, { image_url: hostedUrl });
+                            setStation(updated);
+                            setEditImageOpen(false);
+                          } catch (_) {}
+                          finally {
+                            setFindingImage(false);
+                          }
+                        }}
+                        className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700 disabled:opacity-50"
+                      >
+                        {findingImage ? 'Finding…' : 'Find image online'}
+                      </button>
+                      {station.image_url && (
+                        <button
+                          type="button"
+                          disabled={savingImage}
+                          onClick={async () => {
+                            if (!station?.id) return;
+                            setSavingImage(true);
+                            try {
+                              const updated = await stationsApi.update(station.id, { image_url: null });
+                              setStation(updated);
+                              setEditImageOpen(false);
+                            } catch (_) {}
+                            finally {
+                              setSavingImage(false);
+                            }
+                          }}
+                          className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700 disabled:opacity-50"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditImageOpen(false);
+                        setImageFile(null);
+                      }}
+                      className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
