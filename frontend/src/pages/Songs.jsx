@@ -1164,61 +1164,62 @@ export default function Songs() {
               <span className="flex-shrink-0 rounded bg-groove-600 px-2 py-0.5 text-xs font-mono text-gray-400">
                 {song.duration_seconds ? `${Math.floor(song.duration_seconds / 60)}:${String(song.duration_seconds % 60).padStart(2, '0')}` : '--:--'}
               </span>
-              {showListenCount && (
-                <span className="flex-shrink-0 text-xs text-gray-400" title="Listens">
-                  {(activeTab === 'all' || activeTab === 'mine') ? (
-                    <span className="flex items-center gap-2">
-                      <span className="flex items-center gap-1" title="Listens by everyone">
+              <div className="flex flex-shrink-0 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
+                {showListenCount && (
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 text-xs text-gray-400" title="Listens">
+                    {(activeTab === 'all' || activeTab === 'mine') ? (
+                      <>
+                        <span className="flex items-center gap-1" title="Listens by everyone">
+                          <svg className="h-3.5 w-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          {(song.total_listen_count ?? 0) > 0 ? song.total_listen_count : '—'}
+                        </span>
+                        <span className="flex items-center gap-1" title="My listens">
+                          <svg className="h-3.5 w-3.5 flex-shrink-0 text-ray-400/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          {(song.listen_count ?? 0) > 0 ? song.listen_count : '—'}
+                        </span>
+                      </>
+                    ) : (song.listen_count ?? 0) > 0 ? (
+                      <span className="flex items-center gap-1">
                         <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
-                        {(song.total_listen_count ?? 0) > 0 ? song.total_listen_count : '—'}
+                        {song.listen_count}
                       </span>
-                      <span className="text-gray-500" aria-hidden="true">·</span>
-                      <span className="flex items-center gap-1" title="My listens">
-                        <svg className="h-3.5 w-3.5 text-ray-400/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        {(song.listen_count ?? 0) > 0 ? song.listen_count : '—'}
-                      </span>
-                    </span>
-                  ) : (song.listen_count ?? 0) > 0 ? (
-                    <span className="flex items-center gap-1">
-                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      {song.listen_count}
-                    </span>
-                  ) : (
-                    '—'
-                  )}
-                </span>
-              )}
-              {showRating && (
-                <>
-                  <span className="flex-shrink-0 text-xs text-gray-400" title="Community rating">
-                    {song.community_rating_count > 0 ? (
-                      <span className="flex items-center gap-1">
-                        <span className="text-amber-400">
-                          {Number(song.community_avg_rating).toFixed(1)} ★
+                    ) : (
+                      '—'
+                    )}
+                  </div>
+                )}
+                {showRating && (
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2 text-xs text-gray-400">
+                    <span title="Community rating">
+                      {song.community_rating_count > 0 ? (
+                        <span className="flex items-center gap-1">
+                          <span className="text-amber-400">
+                            {Number(song.community_avg_rating).toFixed(1)} ★
+                          </span>
+                          <span className="text-gray-500">({song.community_rating_count})</span>
                         </span>
-                        <span className="text-gray-500">({song.community_rating_count})</span>
-                      </span>
-                    ) : (
-                      '—'
-                    )}
-                  </span>
-                  <span className="flex-shrink-0 text-xs text-gray-400" title="My rating">
-                    {song.rating != null ? (
-                      <span className="text-amber-400">{song.rating} ★</span>
-                    ) : (
-                      '—'
-                    )}
-                  </span>
-                </>
-              )}
+                      ) : (
+                        '—'
+                      )}
+                    </span>
+                    <span title="My rating">
+                      {song.rating != null ? (
+                        <span className="text-amber-400">{song.rating} ★</span>
+                      ) : (
+                        '—'
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
           </>
