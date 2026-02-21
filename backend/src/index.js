@@ -80,6 +80,14 @@ io.on('connection', (socket) => {
     socket.currentStationId = null;
   });
 
+  const listTypes = ['songs', 'stations', 'playlists'];
+  socket.on('list:subscribe', (type) => {
+    if (listTypes.includes(type)) socket.join(`list:${type}`);
+  });
+  socket.on('list:unsubscribe', (type) => {
+    if (listTypes.includes(type)) socket.leave(`list:${type}`);
+  });
+
   socket.on('station:chat', async (payload) => {
     const stationId = payload?.stationId;
     const message = typeof payload?.message === 'string' ? payload.message.trim() : '';

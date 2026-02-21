@@ -13,6 +13,11 @@ export function emitStationUpdate(stationId, event, data) {
   if (_io) _io.to(`station:${stationId}`).emit(event, data);
 }
 
+/** Broadcast a list item update (views/ratings) to all clients subscribed to that list type. */
+export function emitListUpdate(type, id, payload) {
+  if (_io) _io.to(`list:${type}`).emit('list:update', { type, id, ...payload });
+}
+
 /** Add a logged-in user as listener; returns current list for broadcast. */
 export function addStationListener(stationId, userId, username, socketId) {
   if (!stationListeners.has(stationId)) stationListeners.set(stationId, new Map());
