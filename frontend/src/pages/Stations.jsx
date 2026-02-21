@@ -62,14 +62,20 @@ export default function Stations() {
     resetPageRef.current = true;
   }, [activeTab, sortBy, sortOrder, minRatingCommunity, minRatingMe, searchContributor]);
 
+  const [recentlyUpdatedId, setRecentlyUpdatedId] = useState(null);
+  const updateAnimationTimeoutRef = useRef(null);
   useListUpdates(
     'stations',
     useCallback((update) => {
       setList((prev) =>
         prev.map((item) => (String(item.id) === String(update.id) ? { ...item, ...update } : item))
       );
+      setRecentlyUpdatedId(update.id);
+      if (updateAnimationTimeoutRef.current) clearTimeout(updateAnimationTimeoutRef.current);
+      updateAnimationTimeoutRef.current = setTimeout(() => setRecentlyUpdatedId(null), 1250);
     }, [])
   );
+  useEffect(() => () => clearTimeout(updateAnimationTimeoutRef.current), []);
 
   const fetchList = useCallback(() => {
     setLoading(true);
@@ -397,7 +403,7 @@ export default function Stations() {
           list.map((station) => (
             <div
               key={station.id}
-              className="flex cursor-pointer items-center gap-3 px-6 py-3 transition hover:bg-groove-800"
+              className={`flex cursor-pointer items-center gap-3 rounded-lg px-6 py-3 transition hover:bg-groove-800 ${String(station.id) === String(recentlyUpdatedId) ? 'list-item-updated' : ''}`}
               onClick={() => navigate(`/stations/${station.slug}`)}
               onKeyDown={(e) => e.key === 'Enter' && navigate(`/stations/${station.slug}`)}
               role="button"

@@ -92,14 +92,20 @@ export default function Songs() {
     resetPageRef.current = true;
   }, [activeTab, sortBy, sortOrder, searchContributor, durationMin, durationMax, minListensMe, minListensEveryone, minRatingMe, minRatingCommunity]);
 
+  const [recentlyUpdatedId, setRecentlyUpdatedId] = useState(null);
+  const updateAnimationTimeoutRef = useRef(null);
   useListUpdates(
     'songs',
     useCallback((update) => {
       setList((prev) =>
         prev.map((item) => (String(item.id) === String(update.id) ? { ...item, ...update } : item))
       );
+      setRecentlyUpdatedId(update.id);
+      if (updateAnimationTimeoutRef.current) clearTimeout(updateAnimationTimeoutRef.current);
+      updateAnimationTimeoutRef.current = setTimeout(() => setRecentlyUpdatedId(null), 1250);
     }, [])
   );
+  useEffect(() => () => clearTimeout(updateAnimationTimeoutRef.current), []);
 
   const fetchList = useCallback(() => {
     setLoading(true);
@@ -987,7 +993,7 @@ export default function Songs() {
               key={song.id}
               role="button"
               tabIndex={0}
-              className={`flex cursor-pointer items-center gap-3 px-6 py-3 transition hover:bg-groove-800 ${current?.id === song.id ? 'bg-groove-800/80' : ''}`}
+              className={`flex cursor-pointer items-center gap-3 rounded-lg px-6 py-3 transition hover:bg-groove-800 ${current?.id === song.id ? 'bg-groove-800/80' : ''} ${String(song.id) === String(recentlyUpdatedId) ? 'list-item-updated' : ''}`}
               onClick={() => navigate(`/songs/${song.id}`)}
               onKeyDown={(e) => e.key === 'Enter' && navigate(`/songs/${song.id}`)}
             >

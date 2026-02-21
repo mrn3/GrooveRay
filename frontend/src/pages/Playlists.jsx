@@ -69,14 +69,20 @@ export default function Playlists() {
     resetPageRef.current = true;
   }, [activeTab, sortBy, sortOrder, searchContributor, minTracks, minListens, minRating]);
 
+  const [recentlyUpdatedId, setRecentlyUpdatedId] = useState(null);
+  const updateAnimationTimeoutRef = useRef(null);
   useListUpdates(
     'playlists',
     useCallback((update) => {
       setList((prev) =>
         prev.map((item) => (String(item.id) === String(update.id) ? { ...item, ...update } : item))
       );
+      setRecentlyUpdatedId(update.id);
+      if (updateAnimationTimeoutRef.current) clearTimeout(updateAnimationTimeoutRef.current);
+      updateAnimationTimeoutRef.current = setTimeout(() => setRecentlyUpdatedId(null), 1250);
     }, [])
   );
+  useEffect(() => () => clearTimeout(updateAnimationTimeoutRef.current), []);
 
   const fetchList = useCallback(() => {
     setLoading(true);
@@ -440,7 +446,7 @@ export default function Playlists() {
               <Link
                 key={pl.id}
                 to={linkTo(pl)}
-                className="flex items-center gap-3 px-6 py-3 transition hover:bg-groove-800"
+                className={`flex items-center gap-3 rounded-lg px-6 py-3 transition hover:bg-groove-800 ${String(pl.id) === String(recentlyUpdatedId) ? 'list-item-updated' : ''}`}
               >
                 <button
                   type="button"

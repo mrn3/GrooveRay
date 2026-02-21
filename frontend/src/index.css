@@ -30,3 +30,14 @@ body {
 *:focus-visible {
   @apply outline-none ring-2 ring-ray-500 ring-offset-2 ring-offset-groove-950;
 }
+
+/* Brief highlight when a list item gets a new listen or rating (real-time update) */
+@keyframes list-item-updated {
+  0% { background-color: transparent; box-shadow: none; }
+  12% { background-color: rgba(235, 117, 26, 0.18); box-shadow: 0 0 0 1px rgba(235, 117, 26, 0.35); }
+  35% { background-color: rgba(235, 117, 26, 0.12); box-shadow: 0 0 0 1px rgba(235, 117, 26, 0.2); }
+  100% { background-color: transparent; box-shadow: none; }
+}
+.list-item-updated {
+  animation: list-item-updated 1.25s ease-out forwards;
+}

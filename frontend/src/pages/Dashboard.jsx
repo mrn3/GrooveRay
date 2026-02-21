@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { dashboard as dashboardApi, playlists as playlistsApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
@@ -38,7 +38,7 @@ function formatRelativeTime(createdAt) {
 }
 
 /** Compact song row: play button + thumbnail + title/artist + optional meta (listens / rating / relative date). */
-function SongListRow({ song, meta }) {
+function SongListRow({ song, meta, recentlyUpdated }) {
   const { play, current, playing } = usePlayer();
   const isActive = current?.id === song.id;
   const handlePlay = (e) => {
@@ -57,7 +57,7 @@ function SongListRow({ song, meta }) {
   return (
     <Link
       to={`/songs/${song.id}`}
-      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 transition hover:bg-groove-800"
+      className={`flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 transition hover:bg-groove-800 ${recentlyUpdated ? 'list-item-updated' : ''}`}
     >
       <button
         type="button"
@@ -85,7 +85,7 @@ function SongListRow({ song, meta }) {
   );
 }
 
-function SongListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
+function SongListColumn({ title, items, emptyMessage, metaFn, seeAllTo, recentlyUpdatedId }) {
   const displayItems = items?.slice(0, TOP_N) ?? [];
   return (
     <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-groove-700 bg-groove-900/40 p-3">
@@ -103,7 +103,7 @@ function SongListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
         <ul className="space-y-0.5">
           {displayItems.map((song) => (
             <li key={song.id}>
-              <SongListRow song={song} meta={metaFn ? metaFn(song) : null} />
+              <SongListRow song={song} meta={metaFn ? metaFn(song) : null} recentlyUpdated={String(song.id) === String(recentlyUpdatedId)} />
             </li>
           ))}
         </ul>
@@ -113,7 +113,7 @@ function SongListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
 }
 
 /** Compact playlist row: same layout as SongListRow — play button + thumbnail + name/owner + meta. */
-function PlaylistListRow({ playlist, meta }) {
+function PlaylistListRow({ playlist, meta, recentlyUpdated }) {
   const { play } = usePlayer();
   const { user } = useAuth();
   const linkTo = playlist.slug ? `/playlists/by/${playlist.slug}` : `/playlists/${playlist.id}`;
@@ -139,7 +139,7 @@ function PlaylistListRow({ playlist, meta }) {
   return (
     <Link
       to={linkTo}
-      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 transition hover:bg-groove-800"
+      className={`flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 transition hover:bg-groove-800 ${recentlyUpdated ? 'list-item-updated' : ''}`}
     >
       <button
         type="button"
@@ -170,7 +170,7 @@ function PlaylistListRow({ playlist, meta }) {
   );
 }
 
-function PlaylistListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
+function PlaylistListColumn({ title, items, emptyMessage, metaFn, seeAllTo, recentlyUpdatedId }) {
   const displayItems = items?.slice(0, TOP_N) ?? [];
   return (
     <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-groove-700 bg-groove-900/40 p-3">
@@ -188,7 +188,7 @@ function PlaylistListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
         <ul className="space-y-0.5">
           {displayItems.map((pl) => (
             <li key={pl.id}>
-              <PlaylistListRow playlist={pl} meta={metaFn ? metaFn(pl) : null} />
+              <PlaylistListRow playlist={pl} meta={metaFn ? metaFn(pl) : null} recentlyUpdated={String(pl.id) === String(recentlyUpdatedId)} />
             </li>
           ))}
         </ul>
@@ -198,12 +198,12 @@ function PlaylistListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
 }
 
 /** Compact station row: same layout as SongListRow — link + thumbnail (image_url) + name/owner + meta. */
-function StationListRow({ station, meta }) {
+function StationListRow({ station, meta, recentlyUpdated }) {
   const linkTo = `/stations/${station.slug || station.id}`;
   return (
     <Link
       to={linkTo}
-      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 transition hover:bg-groove-800"
+      className={`flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 transition hover:bg-groove-800 ${recentlyUpdated ? 'list-item-updated' : ''}`}
     >
       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-groove-700 text-ray-400">
         <span className="text-xs">▶</span>
@@ -226,7 +226,7 @@ function StationListRow({ station, meta }) {
   );
 }
 
-function StationListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
+function StationListColumn({ title, items, emptyMessage, metaFn, seeAllTo, recentlyUpdatedId }) {
   const displayItems = items?.slice(0, TOP_N) ?? [];
   return (
     <div className="flex min-w-0 flex-1 flex-col rounded-xl border border-groove-700 bg-groove-900/40 p-3">
@@ -244,7 +244,7 @@ function StationListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
         <ul className="space-y-0.5">
           {displayItems.map((station) => (
             <li key={station.id}>
-              <StationListRow station={station} meta={metaFn ? metaFn(station) : null} />
+              <StationListRow station={station} meta={metaFn ? metaFn(station) : null} recentlyUpdated={String(station.id) === String(recentlyUpdatedId)} />
             </li>
           ))}
         </ul>
@@ -253,11 +253,17 @@ function StationListColumn({ title, items, emptyMessage, metaFn, seeAllTo }) {
   );
 }
 
+const ANIMATION_CLEAR_MS = 1250;
+
 export default function Dashboard() {
   const [period, setPeriod] = useState('week');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [recentlyUpdatedSongId, setRecentlyUpdatedSongId] = useState(null);
+  const [recentlyUpdatedPlaylistId, setRecentlyUpdatedPlaylistId] = useState(null);
+  const [recentlyUpdatedStationId, setRecentlyUpdatedStationId] = useState(null);
+  const animationTimeoutsRef = useRef({});
 
   useEffect(() => {
     setLoading(true);
@@ -271,6 +277,12 @@ export default function Dashboard() {
       })
       .finally(() => setLoading(false));
   }, [period]);
+
+  const clearAnimationAfter = useCallback((key, setId) => {
+    if (animationTimeoutsRef.current[key]) clearTimeout(animationTimeoutsRef.current[key]);
+    animationTimeoutsRef.current[key] = setTimeout(() => setId(null), ANIMATION_CLEAR_MS);
+  }, []);
+  useEffect(() => () => Object.values(animationTimeoutsRef.current).forEach(clearTimeout), []);
 
   useListUpdates(
     'songs',
@@ -288,7 +300,9 @@ export default function Dashboard() {
               },
             }
       );
-    }, [])
+      setRecentlyUpdatedSongId(update.id);
+      clearAnimationAfter('songs', setRecentlyUpdatedSongId);
+    }, [clearAnimationAfter])
   );
   useListUpdates(
     'playlists',
@@ -306,7 +320,9 @@ export default function Dashboard() {
               },
             }
       );
-    }, [])
+      setRecentlyUpdatedPlaylistId(update.id);
+      clearAnimationAfter('playlists', setRecentlyUpdatedPlaylistId);
+    }, [clearAnimationAfter])
   );
   useListUpdates(
     'stations',
@@ -324,7 +340,9 @@ export default function Dashboard() {
               },
             }
       );
-    }, [])
+      setRecentlyUpdatedStationId(update.id);
+      clearAnimationAfter('stations', setRecentlyUpdatedStationId);
+    }, [clearAnimationAfter])
   );
 
   return (
@@ -366,6 +384,7 @@ export default function Dashboard() {
                 items={data.songs?.popular}
                 emptyMessage="No songs in this period."
                 seeAllTo="/songs?sortBy=total_listen_count&sortOrder=desc"
+                recentlyUpdatedId={recentlyUpdatedSongId}
                 metaFn={(s) => (
                   <span className="flex items-center gap-1" title="Listens by everyone">
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -381,6 +400,7 @@ export default function Dashboard() {
                 items={data.songs?.highestRated}
                 emptyMessage="No rated songs."
                 seeAllTo="/songs?sortBy=community_avg_rating&sortOrder=desc"
+                recentlyUpdatedId={recentlyUpdatedSongId}
                 metaFn={(s) =>
                   s.community_rating_count > 0 ? (
                     <span className="text-amber-400">
@@ -394,6 +414,7 @@ export default function Dashboard() {
                 items={data.songs?.new}
                 emptyMessage="No new songs."
                 seeAllTo="/songs?sortBy=created_at&sortOrder=desc"
+                recentlyUpdatedId={recentlyUpdatedSongId}
                 metaFn={(s) => formatRelativeTime(s.created_at)}
               />
             </div>
@@ -408,6 +429,7 @@ export default function Dashboard() {
                 items={data.playlists?.popular}
                 emptyMessage="No playlists in this period."
                 seeAllTo="/playlists?sortBy=total_listen_count&sortOrder=desc"
+                recentlyUpdatedId={recentlyUpdatedPlaylistId}
                 metaFn={(p) => (
                   <span className="flex items-center gap-1" title="Listens">
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -423,6 +445,7 @@ export default function Dashboard() {
                 items={data.playlists?.highestRated}
                 emptyMessage="No rated playlists."
                 seeAllTo="/playlists?sortBy=community_avg_rating&sortOrder=desc"
+                recentlyUpdatedId={recentlyUpdatedPlaylistId}
                 metaFn={(p) =>
                   p.community_rating_count > 0 ? (
                     <span className="text-amber-400">
@@ -436,6 +459,7 @@ export default function Dashboard() {
                 items={data.playlists?.new}
                 emptyMessage="No new playlists."
                 seeAllTo="/playlists?sortBy=created_at&sortOrder=desc"
+                recentlyUpdatedId={recentlyUpdatedPlaylistId}
                 metaFn={(p) => formatRelativeTime(p.created_at)}
               />
             </div>
@@ -450,6 +474,7 @@ export default function Dashboard() {
                 items={data.stations?.popular}
                 emptyMessage="No stations in this period."
                 seeAllTo="/stations?sortBy=listener_count&sortOrder=desc"
+                recentlyUpdatedId={recentlyUpdatedStationId}
                 metaFn={(s) => (
                   <span className="flex items-center gap-1" title="Listens">
                     <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -465,6 +490,7 @@ export default function Dashboard() {
                 items={data.stations?.highestRated}
                 emptyMessage="No rated stations."
                 seeAllTo="/stations?sortBy=community_avg_rating&sortOrder=desc"
+                recentlyUpdatedId={recentlyUpdatedStationId}
                 metaFn={(s) =>
                   s.community_rating_count > 0 ? (
                     <span className="text-amber-400">
@@ -478,6 +504,7 @@ export default function Dashboard() {
                 items={data.stations?.new}
                 emptyMessage="No new stations."
                 seeAllTo="/stations?sortBy=created_at&sortOrder=desc"
+                recentlyUpdatedId={recentlyUpdatedStationId}
                 metaFn={(s) => formatRelativeTime(s.created_at)}
               />
             </div>
