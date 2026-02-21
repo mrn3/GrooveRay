@@ -484,15 +484,18 @@ export default function Song() {
       {/* Edit modal */}
       {editOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto"
           onClick={() => !saving && setEditOpen(false)}
         >
           <div
-            className="w-full max-w-lg rounded-xl border border-groove-700 bg-groove-900 p-6 shadow-xl"
+            className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-xl border border-groove-700 bg-groove-900 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="mb-4 text-lg font-semibold text-white">Edit</h2>
-            <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
+            <div className="flex-shrink-0 p-6 pb-0">
+              <h2 className="mb-4 text-lg font-semibold text-white">Edit</h2>
+            </div>
+            <form onSubmit={handleSaveEdit} className="flex flex-col flex-1 min-h-0">
+              <div className="flex-1 min-h-0 overflow-y-auto p-6 pt-4 space-y-4">
               <div>
                 <label className="mb-1 block text-sm text-gray-400">Title</label>
                 <input
@@ -728,7 +731,8 @@ export default function Song() {
                   placeholder="e|-----0---0---0---0---|  B|-----1---1---1---1---|…"
                 />
               </div>
-              <div className="flex justify-end gap-2">
+              </div>
+              <div className="flex flex-shrink-0 justify-end gap-2 border-t border-groove-700 bg-groove-900 p-6 pt-4">
                 <button
                   type="button"
                   onClick={() => !saving && setEditOpen(false)}
