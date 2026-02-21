@@ -100,10 +100,16 @@ router.get('/search', async (req, res) => {
   if (!q) {
     return res.status(400).json({ error: 'Missing query parameter q' });
   }
+  const accessKey = process.env.UNSPLASH_ACCESS_KEY;
+  if (!accessKey?.trim()) {
+    return res.status(503).json({
+      error: 'Image search unavailable. Set UNSPLASH_ACCESS_KEY in server .env to enable finding images by name.',
+    });
+  }
   const url = await searchImage(q);
   if (!url) {
     return res.status(503).json({
-      error: 'Image search unavailable. Set UNSPLASH_ACCESS_KEY in server .env to enable finding images by name.',
+      error: 'No image found for this query. Try a different search or add an image another way.',
     });
   }
   res.json({ url });
