@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { v4 as uuid } from 'uuid';
+import sharp from 'sharp';
 import db from '../db/schema.js';
 
 /** Throw with a clear message if yt-dlp or ffmpeg are missing (so we can return 400 before 202). */
@@ -25,9 +26,11 @@ function ensureYouTubeDeps() {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.join(__dirname, '../../uploads');
+const thumbnailsDir = path.join(uploadsDir, 'thumbnails');
 const youtubeDir = path.join(__dirname, '../../downloads/youtube');
 
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+if (!fs.existsSync(thumbnailsDir)) fs.mkdirSync(thumbnailsDir, { recursive: true });
 if (!fs.existsSync(youtubeDir)) fs.mkdirSync(youtubeDir, { recursive: true });
 
 const YOUTUBE_URL_REGEX = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/)|youtu\.be\/)[\w-]+/i;
@@ -42,6 +45,40 @@ export function extractYouTubeVideoId(url) {
   if (!url || typeof url !== 'string') return null;
   const m = url.trim().match(YOUTUBE_ID_REGEX);
   return m ? m[1] : null;
+}
+
+/** Fetch YouTube thumbnail image buffer; try maxresdefault first, then hqdefault. Returns null on failure. */
+async function fetchYouTubeThumbnailBuffer(youtubeId) {
+  if (!youtubeId || typeof youtubeId !== 'string') return null;
+  const base = `https://img.youtube.com/vi/${encodeURIComponent(youtubeId)}`;
+  for (const thumbPath of ['/maxresdefault.jpg', '/hqdefault.jpg']) {
+    try {
+      const res = await fetch(base + thumbPath, {
+        redirect: 'follow',
+        headers: { 'User-Agent': 'GrooveRay/1.0 (YouTube thumbnail)' },
+      });
+      if (res.ok) {
+        const buffer = Buffer.from(await res.arrayBuffer());
+        if (buffer.length > 0 && buffer.length <= 10 * 1024 * 1024) return buffer;
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+/** Save thumbnail buffer to uploads/thumbnails and return the URL path, or null on failure. */
+async function saveThumbnailBuffer(buffer) {
+  try {
+    const filename = `${uuid()}.jpg`;
+    const destPath = path.join(thumbnailsDir, filename);
+    await sharp(buffer)
+      .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 88 })
+      .toFile(destPath);
+    return `/api/uploads/thumbnails/${filename}`;
+  } catch (_) {
+    return null;
+  }
 }
 
 export async function addYouTube(userId, url) {
@@ -153,7 +190,7 @@ export async function addYouTube(userId, url) {
       let title = path.basename(audioFile, ext);
       let artist = 'YouTube';
       let durationSeconds = 0;
-      const thumbnailUrl = null; // We only use self-hosted uploads; user can add thumbnail on song page
+      let thumbnailUrl = null;
       let youtubeId = null;
       let description = null;
       if (jsonFile) {
@@ -168,6 +205,12 @@ export async function addYouTube(userId, url) {
             description = rawDesc.length > 10000 ? rawDesc.slice(0, 9997) + '...' : rawDesc.trim();
           }
         } catch (_) {}
+      }
+
+      // Automatically use YouTube thumbnail when we have a video ID
+      if (youtubeId) {
+        const thumbBuffer = await fetchYouTubeThumbnailBuffer(youtubeId);
+        if (thumbBuffer) thumbnailUrl = await saveThumbnailBuffer(thumbBuffer);
       }
 
       const songId = uuid();
