@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { ListUpdatesProvider } from './context/ListUpdatesContext';
 import Layout from './components/Layout';
@@ -25,6 +26,14 @@ function ProtectedRoute({ children }) {
 }
 
 export default function App() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window.gtag === 'function') {
+      window.gtag('config', 'G-7YMFQMYFS9', { page_path: location.pathname });
+    }
+  }, [location.pathname]);
+
   return (
     <ListUpdatesProvider>
       <div className="flex min-h-screen flex-col pb-24">
