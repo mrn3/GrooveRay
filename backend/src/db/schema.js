@@ -369,6 +369,14 @@ async function ensureSchema() {
   try {
     await exec('CREATE INDEX idx_user_artist_ratings_artist ON user_artist_ratings(artist_name)');
   } catch (_) {}
+  try {
+    await exec(
+      `CREATE TABLE IF NOT EXISTS artist_images (
+        artist_name VARCHAR(255) PRIMARY KEY,
+        image_url TEXT
+      )`
+    );
+  } catch (_) {}
 }
 
 let schemaReady = null;

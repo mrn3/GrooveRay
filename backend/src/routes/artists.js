@@ -1,7 +1,32 @@
 import { Router } from 'express';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import multer from 'multer';
+import { v4 as uuid } from 'uuid';
 import db from '../db/schema.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { attachCommunityRatings, attachUserStats } from './songs.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const imagesDir = path.join(__dirname, '../../uploads/artists');
+if (!fs.existsSync(imagesDir)) fs.mkdirSync(imagesDir, { recursive: true });
+
+const imageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_, __, cb) => cb(null, imagesDir),
+    filename: (_, file, cb) => {
+      const ext = (file.originalname && path.extname(file.originalname).toLowerCase()) || '.jpg';
+      const safeExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext) ? ext : '.jpg';
+      cb(null, `${uuid()}${safeExt}`);
+    },
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_, file, cb) => {
+    const ok = file.mimetype && /^image\/(jpeg|png|gif|webp)$/.test(file.mimetype);
+    cb(null, !!ok);
+  },
+});
 
 const router = Router();
 
@@ -226,10 +251,16 @@ router.get('/:name', optionalAuth, async (req, res) => {
   const my_listen_count = req.userId ? withStats.reduce((sum, s) => sum + (s.listen_count ?? 0), 0) : 0;
 
   let my_rating = null;
+  let can_edit = false;
   if (req.userId) {
     const row = await db.get('SELECT rating FROM user_artist_ratings WHERE user_id = ? AND artist_name = ?', [req.userId, artistName]);
     my_rating = row?.rating ?? null;
+    const contributed = await db.get('SELECT 1 FROM songs WHERE user_id = ? AND TRIM(artist) = ? LIMIT 1', [req.userId, artistName]);
+    can_edit = !!contributed;
   }
+
+  const imageRow = await db.get('SELECT image_url FROM artist_images WHERE artist_name = ?', [artistName]);
+  const image_url = imageRow?.image_url ?? null;
 
   const page = req.query.page != null ? Math.max(1, parseInt(req.query.page, 10)) : 1;
   const limitRaw = req.query.limit != null ? parseInt(req.query.limit, 10) : 20;
@@ -239,6 +270,8 @@ router.get('/:name', optionalAuth, async (req, res) => {
 
   res.json({
     artist: artistName,
+    image_url,
+    can_edit,
     song_count: withStats.length,
     total_listen_count,
     community_avg_rating,
@@ -247,6 +280,60 @@ router.get('/:name', optionalAuth, async (req, res) => {
     my_rating,
     songs: { items: songsItems, total: withStats.length },
   });
+});
+
+// PATCH /api/artists/:name — update artist name (rename my songs) and/or image_url
+router.patch('/:name', authMiddleware, async (req, res) => {
+  const currentName = normalizeArtistName(decodeURIComponent(req.params.name || ''));
+  if (!currentName) return res.status(400).json({ error: 'Invalid artist name' });
+
+  const contributed = await db.get('SELECT 1 FROM songs WHERE user_id = ? AND TRIM(artist) = ? LIMIT 1', [req.userId, currentName]);
+  if (!contributed) return res.status(403).json({ error: 'You can only edit artists you have contributed songs to' });
+
+  const { name: newNameRaw, image_url: newImageUrl } = req.body || {};
+  const newName = typeof newNameRaw === 'string' ? normalizeArtistName(newNameRaw) : null;
+  const imageValue = newImageUrl === null || (typeof newImageUrl === 'string' && newImageUrl.trim() !== '') ? newImageUrl : undefined;
+
+  if (newName != null && newName !== currentName) {
+    await db.run('UPDATE songs SET artist = ? WHERE user_id = ? AND TRIM(artist) = ?', [newName, req.userId, currentName]);
+    await db.run('UPDATE user_artist_ratings SET artist_name = ? WHERE user_id = ? AND artist_name = ?', [newName, req.userId, currentName]);
+    const imgRow = await db.get('SELECT 1 FROM artist_images WHERE artist_name = ?', [currentName]);
+    if (imgRow) {
+      await db.run('UPDATE artist_images SET artist_name = ? WHERE artist_name = ?', [newName, currentName]);
+    }
+  }
+
+  if (imageValue !== undefined) {
+    const existing = await db.get('SELECT 1 FROM artist_images WHERE artist_name = ?', [newName ?? currentName]);
+    if (existing) {
+      await db.run('UPDATE artist_images SET image_url = ? WHERE artist_name = ?', [newImageUrl, newName ?? currentName]);
+    } else {
+      await db.run('INSERT INTO artist_images (artist_name, image_url) VALUES (?, ?)', [newName ?? currentName, newImageUrl]);
+    }
+  }
+
+  const finalName = newName ?? currentName;
+  const imageRow = await db.get('SELECT image_url FROM artist_images WHERE artist_name = ?', [finalName]);
+  res.json({ artist: finalName, image_url: imageRow?.image_url ?? null });
+});
+
+// POST /api/artists/:name/image — upload artist image (user must have contributed a song with this artist)
+router.post('/:name/image', authMiddleware, imageUpload.single('image'), async (req, res) => {
+  const artistName = normalizeArtistName(decodeURIComponent(req.params.name || ''));
+  if (!artistName) return res.status(400).json({ error: 'Invalid artist name' });
+  if (!req.file) return res.status(400).json({ error: 'No image file uploaded' });
+
+  const contributed = await db.get('SELECT 1 FROM songs WHERE user_id = ? AND TRIM(artist) = ? LIMIT 1', [req.userId, artistName]);
+  if (!contributed) return res.status(403).json({ error: 'You can only edit artists you have contributed songs to' });
+
+  const imageUrl = `/api/uploads/artists/${req.file.filename}`;
+  const existing = await db.get('SELECT 1 FROM artist_images WHERE artist_name = ?', [artistName]);
+  if (existing) {
+    await db.run('UPDATE artist_images SET image_url = ? WHERE artist_name = ?', [imageUrl, artistName]);
+  } else {
+    await db.run('INSERT INTO artist_images (artist_name, image_url) VALUES (?, ?)', [artistName, imageUrl]);
+  }
+  res.json({ artist: artistName, image_url: imageUrl });
 });
 
 // PATCH /api/artists/:name/rating — set my rating for this artist

@@ -14,8 +14,9 @@ const AVATARS_DIR = path.join(UPLOADS, 'avatars');
 const THUMBNAILS_DIR = path.join(UPLOADS, 'thumbnails');
 const PLAYLISTS_DIR = path.join(UPLOADS, 'playlists');
 const STATIONS_DIR = path.join(UPLOADS, 'stations');
+const ARTISTS_DIR = path.join(UPLOADS, 'artists');
 
-[AVATARS_DIR, THUMBNAILS_DIR, PLAYLISTS_DIR, STATIONS_DIR].forEach((dir) => {
+[AVATARS_DIR, THUMBNAILS_DIR, PLAYLISTS_DIR, STATIONS_DIR, ARTISTS_DIR].forEach((dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
@@ -24,6 +25,7 @@ const TYPE_CONFIG = {
   thumbnail: { dir: THUMBNAILS_DIR, urlPrefix: '/api/uploads/thumbnails/', maxSize: 1200 },
   playlist: { dir: PLAYLISTS_DIR, urlPrefix: '/api/uploads/playlists/', maxSize: 1200 },
   station: { dir: STATIONS_DIR, urlPrefix: '/api/uploads/stations/', maxSize: 1200 },
+  artist: { dir: ARTISTS_DIR, urlPrefix: '/api/uploads/artists/', maxSize: 1200 },
 };
 
 const router = Router();
@@ -37,7 +39,7 @@ router.post('/fetch-from-url', authMiddleware, async (req, res) => {
   const { url: imageUrl, type } = req.body || {};
   const config = TYPE_CONFIG[type];
   if (!config) {
-    return res.status(400).json({ error: 'Invalid type. Use: avatar, thumbnail, playlist, or station' });
+    return res.status(400).json({ error: 'Invalid type. Use: avatar, thumbnail, playlist, station, or artist' });
   }
   if (!imageUrl || typeof imageUrl !== 'string') {
     return res.status(400).json({ error: 'Missing or invalid url' });

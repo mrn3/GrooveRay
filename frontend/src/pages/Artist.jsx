@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { artists as artistsApi } from '../api';
+import { artists as artistsApi, images as imagesApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
 import { selfHostedImageUrl } from '../utils/images';
+import ListenChart from '../components/ListenChart';
 
 function artistDetailUrl(name) {
   return `/artists/${encodeURIComponent(name)}`;
@@ -20,8 +21,19 @@ export default function Artist() {
   const [ratingId, setRatingId] = useState(null);
   const [songsPage, setSongsPage] = useState(1);
   const [songsPageSize, setSongsPageSize] = useState(10);
+  const [editImageOpen, setEditImageOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editError, setEditError] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [savingImage, setSavingImage] = useState(false);
+  const [findingImage, setFindingImage] = useState(false);
+  const [listensPeriod, setListensPeriod] = useState('day');
+  const [listensHoverBucket, setListensHoverBucket] = useState(null);
+  const [listensHoverScope, setListensHoverScope] = useState(null);
 
   const artistName = encodedName ? decodeURIComponent(encodedName) : '';
+  const isOwner = !!data?.can_edit;
 
   const fetchArtist = useCallback(() => {
     if (!artistName) return;
@@ -73,21 +85,55 @@ export default function Artist() {
   const songs = data.songs?.items ?? [];
   const songsTotal = data.songs?.total ?? 0;
 
+  const openEditModal = () => {
+    setEditName(data?.artist ?? '');
+    setImageFile(null);
+    setEditError('');
+    setEditImageOpen(true);
+  };
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       <div className="mb-8 flex flex-col gap-6">
-        <div className="flex items-center gap-4">
-          <div className="flex h-24 w-24 flex-shrink-0 items-center justify-center rounded-xl bg-groove-700 text-4xl text-ray-500">
-            ♪
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold text-white">{data.artist}</h1>
-            <p className="text-gray-400">{data.song_count} song{data.song_count !== 1 ? 's' : ''}</p>
+        <div className="min-w-0 flex-1">
+          {isOwner && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-groove-700 pb-4">
+              <button
+                type="button"
+                onClick={openEditModal}
+                className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
+              >
+                Edit
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-4">
+            <div className="relative flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-groove-700 text-4xl text-ray-500">
+              {selfHostedImageUrl(data.image_url) ? (
+                <img src={selfHostedImageUrl(data.image_url)} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span>♪</span>
+              )}
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={openEditModal}
+                  className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/60 text-sm font-medium text-white opacity-0 transition hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ray-500"
+                  title="Edit name and image"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-semibold text-white">{data.artist}</h1>
+              <p className="text-gray-400">{data.song_count} song{data.song_count !== 1 ? 's' : ''}</p>
+            </div>
           </div>
         </div>
 
-        {/* Artist stats & rating */}
-        <div className="flex flex-wrap items-center gap-6 rounded-xl border border-groove-700 bg-groove-900/50 p-4">
+        {/* Ratings & listens — same layout as Song page */}
+        <div className="mt-6 flex flex-wrap items-center gap-6 rounded-xl border border-groove-700 bg-groove-900/50 p-4">
           {user && (
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-400">My rating:</span>
@@ -106,25 +152,191 @@ export default function Artist() {
               </div>
             </div>
           )}
-          <span className="text-sm text-gray-400">
-            Total listens: <span className="text-white">{data.total_listen_count ?? 0}</span>
-          </span>
-          <span className="text-sm text-gray-400">
-            My listens: <span className="text-white">{data.my_listen_count ?? 0}</span>
-          </span>
           {data.community_rating_count > 0 && (
             <span className="text-sm text-gray-400">
-              Everyone&apos;s rating: <span className="text-amber-400">★ {Number(data.community_avg_rating).toFixed(1)}</span>
-              <span className="text-gray-500"> ({data.community_rating_count})</span>
+              Everyone: ★ {Number(data.community_avg_rating).toFixed(1)}{' '}
+              <span className="text-gray-500">({data.community_rating_count} ratings)</span>
             </span>
           )}
-          {user && data.my_rating != null && (
-            <span className="text-sm text-gray-400">
-              My rating: <span className="text-amber-400">{data.my_rating} ★</span>
-            </span>
-          )}
+          <div className="w-full flex flex-col gap-2">
+            <div className="flex items-center gap-3 text-sm text-gray-500">
+              <span>By:</span>
+              {['day', 'week', 'month'].map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setListensPeriod(p)}
+                  className={`capitalize ${listensPeriod === p ? 'text-ray-400 font-medium' : 'hover:text-gray-300'}`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-6">
+              <div className="flex flex-col gap-1 text-sm text-gray-500 min-w-[140px]">
+                <span>My listens: {data.my_listen_count ?? 0}</span>
+                <ListenChart
+                  buckets={[]}
+                  scope="me"
+                  hoverBucket={listensHoverScope === 'me' ? listensHoverBucket : null}
+                  onHover={setListensHoverBucket}
+                  onHoverScope={() => setListensHoverScope('me')}
+                  onHoverEnd={() => {
+                    setListensHoverBucket(null);
+                    setListensHoverScope(null);
+                  }}
+                />
+              </div>
+              <div className="flex flex-col gap-1 text-sm text-gray-500 min-w-[140px]">
+                <span>Total plays: {data.total_listen_count ?? 0}</span>
+                <ListenChart
+                  buckets={[]}
+                  scope="all"
+                  hoverBucket={listensHoverScope === 'all' ? listensHoverBucket : null}
+                  onHover={setListensHoverBucket}
+                  onHoverScope={() => setListensHoverScope('all')}
+                  onHoverEnd={() => {
+                    setListensHoverBucket(null);
+                    setListensHoverScope(null);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+
+      {editImageOpen && isOwner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !savingImage && !savingName && setEditImageOpen(false)}>
+          <div className="w-full max-w-md rounded-xl border border-groove-700 bg-groove-900 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="mb-4 text-lg font-semibold text-white">Edit</h2>
+            {editError && (
+              <p className="mb-3 rounded-lg bg-red-900/30 px-3 py-2 text-sm text-red-400">{editError}</p>
+            )}
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Artist name</label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="min-w-0 flex-1 rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                    placeholder="Artist name"
+                  />
+                  <button
+                    type="button"
+                    disabled={savingName || !editName.trim() || editName.trim() === data?.artist}
+                    onClick={async () => {
+                      if (!artistName || !editName.trim() || editName.trim() === data?.artist) return;
+                      setEditError('');
+                      setSavingName(true);
+                      try {
+                        const updated = await artistsApi.update(artistName, { name: editName.trim() });
+                        setData((prev) => (prev ? { ...prev, artist: updated.artist, image_url: updated.image_url } : null));
+                        setEditImageOpen(false);
+                        navigate(artistDetailUrl(updated.artist));
+                      } catch (err) {
+                        setEditError(err.message || 'Failed to update name');
+                      } finally {
+                        setSavingName(false);
+                      }
+                    }}
+                    className="rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50"
+                  >
+                    {savingName ? 'Saving…' : 'Save name'}
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Only your contributed songs will be renamed.</p>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Artist image</label>
+                <p className="mb-3 text-xs text-gray-500">Upload an image or find one online (we host it).</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      className="hidden"
+                      onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                    />
+                    {imageFile ? imageFile.name : 'Choose image…'}
+                  </label>
+                  <button
+                    type="button"
+                    disabled={!imageFile || savingImage}
+                    onClick={async () => {
+                      if (!imageFile || !artistName) return;
+                      setEditError('');
+                      setSavingImage(true);
+                      try {
+                        const updated = await artistsApi.uploadImage(artistName, imageFile);
+                        setData((prev) => (prev ? { ...prev, image_url: updated.image_url } : null));
+                        setImageFile(null);
+                        setEditImageOpen(false);
+                      } catch (err) {
+                        setEditError(err.message || 'Upload failed');
+                      } finally {
+                        setSavingImage(false);
+                      }
+                    }}
+                    className="rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50"
+                  >
+                    {savingImage ? 'Uploading…' : 'Upload'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={findingImage || savingImage}
+                    onClick={async () => {
+                      if (!artistName) return;
+                      setEditError('');
+                      setFindingImage(true);
+                      try {
+                        const query = (data?.artist || 'artist').trim();
+                        const { url } = await imagesApi.search(query);
+                        const { url: hostedUrl } = await imagesApi.fetchFromUrl(url, 'artist');
+                        await artistsApi.update(artistName, { image_url: hostedUrl });
+                        setData((prev) => (prev ? { ...prev, image_url: hostedUrl } : null));
+                        setEditImageOpen(false);
+                      } catch (err) {
+                        setEditError(err.message || 'Failed to find image online');
+                      } finally {
+                        setFindingImage(false);
+                      }
+                    }}
+                    className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700 disabled:opacity-50"
+                  >
+                    {findingImage ? 'Finding…' : 'Find image online'}
+                  </button>
+                  {data?.image_url && (
+                    <button
+                      type="button"
+                      disabled={savingImage}
+                      onClick={async () => {
+                        if (!artistName) return;
+                        setEditError('');
+                        setSavingImage(true);
+                        try {
+                          await artistsApi.update(artistName, { image_url: null });
+                          setData((prev) => (prev ? { ...prev, image_url: null } : null));
+                          setEditImageOpen(false);
+                        } catch (err) {
+                          setEditError(err.message || 'Failed to remove image');
+                        } finally {
+                          setSavingImage(false);
+                        }
+                      }}
+                      className="rounded-lg border border-groove-600 px-4 py-2 text-red-400 hover:bg-red-900/30 disabled:opacity-50"
+                    >
+                      Remove image
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <h2 className="mb-3 text-lg font-medium text-white">Songs</h2>
       <div className="space-y-1 rounded-xl border border-groove-700 bg-groove-900/50">

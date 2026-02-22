@@ -154,6 +154,20 @@ export const artists = {
   list: (params) => request(`/artists${buildSearchParams(params)}`),
   listMine: (params) => request(`/artists/mine${buildSearchParams(params)}`),
   get: (name, params) => request(`/artists/${encodeURIComponent(name)}${buildSearchParams(params || {})}`),
+  update: (name, payload) =>
+    request(`/artists/${encodeURIComponent(name)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  uploadImage: (name, file) => {
+    const form = new FormData();
+    form.append('image', file);
+    return fetch(`${API}/artists/${encodeURIComponent(name)}/image`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getToken()}` },
+      body: form,
+    }).then((r) => (r.ok ? r.json() : r.json().then((d) => Promise.reject(new Error(d.error || 'Upload failed')))));
+  },
   setRating: (name, rating) =>
     request(`/artists/${encodeURIComponent(name)}/rating`, {
       method: 'PATCH',
