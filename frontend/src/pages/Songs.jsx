@@ -12,6 +12,17 @@ const TABS = [
   { id: 'mine', label: 'My Songs' },
 ];
 
+/** True if the YouTube job error indicates YouTube wants cookies / "sign in to confirm not a bot". */
+function isYoutubeCookiesError(message) {
+  if (!message || typeof message !== 'string') return false;
+  const s = message.toLowerCase();
+  return (
+    s.includes("sign in to confirm") ||
+    s.includes("not a bot") ||
+    (s.includes("cookies") && (s.includes("yt-dlp") || s.includes("authentication")))
+  );
+}
+
 export default function Songs() {
   const [activeTab, setActiveTab] = useState('all');
   const [list, setList] = useState([]);
@@ -936,10 +947,24 @@ export default function Songs() {
                     <p className="mt-1 text-green-300/90">You can close this window.</p>
                   </div>
                 ) : youtubeJobStatus === 'failed' ? (
-                  <div className="rounded-lg bg-red-500/20 px-3 py-3 text-sm text-red-400">
-                    <p className="font-medium">Couldn&apos;t add the song</p>
-                    <p className="mt-1 text-red-300/90">{youtubeJobError || 'YouTube download failed'}</p>
-                    <p className="mt-2 text-red-300/80">You can try another URL or close this window.</p>
+                  <div className="space-y-4">
+                    <div className="rounded-lg bg-red-500/20 px-3 py-3 text-sm text-red-400">
+                      <p className="font-medium">Couldn&apos;t add the song</p>
+                      {isYoutubeCookiesError(youtubeJobError) ? (
+                        <p className="mt-1 text-red-300/90">
+                          YouTube is asking you to sign in to confirm you&apos;re not a bot. Add your YouTube cookies in your profile to fix this.
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-red-300/90">{youtubeJobError || 'YouTube download failed'}</p>
+                      )}
+                      <p className="mt-2 text-red-300/80">You can try another URL or close this window.</p>
+                    </div>
+                    {isYoutubeCookiesError(youtubeJobError) && (
+                      <div className="rounded-lg border border-groove-600 bg-groove-800/50 px-3 py-3 text-sm text-gray-300">
+                        <p className="mb-2 font-medium text-white">How to set up YouTube cookies</p>
+                        <YouTubeCookiesInstructions showScreenshot={false} />
+                      </div>
+                    )}
                   </div>
                 ) : youtubeJobStatus === 'downloading' ? (
                   <>
