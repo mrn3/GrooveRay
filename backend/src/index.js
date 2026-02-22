@@ -3,10 +3,13 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 import authRoutes from './routes/auth.js';
+import { blockBannedIps, rateLimitOptions, authRateLimitOptions } from './middleware/security.js';
 import songRoutes from './routes/songs.js';
 import youtubeRoutes from './routes/youtube.js';
 import stationRoutes, { advanceStationPlayback } from './routes/stations.js';
@@ -31,6 +34,14 @@ setIO(io);
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173', credentials: true }));
 app.use(express.json());
 
+// Production security: trust proxy (for correct client IP behind nginx), headers, IP blocklist, rate limiting
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+  app.use(helmet({ contentSecurityPolicy: false })); // CSP off; frontend may need inline scripts
+  app.use(blockBannedIps);
+  app.use(rateLimit(rateLimitOptions));
+}
+app.use('/api/auth', rateLimit(authRateLimitOptions));
 app.use('/api/auth', authRoutes);
 app.use('/api/uploads/avatars', express.static(path.join(__dirname, '../uploads/avatars')));
 app.use('/api/uploads/thumbnails', express.static(path.join(__dirname, '../uploads/thumbnails')));

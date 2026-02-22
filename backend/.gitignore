@@ -3,4 +3,5 @@ data/
 uploads/
 downloads/
 .env
+banned-ips.txt
 *.log

@@ -33,7 +33,19 @@ server {
     # Max body size for uploads (e.g. music files)
     client_max_body_size 100M;
 
-    # Proxy everything to the Node app (PM2 on port 3000)
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Block common exploit paths
+    location ~* (\.env|\.git|\.sql|\.htaccess|wp-admin|wp-login|\.php$|/admin\.php) {
+        return 404;
+    }
+
+    # Optional: add in http { } — limit_req_zone $binary_remote_addr zone=grooveray:10m rate=30r/m;
+    # limit_req zone=grooveray burst=40 nodelay;
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;

@@ -1,0 +1,5 @@
+# Banned IPs — one per line. Copy to banned-ips.txt and add IPs.
+# App reads this file at startup; restart PM2 after changes (or use BANNED_IPS in .env).
+# Example:
+# 192.168.1.100
+# 10.0.0.50

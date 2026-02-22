@@ -80,9 +80,27 @@ Users can log in with Google in addition to username/password. To enable it:
 
 The login page will show a **Sign in with Google** button when these are set.
 
+## Production security
+
+When `NODE_ENV=production`, the backend applies:
+
+- **Helmet** — Security headers (X-Frame-Options, etc.).
+- **IP blocklist** — Requests from banned IPs get 403. Configure via:
+  - `backend/banned-ips.txt` (one IP per line; copy from `backend/banned-ips.txt.example`), or
+  - env `BANNED_IPS=1.2.3.4,5.6.7.8`.
+- **Rate limiting** — 120 requests/min per IP overall; 20 attempts per 15 min on `/api/auth` (login/register).
+
+To **ban an IP on the server** (with `ssh shared` and app at `~/GrooveRay`):
+
+```bash
+./scripts/ban-ip.sh 1.2.3.4
+```
+
+Nginx (see `bitnami-nginx/` or `nginx.conf.example`) adds security headers and blocks common exploit paths (`.env`, `.php`, `wp-admin`, etc.). Optional nginx rate limiting is documented in `bitnami-nginx/README.md`.
+
 ## Environment
 
-- **Backend:** See `backend/.env.example`. Required: `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`. Optional: `PORT`, `JWT_SECRET`, `CORS_ORIGIN`, `NODE_ENV`, `YTDLP_COOKIES_FILE`, `YTDLP_COOKIES_FROM_BROWSER`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `FRONTEND_URL`, `API_URL`.
+- **Backend:** See `backend/.env.example`. Required: `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`. Optional: `PORT`, `JWT_SECRET`, `CORS_ORIGIN`, `NODE_ENV`, `BANNED_IPS`, `YTDLP_COOKIES_FILE`, `YTDLP_COOKIES_FROM_BROWSER`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `FRONTEND_URL`, `API_URL`.
 - **Frontend:** Vite proxy is set for local dev; set `VITE_API_URL` if you use a different API origin.
 
 ## License
