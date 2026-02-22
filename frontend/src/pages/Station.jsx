@@ -7,7 +7,11 @@ import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 
 function serverPosition(startedAt, durationSeconds) {
-  const start = new Date(startedAt).getTime() / 1000;
+  // Treat server timestamps as UTC so client/server timezone skew doesn't reset playback
+  const ts = typeof startedAt === 'string' && !/Z|[+-]\d{2}:?\d{2}$/.test(startedAt)
+    ? startedAt.replace(' ', 'T') + 'Z'
+    : startedAt;
+  const start = new Date(ts).getTime() / 1000;
   const elapsed = Date.now() / 1000 - start;
   const duration = Number(durationSeconds) || 60;
   return Math.min(Math.max(0, elapsed), duration);

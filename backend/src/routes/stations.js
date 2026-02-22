@@ -74,9 +74,18 @@ async function getQueue(stationId) {
   );
 }
 
+/** Serialize started_at for clients so they parse as UTC (avoids client/server timezone bugs). */
+function toClientStartedAt(dbStartedAt) {
+  if (dbStartedAt == null) return dbStartedAt;
+  if (typeof dbStartedAt !== 'string') return dbStartedAt;
+  if (dbStartedAt.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(dbStartedAt)) return dbStartedAt;
+  return dbStartedAt.replace(' ', 'T') + 'Z';
+}
+
 /** Advance station playback: ensure now_playing is set from queue head, or advance if current song ended. Returns { nowPlaying, queue }. */
 export async function advanceStationPlayback(stationId) {
-  const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const nowDate = new Date();
+  const now = nowDate.toISOString().slice(0, 19).replace('T', ' ');
   const np = await db.get('SELECT queue_id, started_at FROM station_now_playing WHERE station_id = ?', [stationId]);
 
   if (np) {
@@ -86,7 +95,7 @@ export async function advanceStationPlayback(stationId) {
       [np.queue_id]
     );
     const duration = (row?.duration_seconds ?? 0) || 60;
-    const endAt = new Date(new Date(np.started_at).getTime() + duration * 1000);
+    const endAt = new Date(new Date(np.started_at + 'Z').getTime() + duration * 1000);
     if (endAt <= new Date()) {
       await db.run('UPDATE station_queue SET played_at = NOW() WHERE id = ? AND station_id = ?', [np.queue_id, stationId]);
       await db.run('DELETE FROM station_now_playing WHERE station_id = ?', [stationId]);
@@ -99,7 +108,7 @@ export async function advanceStationPlayback(stationId) {
           now,
         ]);
         emitStationUpdate(stationId, 'queue', queue);
-        const payload = { queueId: next.id, startedAt: now, item: next };
+        const payload = { queueId: next.id, startedAt: nowDate.toISOString(), item: next };
         emitStationUpdate(stationId, 'nowPlaying', payload);
         return { nowPlaying: payload, queue };
       }
@@ -113,7 +122,7 @@ export async function advanceStationPlayback(stationId) {
        FROM station_queue q JOIN songs s ON s.id = q.song_id WHERE q.id = ?`,
       [np.queue_id]
     );
-    return { nowPlaying: { queueId: np.queue_id, startedAt: np.started_at, item: current }, queue };
+    return { nowPlaying: { queueId: np.queue_id, startedAt: toClientStartedAt(np.started_at), item: current }, queue };
   }
 
   const queue = await getQueue(stationId);
@@ -124,7 +133,7 @@ export async function advanceStationPlayback(stationId) {
       first.id,
       now,
     ]);
-    const payload = { queueId: first.id, startedAt: now, item: first };
+    const payload = { queueId: first.id, startedAt: nowDate.toISOString(), item: first };
     emitStationUpdate(stationId, 'nowPlaying', payload);
     return { nowPlaying: payload, queue };
   }
