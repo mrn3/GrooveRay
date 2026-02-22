@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { stations as stationsApi, songs as songsApi, images as imagesApi } from '../api';
 import { selfHostedImageUrl } from '../utils/images';
+import ArtistLink from '../components/ArtistLink';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 
@@ -352,7 +353,7 @@ export default function Station() {
                 </div>
                 <div className="min-w-0">
                   <p className="font-medium text-white">{nowPlaying.item.title}</p>
-                  <p className="text-sm text-gray-400">{nowPlaying.item.artist}</p>
+                  <p className="text-sm text-gray-400"><ArtistLink artist={nowPlaying.item.artist} className="text-sm" /></p>
                 </div>
               </div>
             )}
@@ -645,7 +646,7 @@ export default function Station() {
                           className="w-full px-4 py-2 text-left text-white hover:bg-groove-600 focus:bg-groove-600 focus:outline-none"
                         >
                           <span className="font-medium">{s.title}</span>
-                          <span className="text-gray-400"> — {s.artist}</span>
+                          <span className="text-gray-400"> — <ArtistLink artist={s.artist} className="text-gray-400" /></span>
                         </button>
                       </li>
                     ))}
@@ -674,7 +675,7 @@ export default function Station() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-white">{nowPlaying.item.title}</p>
-                  <p className="text-sm text-gray-400">{nowPlaying.item.artist}</p>
+                  <p className="text-sm text-gray-400"><ArtistLink artist={nowPlaying.item.artist} className="text-sm" /></p>
                 </div>
               </div>
               {nowPlayingDetails && (
@@ -771,7 +772,7 @@ export default function Station() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-white">{item.title}</p>
-                  <p className="text-sm text-gray-400">{item.artist}</p>
+                  <p className="text-sm text-gray-400"><ArtistLink artist={item.artist} className="text-sm" /></p>
                 </div>
               </div>
             ))

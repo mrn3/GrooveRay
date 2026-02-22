@@ -4,6 +4,7 @@ import { dashboard as dashboardApi, playlists as playlistsApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import { useListUpdates } from '../context/ListUpdatesContext';
 import { selfHostedImageUrl } from '../utils/images';
+import ArtistLink from '../components/ArtistLink';
 import { useAuth } from '../context/AuthContext';
 
 function mergeItemInArray(arr, id, patch) {
@@ -76,7 +77,7 @@ function SongListRow({ song, meta, recentlyUpdated }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-white" title={song.title}>{song.title}</p>
-        <p className="truncate text-xs text-gray-400" title={song.artist}>{song.artist || '—'}</p>
+        <p className="truncate text-xs text-gray-400" title={song.artist}><ArtistLink artist={song.artist} className="text-xs" /></p>
       </div>
       {meta != null && (
         <span className="flex-shrink-0 text-xs text-gray-400">{meta}</span>

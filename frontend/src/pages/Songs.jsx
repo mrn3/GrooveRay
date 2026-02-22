@@ -5,6 +5,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
 import { useListUpdates } from '../context/ListUpdatesContext';
 import { selfHostedImageUrl } from '../utils/images';
+import ArtistLink from '../components/ArtistLink';
 import { YouTubeCookiesInstructions } from '../content/youtubeCookiesInstructions';
 
 const TABS = [
@@ -1049,7 +1050,7 @@ export default function Songs() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-white">{uploadingItem.title}</p>
-                  <p className="truncate text-sm text-gray-400">{uploadingItem.artist} · Uploading</p>
+                  <p className="truncate text-sm text-gray-400"><ArtistLink artist={uploadingItem.artist} /> · Uploading</p>
                   <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-groove-700">
                     <div
                       className="h-full rounded-full bg-ray-500 transition-all duration-300"
@@ -1244,7 +1245,7 @@ export default function Songs() {
                   <>
                     <p className="truncate font-medium text-white">{song.title}</p>
                     <p className="truncate text-sm text-gray-400">
-                      {song.artist} · {song.source}
+                      <ArtistLink artist={song.artist} /> · {song.source}
                       {song.uploader_name && (
                         <span className="text-gray-500"> · {song.uploader_name}</span>
                       )}

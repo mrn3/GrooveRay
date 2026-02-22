@@ -1,5 +1,6 @@
 import { usePlayer } from '../context/PlayerContext';
 import { selfHostedImageUrl } from '../utils/images';
+import ArtistLink from './ArtistLink';
 
 export default function PlayerBar() {
   const { current, playing, progress, duration, toggle, seek, stationMode } = usePlayer();
@@ -20,7 +21,7 @@ export default function PlayerBar() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium text-white">{current.title}</p>
-          <p className="truncate text-sm text-gray-400">{current.artist}</p>
+          <p className="truncate text-sm text-gray-400"><ArtistLink artist={current.artist} className="text-sm" /></p>
         </div>
         <div className="flex flex-1 flex-col items-center gap-1">
           {!isStationSync && (

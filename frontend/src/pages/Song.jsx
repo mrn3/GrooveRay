@@ -4,6 +4,7 @@ import { songs as songsApi, images as imagesApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 import { selfHostedImageUrl } from '../utils/images';
+import ArtistLink from '../components/ArtistLink';
 
 function formatRatingDate(updatedAt) {
   if (!updatedAt) return '—';
@@ -333,7 +334,7 @@ export default function Song() {
             </div>
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold text-white">{song.title}</h1>
-              <p className="text-gray-400">{song.artist}</p>
+              <p className="text-gray-400"><ArtistLink artist={song.artist} /></p>
               {song.uploader_name && (
                 <p className="text-sm text-gray-500">by {song.uploader_name}</p>
               )}

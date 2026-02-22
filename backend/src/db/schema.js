@@ -354,6 +354,21 @@ async function ensureSchema() {
   try {
     await exec('CREATE INDEX idx_station_chat_messages_station_created ON station_chat_messages(station_id, created_at)');
   } catch (_) {}
+  try {
+    await exec(
+      `CREATE TABLE IF NOT EXISTS user_artist_ratings (
+        user_id VARCHAR(36) NOT NULL,
+        artist_name VARCHAR(255) NOT NULL,
+        rating INT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, artist_name),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )`
+    );
+  } catch (_) {}
+  try {
+    await exec('CREATE INDEX idx_user_artist_ratings_artist ON user_artist_ratings(artist_name)');
+  } catch (_) {}
 }
 
 let schemaReady = null;

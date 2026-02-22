@@ -12,7 +12,7 @@ import { emitListUpdate } from '../socket.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-async function attachCommunityRatings(list) {
+export async function attachCommunityRatings(list) {
   if (!list?.length) return list;
   const ids = list.map((s) => s.id);
   const placeholders = ids.map(() => '?').join(',');
@@ -31,7 +31,7 @@ async function attachCommunityRatings(list) {
   }));
 }
 
-async function attachUserStats(list, userId) {
+export async function attachUserStats(list, userId) {
   if (!userId || !list?.length) return list;
   const ids = list.map((s) => s.id);
   const placeholders = ids.map(() => '?').join(',');

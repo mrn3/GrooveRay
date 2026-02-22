@@ -4,6 +4,7 @@ import { playlists as playlistsApi, songs as songsApi, images as imagesApi } fro
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 import { selfHostedImageUrl } from '../utils/images';
+import ArtistLink from '../components/ArtistLink';
 
 function formatRatingDate(updatedAt) {
   if (!updatedAt) return '—';
@@ -464,7 +465,7 @@ export default function Playlist() {
                       onClick={() => handleAddTrack(s.id)}
                       className="w-full px-4 py-2 text-left text-white hover:bg-groove-600"
                     >
-                      {s.title} — {s.artist}
+                      {s.title} — <ArtistLink artist={s.artist} />
                     </button>
                   </li>
                 ))}
@@ -514,7 +515,7 @@ export default function Playlist() {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <p className="font-medium text-white">{track.title}</p>
-                  <p className="text-sm text-gray-400">{track.artist}</p>
+                  <p className="text-sm text-gray-400"><ArtistLink artist={track.artist} className="text-sm" /></p>
                 </Link>
                 {isOwner && (
                   <button

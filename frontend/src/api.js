@@ -149,6 +149,18 @@ export const songs = {
   },
 };
 
+// Artists
+export const artists = {
+  list: (params) => request(`/artists${buildSearchParams(params)}`),
+  listMine: (params) => request(`/artists/mine${buildSearchParams(params)}`),
+  get: (name, params) => request(`/artists/${encodeURIComponent(name)}${buildSearchParams(params || {})}`),
+  setRating: (name, rating) =>
+    request(`/artists/${encodeURIComponent(name)}/rating`, {
+      method: 'PATCH',
+      body: JSON.stringify({ rating }),
+    }),
+};
+
 // YouTube
 export const youtube = {
   add: (url) => request('/youtube/add', { method: 'POST', body: JSON.stringify({ url }) }),

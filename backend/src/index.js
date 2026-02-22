@@ -11,6 +11,7 @@ import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.js';
 import { blockBannedIps, rateLimitOptions, authRateLimitOptions } from './middleware/security.js';
 import songRoutes from './routes/songs.js';
+import artistRoutes from './routes/artists.js';
 import youtubeRoutes from './routes/youtube.js';
 import stationRoutes, { advanceStationPlayback } from './routes/stations.js';
 import playlistRoutes from './routes/playlists.js';
@@ -48,6 +49,7 @@ app.use('/api/uploads/thumbnails', express.static(path.join(__dirname, '../uploa
 app.use('/api/uploads/playlists', express.static(path.join(__dirname, '../uploads/playlists')));
 app.use('/api/uploads/stations', express.static(path.join(__dirname, '../uploads/stations')));
 app.use('/api/songs', songRoutes);
+app.use('/api/artists', artistRoutes);
 app.use('/api/youtube', youtubeRoutes);
 app.use('/api/stations', stationRoutes);
 app.use('/api/playlists', playlistRoutes);
