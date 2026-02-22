@@ -424,6 +424,8 @@ router.post('/:id/queue', authMiddleware, async (req, res) => {
   );
   const queue = await getQueue(req.params.id);
   emitStationUpdate(req.params.id, 'queue', queue);
+  // When the first song is added (nothing playing), start it immediately
+  await advanceStationPlayback(req.params.id);
   res.status(201).json(row);
 });
 
