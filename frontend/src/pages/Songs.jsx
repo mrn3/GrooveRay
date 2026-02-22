@@ -158,6 +158,10 @@ export default function Songs() {
   const [uploadingItem, setUploadingItem] = useState(null); // { title, artist, progress: 0-100 } | null
   const [youtubePendingItem, setYoutubePendingItem] = useState(null); // { title: string } | null
   const youtubePollRef = useRef(null);
+  // YouTube add-from-modal: track current job so we show progress/success/error in modal
+  const [youtubeJobId, setYoutubeJobId] = useState(null);
+  const [youtubeJobStatus, setYoutubeJobStatus] = useState('idle'); // 'idle' | 'downloading' | 'completed' | 'failed'
+  const [youtubeJobError, setYoutubeJobError] = useState('');
 
   function parseArtistString(str) {
     if (!str || typeof str !== 'string') return [];
@@ -337,12 +341,22 @@ export default function Songs() {
     setUploadArtist('');
     setUploadProgress(null);
     setYoutubeUrl('');
+    setYoutubeJobId(null);
+    setYoutubeJobStatus('idle');
+    setYoutubeJobError('');
   };
 
   const closeAddModal = () => {
+    if (youtubePollRef.current) {
+      clearInterval(youtubePollRef.current);
+      youtubePollRef.current = null;
+    }
     setAddModalOpen(false);
     setAddMode(null);
     setAddMessage('');
+    setYoutubeJobId(null);
+    setYoutubeJobStatus('idle');
+    setYoutubeJobError('');
   };
 
   const handleUploadSubmit = async (e) => {
@@ -380,11 +394,13 @@ export default function Songs() {
     setYoutubePendingItem({ title: url.length > 50 ? url.slice(0, 47) + '…' : url });
     setYoutubeLoading(true);
     setAddMessage('');
+    setYoutubeJobError('');
     try {
       const { jobId } = await youtubeApi.add(url);
       setAddMessage('Download started — audio will be added to your library when ready.');
-      setTimeout(closeAddModal, 1800);
-      if (activeTab === 'mine' && jobId) {
+      setYoutubeJobId(jobId);
+      setYoutubeJobStatus('downloading');
+      if (jobId) {
         if (youtubePollRef.current) clearInterval(youtubePollRef.current);
         const startedAt = Date.now();
         const maxMs = 120000;
@@ -392,6 +408,8 @@ export default function Songs() {
           if (Date.now() - startedAt > maxMs) {
             clearInterval(youtubePollRef.current);
             youtubePollRef.current = null;
+            setYoutubeJobStatus('failed');
+            setYoutubeJobError('Download timed out. Try again or check the YouTube link.');
             return;
           }
           try {
@@ -401,11 +419,13 @@ export default function Songs() {
             if (job.status === 'completed') {
               clearInterval(youtubePollRef.current);
               youtubePollRef.current = null;
+              setYoutubeJobStatus('completed');
               fetchList();
             } else if (job.status === 'failed') {
               clearInterval(youtubePollRef.current);
               youtubePollRef.current = null;
-              setError(job.error_message || 'YouTube download failed');
+              setYoutubeJobStatus('failed');
+              setYoutubeJobError(job.error_message || 'YouTube download failed');
             }
           } catch (_) {}
         }, 3000);
@@ -769,7 +789,19 @@ export default function Songs() {
               {addMode !== null && (
                 <button
                   type="button"
-                  onClick={() => { setAddMode(null); setAddMessage(''); }}
+                  onClick={() => {
+                    setAddMode(null);
+                    setAddMessage('');
+                    if (addMode === 'youtube') {
+                      if (youtubePollRef.current) {
+                        clearInterval(youtubePollRef.current);
+                        youtubePollRef.current = null;
+                      }
+                      setYoutubeJobId(null);
+                      setYoutubeJobStatus('idle');
+                      setYoutubeJobError('');
+                    }
+                  }}
                   className="rounded p-1.5 text-gray-400 hover:bg-groove-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-ray-500"
                   aria-label="Back"
                 >
@@ -897,38 +929,72 @@ export default function Songs() {
                 </button>
               </form>
             ) : (
-              <form onSubmit={handleYoutubeAdd} className="space-y-4">
-                {addMessage && (
-                  <p className={`rounded-lg px-3 py-2 text-sm ${addMessage.includes('started') ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                    {addMessage}
-                  </p>
-                )}
-                {youtubeLoading && (
-                  <div className="space-y-1">
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-groove-700">
-                      <div className="h-full w-1/3 rounded-full bg-ray-500 animate-progress-indeterminate" />
-                    </div>
-                    <p className="text-center text-sm text-gray-400">Processing…</p>
+              <div className="space-y-4">
+                {youtubeJobStatus === 'completed' ? (
+                  <div className="rounded-lg bg-green-500/20 px-3 py-3 text-sm text-green-400">
+                    <p className="font-medium">Song added to your library.</p>
+                    <p className="mt-1 text-green-300/90">You can close this window.</p>
                   </div>
+                ) : youtubeJobStatus === 'failed' ? (
+                  <div className="rounded-lg bg-red-500/20 px-3 py-3 text-sm text-red-400">
+                    <p className="font-medium">Couldn&apos;t add the song</p>
+                    <p className="mt-1 text-red-300/90">{youtubeJobError || 'YouTube download failed'}</p>
+                    <p className="mt-2 text-red-300/80">You can try another URL or close this window.</p>
+                  </div>
+                ) : youtubeJobStatus === 'downloading' ? (
+                  <>
+                    {addMessage && (
+                      <p className="rounded-lg bg-green-500/20 px-3 py-2 text-sm text-green-400">
+                        {addMessage}
+                      </p>
+                    )}
+                    <div className="space-y-2">
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-groove-700">
+                        <div className="h-full w-1/3 rounded-full bg-ray-500 animate-progress-indeterminate" />
+                      </div>
+                      <p className="text-center text-sm text-gray-400">Downloading and processing…</p>
+                    </div>
+                    {youtubeUrl && (
+                      <p className="truncate rounded border border-groove-600 bg-groove-800/50 px-3 py-2 font-mono text-xs text-gray-500">
+                        {youtubeUrl}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <form onSubmit={handleYoutubeAdd} className="space-y-4">
+                    {addMessage && (
+                      <p className={`rounded-lg px-3 py-2 text-sm ${addMessage.includes('started') ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                        {addMessage}
+                      </p>
+                    )}
+                    {youtubeLoading && (
+                      <div className="space-y-1">
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-groove-700">
+                          <div className="h-full w-1/3 rounded-full bg-ray-500 animate-progress-indeterminate" />
+                        </div>
+                        <p className="text-center text-sm text-gray-400">Starting…</p>
+                      </div>
+                    )}
+                    <div>
+                      <label className="mb-1 block text-sm text-gray-400">YouTube video URL</label>
+                      <input
+                        type="url"
+                        value={youtubeUrl}
+                        onChange={(e) => setYoutubeUrl(e.target.value)}
+                        placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                        className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500 font-mono text-sm"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={youtubeLoading}
+                      className="w-full rounded-lg bg-ray-600 py-3 font-medium text-white transition hover:bg-ray-500 disabled:opacity-50"
+                    >
+                      {youtubeLoading ? 'Adding…' : 'Add to library'}
+                    </button>
+                  </form>
                 )}
-                <div>
-                  <label className="mb-1 block text-sm text-gray-400">YouTube video URL</label>
-                  <input
-                    type="url"
-                    value={youtubeUrl}
-                    onChange={(e) => setYoutubeUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
-                    className="w-full rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500 font-mono text-sm"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={youtubeLoading}
-                  className="w-full rounded-lg bg-ray-600 py-3 font-medium text-white transition hover:bg-ray-500 disabled:opacity-50"
-                >
-                  {youtubeLoading ? 'Adding…' : 'Add to library'}
-                </button>
-              </form>
+              </div>
             )}
           </div>
         </div>
