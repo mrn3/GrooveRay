@@ -377,6 +377,41 @@ async function ensureSchema() {
       )`
     );
   } catch (_) {}
+  try {
+    await exec(
+      `CREATE TABLE IF NOT EXISTS user_connections (
+        user_id VARCHAR(36) NOT NULL,
+        connected_user_id VARCHAR(36) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, connected_user_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (connected_user_id) REFERENCES users(id) ON DELETE CASCADE,
+        CHECK (user_id != connected_user_id)
+      )`
+    );
+  } catch (_) {}
+  try {
+    await exec('CREATE INDEX idx_user_connections_connected ON user_connections(connected_user_id)');
+  } catch (_) {}
+  try {
+    await exec(
+      `CREATE TABLE IF NOT EXISTS direct_messages (
+        id VARCHAR(36) PRIMARY KEY,
+        sender_id VARCHAR(36) NOT NULL,
+        receiver_id VARCHAR(36) NOT NULL,
+        message TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+      )`
+    );
+  } catch (_) {}
+  try {
+    await exec('CREATE INDEX idx_direct_messages_receiver_created ON direct_messages(receiver_id, created_at)');
+  } catch (_) {}
+  try {
+    await exec('CREATE INDEX idx_direct_messages_sender_created ON direct_messages(sender_id, created_at)');
+  } catch (_) {}
 }
 
 let schemaReady = null;

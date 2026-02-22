@@ -1,3 +1,5 @@
+import GrooverLink from './GrooverLink';
+
 export default function ListenChart({ buckets, scope, hoverBucket, onHover, onHoverScope, onHoverEnd }) {
   const maxCount = Math.max(1, ...(buckets || []).map((b) => b.count));
   return (
@@ -28,7 +30,7 @@ export default function ListenChart({ buckets, scope, hoverBucket, onHover, onHo
                   <ul className="max-h-40 overflow-auto text-xs text-gray-400 space-y-1">
                     {bucket.events.map((ev, i) => (
                       <li key={i}>
-                        {ev.username} — {ev.played_at ? new Date(ev.played_at).toLocaleString() : ''}
+                        <GrooverLink username={ev.username} /> — {ev.played_at ? new Date(ev.played_at).toLocaleString() : ''}
                       </li>
                     ))}
                   </ul>

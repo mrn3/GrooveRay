@@ -5,6 +5,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { useListUpdates } from '../context/ListUpdatesContext';
 import { selfHostedImageUrl } from '../utils/images';
 import ArtistLink from '../components/ArtistLink';
+import GrooverLink from '../components/GrooverLink';
 import { useAuth } from '../context/AuthContext';
 
 function mergeItemInArray(arr, id, patch) {
@@ -161,7 +162,7 @@ function PlaylistListRow({ playlist, meta, recentlyUpdated }) {
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-white" title={playlist.name}>{playlist.name}</p>
         <p className="truncate text-xs text-gray-400" title={playlist.owner_name}>
-          {playlist.owner_name}{playlist.track_count != null ? ` · ${playlist.track_count} tracks` : ''}
+          <GrooverLink username={playlist.owner_name} />{playlist.track_count != null ? ` · ${playlist.track_count} tracks` : ''}
         </p>
       </div>
       {meta != null && (
@@ -218,7 +219,7 @@ function StationListRow({ station, meta, recentlyUpdated }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-white" title={station.name}>{station.name}</p>
-        <p className="truncate text-xs text-gray-400" title={station.owner_name}>{station.owner_name || '—'}</p>
+        <p className="truncate text-xs text-gray-400" title={station.owner_name}>{station.owner_name ? <GrooverLink username={station.owner_name} /> : '—'}</p>
       </div>
       {meta != null && (
         <span className="flex-shrink-0 text-xs text-gray-400">{meta}</span>

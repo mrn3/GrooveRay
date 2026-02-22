@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useListUpdates } from '../context/ListUpdatesContext';
 import { selfHostedImageUrl } from '../utils/images';
 import ArtistLink from '../components/ArtistLink';
+import GrooverLink from '../components/GrooverLink';
 import { YouTubeCookiesInstructions } from '../content/youtubeCookiesInstructions';
 
 const TABS = [
@@ -1247,7 +1248,7 @@ export default function Songs() {
                     <p className="truncate text-sm text-gray-400">
                       <ArtistLink artist={song.artist} /> · {song.source}
                       {song.uploader_name && (
-                        <span className="text-gray-500"> · {song.uploader_name}</span>
+                        <span className="text-gray-500"> · <GrooverLink username={song.uploader_name} /></span>
                       )}
                     </p>
                   </>

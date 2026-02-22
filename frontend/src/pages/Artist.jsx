@@ -5,6 +5,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
 import { selfHostedImageUrl } from '../utils/images';
 import ListenChart from '../components/ListenChart';
+import GrooverLink from '../components/GrooverLink';
 
 function artistDetailUrl(name) {
   return `/artists/${encodeURIComponent(name)}`;
@@ -386,7 +387,7 @@ export default function Artist() {
                   </a>
                   {' · '}
                   {song.source}
-                  {song.uploader_name && <span className="text-gray-500"> · {song.uploader_name}</span>}
+                  {song.uploader_name && <span className="text-gray-500"> · <GrooverLink username={song.uploader_name} /></span>}
                 </p>
               </div>
               <span className="flex-shrink-0 rounded bg-groove-600 px-2 py-0.5 text-xs font-mono text-gray-400">

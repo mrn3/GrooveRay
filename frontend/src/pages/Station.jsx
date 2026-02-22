@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import { stations as stationsApi, songs as songsApi, images as imagesApi } from '../api';
 import { selfHostedImageUrl } from '../utils/images';
 import ArtistLink from '../components/ArtistLink';
+import GrooverLink from '../components/GrooverLink';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 
@@ -414,7 +415,7 @@ export default function Station() {
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold text-white">{station.name}</h1>
               {station.description && <p className="text-gray-400">{station.description}</p>}
-              <p className="text-sm text-gray-500">by {station.owner_name}</p>
+              <p className="text-sm text-gray-500">by <GrooverLink username={station.owner_name} /></p>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
                 <span className="text-gray-500">Station rating:</span>
                 {station.community_rating_count > 0 && (
@@ -733,7 +734,7 @@ export default function Station() {
                 <ul className="space-y-1.5 text-sm">
                   {listeners.map((l) => (
                     <li key={l.userId} className="text-gray-300">
-                      <span className="font-medium text-white">{l.username}</span>
+                      <GrooverLink username={l.username} className="font-medium text-white" />
                     </li>
                   ))}
                 </ul>
@@ -789,7 +790,7 @@ export default function Station() {
             ) : (
               chatMessages.map((m) => (
                 <div key={m.id} className="text-sm">
-                  <span className="font-medium text-ray-400">{m.username}</span>
+                  <GrooverLink username={m.username} className="font-medium text-ray-400" />
                   <span className="text-gray-500 ml-2 text-xs">
                     {m.created_at ? new Date(m.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}
                   </span>

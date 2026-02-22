@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { selfHostedImageUrl } from '../utils/images';
 import Logo from './Logo';
@@ -10,6 +10,7 @@ const nav = [
   { to: '/artists', label: 'Artists' },
   { to: '/playlists', label: 'Playlists' },
   { to: '/stations', label: 'Stations' },
+  { to: '/groovers', label: 'Groovers' },
 ];
 
 function AvatarMenu({ user, logout }) {
@@ -51,6 +52,13 @@ function AvatarMenu({ user, logout }) {
       </button>
       {open && (
         <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-lg border border-groove-600 bg-groove-900 py-1 shadow-xl">
+          <Link
+            to={user?.username ? `/groovers/${encodeURIComponent(user.username)}` : '/profile'}
+            onClick={() => setOpen(false)}
+            className="block px-4 py-2 text-sm text-gray-300 hover:bg-groove-800 hover:text-white"
+          >
+            View profile
+          </Link>
           <NavLink
             to="/profile"
             onClick={() => setOpen(false)}

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useListUpdates } from '../context/ListUpdatesContext';
 import { stations as stationsApi } from '../api';
 import { selfHostedImageUrl } from '../utils/images';
+import GrooverLink from '../components/GrooverLink';
 
 const TABS = [
   { id: 'all', label: 'All Stations' },
@@ -421,7 +422,7 @@ export default function Stations() {
                 <p className="line-clamp-2 text-sm text-gray-400">
                   {station.description || 'No description'}
                 </p>
-                <p className="mt-0.5 text-xs text-gray-500">by {station.owner_name}</p>
+                <p className="mt-0.5 text-xs text-gray-500">by <GrooverLink username={station.owner_name} /></p>
               </div>
               <span className="flex-shrink-0 text-xs text-gray-400" title="Currently listening">
                 <span className="flex items-center gap-1">

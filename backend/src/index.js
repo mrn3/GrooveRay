@@ -17,6 +17,7 @@ import stationRoutes, { advanceStationPlayback } from './routes/stations.js';
 import playlistRoutes from './routes/playlists.js';
 import dashboardRoutes from './routes/dashboard.js';
 import imageRoutes from './routes/images.js';
+import grooverRoutes from './routes/groovers.js';
 import { setIO, addStationListener, removeStationListener, removeSocketFromStations, emitStationUpdate } from './socket.js';
 import db from './db/schema.js';
 import { JWT_SECRET } from './middleware/auth.js';
@@ -56,6 +57,7 @@ app.use('/api/stations', stationRoutes);
 app.use('/api/playlists', playlistRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api/groovers', grooverRoutes);
 
 // Production: serve built frontend from ../frontend/dist
 const frontendDist = path.join(__dirname, '../../frontend/dist');

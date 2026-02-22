@@ -142,6 +142,19 @@ async function attachArtistAggregates(artistRows, userId) {
   return withAgg;
 }
 
+/** Attach image_url from artist_images for each artist in the list. */
+async function attachArtistImages(artistRows) {
+  if (!artistRows?.length) return artistRows;
+  const names = artistRows.map((r) => r.artist);
+  const placeholders = names.map(() => '?').join(',');
+  const rows = await db.all(
+    `SELECT artist_name, image_url FROM artist_images WHERE artist_name IN (${placeholders})`,
+    names
+  );
+  const imageMap = Object.fromEntries(rows.map((r) => [r.artist_name, r.image_url]));
+  return artistRows.map((r) => ({ ...r, image_url: imageMap[r.artist] ?? null }));
+}
+
 // GET /api/artists — list all artists (public), paginated, with filters
 router.get('/', optionalAuth, async (req, res) => {
   const opts = parseListQuery(req.query);
@@ -169,7 +182,8 @@ router.get('/', optionalAuth, async (req, res) => {
   }
   const total = withAgg.length;
   const start = (opts.page - 1) * opts.limit;
-  const items = withAgg.slice(start, start + opts.limit);
+  let items = withAgg.slice(start, start + opts.limit);
+  items = await attachArtistImages(items);
   res.json({ items, total });
 });
 
@@ -208,7 +222,8 @@ router.get('/mine', authMiddleware, async (req, res) => {
   }
   const total = withAgg.length;
   const start = (opts.page - 1) * opts.limit;
-  const items = withAgg.slice(start, start + opts.limit);
+  let items = withAgg.slice(start, start + opts.limit);
+  items = await attachArtistImages(items);
   res.json({ items, total });
 });
 

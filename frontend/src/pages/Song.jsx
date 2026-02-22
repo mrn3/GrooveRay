@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 import { selfHostedImageUrl } from '../utils/images';
 import ArtistLink from '../components/ArtistLink';
+import GrooverLink from '../components/GrooverLink';
 import ListenChart from '../components/ListenChart';
 
 function formatRatingDate(updatedAt) {
@@ -293,7 +294,7 @@ export default function Song() {
               <h1 className="text-2xl font-semibold text-white">{song.title}</h1>
               <p className="text-gray-400"><ArtistLink artist={song.artist} /></p>
               {song.uploader_name && (
-                <p className="text-sm text-gray-500">by {song.uploader_name}</p>
+                <p className="text-sm text-gray-500">by <GrooverLink username={song.uploader_name} /></p>
               )}
             </div>
           </div>
@@ -735,7 +736,7 @@ export default function Song() {
                       key={r.user_id}
                       className="flex items-center justify-between gap-2 rounded-lg bg-groove-800 px-3 py-2 text-sm"
                     >
-                      <span className="text-gray-300">{r.username}</span>
+                      <GrooverLink username={r.username} className="text-gray-300" />
                       <span className="text-amber-400">★ {r.rating}</span>
                       <span className="text-xs text-gray-500">{formatRatingDate(r.updated_at)}</span>
                     </li>

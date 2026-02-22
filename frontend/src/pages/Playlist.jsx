@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 import { selfHostedImageUrl } from '../utils/images';
 import ArtistLink from '../components/ArtistLink';
+import GrooverLink from '../components/GrooverLink';
 
 function formatRatingDate(updatedAt) {
   if (!updatedAt) return '—';
@@ -42,7 +43,7 @@ function ListenChart({ buckets, scope, hoverBucket, onHover, onHoverScope, onHov
                   <ul className="max-h-40 overflow-auto text-xs text-gray-400 space-y-1">
                     {bucket.events.map((ev, i) => (
                       <li key={i}>
-                        {ev.username} — {ev.played_at ? new Date(ev.played_at).toLocaleString() : ''}
+                        <GrooverLink username={ev.username} /> — {ev.played_at ? new Date(ev.played_at).toLocaleString() : ''}
                       </li>
                     ))}
                   </ul>
@@ -357,7 +358,7 @@ export default function Playlist() {
             <div className="min-w-0">
               <h1 className="text-2xl font-semibold text-white">{playlist.name}</h1>
               {playlist.description && <p className="text-gray-400">{playlist.description}</p>}
-              <p className="text-sm text-gray-500">by {playlist.owner_name}</p>
+              <p className="text-sm text-gray-500">by <GrooverLink username={playlist.owner_name} /></p>
             </div>
           </div>
 
@@ -673,7 +674,7 @@ export default function Playlist() {
                 <ul className="space-y-2">
                   {ratingsData.ratings?.map((r) => (
                     <li key={r.user_id} className="flex items-center justify-between gap-2 rounded-lg bg-groove-800 px-3 py-2 text-sm">
-                      <span className="text-gray-300">{r.username}</span>
+                      <GrooverLink username={r.username} className="text-gray-300" />
                       <span className="text-amber-400">★ {r.rating}</span>
                       <span className="text-xs text-gray-500">{formatRatingDate(r.updated_at)}</span>
                     </li>
@@ -724,7 +725,7 @@ export default function Playlist() {
                 <ul className="space-y-2">
                   {listensData.by_user?.map((u) => (
                     <li key={u.user_id} className="flex justify-between rounded-lg bg-groove-800 px-3 py-2 text-sm">
-                      <span className="text-gray-300">{u.username}</span>
+                      <GrooverLink username={u.username} className="text-gray-300" />
                       <span className="text-gray-400">{u.listen_count} plays</span>
                     </li>
                   ))}

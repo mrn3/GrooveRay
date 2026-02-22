@@ -235,6 +235,22 @@ export const images = {
     request(`/images/youtube-thumbnail${id != null && id !== '' ? `?id=${encodeURIComponent(id)}` : ''}`),
 };
 
+// Groovers (users)
+export const groovers = {
+  list: (params) => request(`/groovers${buildSearchParams(params)}`),
+  get: (username) => request(`/groovers/${encodeURIComponent(username)}`),
+  connect: (username) =>
+    request(`/groovers/${encodeURIComponent(username)}/connect`, { method: 'POST' }),
+  disconnect: (username) =>
+    request(`/groovers/${encodeURIComponent(username)}/connect`, { method: 'DELETE' }),
+  getMessages: (userId) => request(`/groovers/messages/with/${userId}`),
+  sendMessage: (toUserId, message) =>
+    request('/groovers/messages', {
+      method: 'POST',
+      body: JSON.stringify({ toUserId, message }),
+    }),
+};
+
 // Playlists
 export const playlists = {
   list: (params) => request(`/playlists${buildSearchParams(params)}`),

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useListUpdates } from '../context/ListUpdatesContext';
 import { usePlayer } from '../context/PlayerContext';
 import { selfHostedImageUrl } from '../utils/images';
+import GrooverLink from '../components/GrooverLink';
 
 const TABS = [
   { id: 'all', label: 'All Playlists' },
@@ -467,7 +468,7 @@ export default function Playlists() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-white">{pl.name}</p>
                   <p className="truncate text-sm text-gray-400">
-                    {pl.owner_name}
+                    <GrooverLink username={pl.owner_name} />
                     {pl.description && ` · ${pl.description}`}
                   </p>
                 </div>
