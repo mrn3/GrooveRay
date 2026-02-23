@@ -99,11 +99,9 @@ export default function Station() {
       socket.off('listeners');
       socket.off('chat');
       socket.close();
-      setStationMode(null);
-      setStationVideoDisplay(null, null);
       setListeners([]);
     };
-  }, [station?.id, setStationMode, setStationVideoDisplay]);
+  }, [station?.id]);
 
   useEffect(() => {
     if (!nowPlaying?.item) {
