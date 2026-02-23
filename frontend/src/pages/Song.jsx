@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { songs as songsApi, images as imagesApi } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useRequireLogin } from '../context/ToastContext';
 import { usePlayer } from '../context/PlayerContext';
 import { selfHostedImageUrl } from '../utils/images';
 import ArtistLink from '../components/ArtistLink';
@@ -62,6 +63,7 @@ function LyricsWithKaraoke({ lyrics, currentTime }) {
 export default function Song() {
   const { id } = useParams();
   const { user } = useAuth();
+  const requireLogin = useRequireLogin();
   const { play, current, playing, progress } = usePlayer();
   const [song, setSong] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -174,7 +176,8 @@ export default function Song() {
   };
 
   const handleRate = async (rating) => {
-    if (!song?.id || !user) return;
+    if (!song?.id) return;
+    if (!requireLogin()) return;
     setRatingId(song.id);
     try {
       await songsApi.setRating(song.id, rating);

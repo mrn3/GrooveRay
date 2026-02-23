@@ -83,19 +83,19 @@ const thumbnailUpload = multer({
 const router = Router();
 
 router.get('/:id/stream', async (req, res) => {
-  const token = req.query.token || req.headers.authorization?.slice(7);
-  if (token) {
+  const song = await db.get('SELECT * FROM songs WHERE id = ?', [req.params.id]);
+  if (!song) return res.status(404).json({ error: 'Song not found' });
+  if (!song.file_path) return res.status(404).json({ error: 'File not found' });
+  // Allow anonymous streaming for public songs; require auth for private
+  if (!song.is_public) {
+    const token = req.query.token || req.headers.authorization?.slice(7);
+    if (!token) return res.status(401).json({ error: 'Log in to listen to this song' });
     try {
       jwt.verify(token, JWT_SECRET);
     } catch {
       return res.status(401).json({ error: 'Invalid token' });
     }
-  } else {
-    return res.status(401).json({ error: 'Authorization required' });
   }
-  const song = await db.get('SELECT * FROM songs WHERE id = ?', [req.params.id]);
-  if (!song) return res.status(404).json({ error: 'Song not found' });
-  if (!song.file_path) return res.status(404).json({ error: 'Song not found' });
   const filePath = path.join(uploadsDir, song.file_path);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
   res.sendFile(filePath);
@@ -269,6 +269,23 @@ router.get('/contributors', optionalAuth, async (req, res) => {
     );
   }
   res.json(rows.map((r) => r.username));
+});
+
+router.get('/:id', optionalAuth, async (req, res) => {
+  const song = await db.get(
+    `SELECT s.*, u.username as uploader_name FROM songs s JOIN users u ON u.id = s.user_id WHERE s.id = ?`,
+    [req.params.id]
+  );
+  if (!song) return res.status(404).json({ error: 'Song not found' });
+  if (!song.is_public && song.user_id !== req.userId) return res.status(404).json({ error: 'Song not found' });
+  const totalRow = await db.get(
+    `SELECT COALESCE(SUM(listen_count), 0) as total_listen_count FROM user_song_listens WHERE song_id = ?`,
+    [req.params.id]
+  );
+  song.total_listen_count = totalRow?.total_listen_count ?? 0;
+  const [withCommunity] = await attachCommunityRatings([song]);
+  const [withStats] = await attachUserStats([withCommunity], req.userId);
+  res.json(withStats);
 });
 
 router.use(authMiddleware);
@@ -650,23 +667,6 @@ router.get('/:id/listens', async (req, res) => {
     total_listen_count: total?.total ?? 0,
     by_user: byUser,
   });
-});
-
-router.get('/:id', async (req, res) => {
-  const song = await db.get(
-    `SELECT s.*, u.username as uploader_name FROM songs s JOIN users u ON u.id = s.user_id WHERE s.id = ?`,
-    [req.params.id]
-  );
-  if (!song) return res.status(404).json({ error: 'Song not found' });
-  if (!song.is_public && song.user_id !== req.userId) return res.status(404).json({ error: 'Song not found' });
-  const totalRow = await db.get(
-    `SELECT COALESCE(SUM(listen_count), 0) as total_listen_count FROM user_song_listens WHERE song_id = ?`,
-    [req.params.id]
-  );
-  song.total_listen_count = totalRow?.total_listen_count ?? 0;
-  const [withCommunity] = await attachCommunityRatings([song]);
-  const [withStats] = await attachUserStats([withCommunity], req.userId);
-  res.json(withStats);
 });
 
 router.patch('/:id', async (req, res) => {

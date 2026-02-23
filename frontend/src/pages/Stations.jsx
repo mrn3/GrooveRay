@@ -6,7 +6,7 @@ import { stations as stationsApi } from '../api';
 import { selfHostedImageUrl } from '../utils/images';
 import GrooverLink from '../components/GrooverLink';
 
-const TABS = [
+const TABS_ALL = [
   { id: 'all', label: 'All Stations' },
   { id: 'mine', label: 'My Stations' },
 ];
@@ -14,6 +14,10 @@ const TABS = [
 export default function Stations() {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user && activeTab === 'mine') setActiveTab('all');
+  }, [user, activeTab]);
   const [activeTab, setActiveTab] = useState('all');
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -148,7 +152,7 @@ export default function Stations() {
         <h1 className="text-2xl font-semibold text-white">Stations</h1>
         <div className="flex items-center gap-2">
           <nav className="flex rounded-lg bg-groove-800/80 p-1" aria-label="Station tabs">
-            {TABS.map((tab) => (
+            {(user ? TABS_ALL : TABS_ALL.filter((t) => t.id === 'all')).map((tab) => (
               <button
                 key={tab.id}
                 type="button"

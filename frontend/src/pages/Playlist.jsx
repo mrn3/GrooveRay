@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { playlists as playlistsApi, songs as songsApi, images as imagesApi } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useRequireLogin } from '../context/ToastContext';
 import { usePlayer } from '../context/PlayerContext';
 import { selfHostedImageUrl } from '../utils/images';
 import ArtistLink from '../components/ArtistLink';
@@ -61,6 +62,7 @@ export default function Playlist() {
   const { id, slug } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const requireLogin = useRequireLogin();
   const { play, current, playing } = usePlayer();
   const [playlist, setPlaylist] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -154,7 +156,8 @@ export default function Playlist() {
   };
 
   const handleRate = async (rating) => {
-    if (!playlist?.id || !user) return;
+    if (!playlist?.id) return;
+    if (!requireLogin()) return;
     setRatingId(playlist.id);
     try {
       await playlistsApi.setRating(playlist.id, rating);

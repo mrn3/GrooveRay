@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import db from '../db/schema.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { optionalAuth } from '../middleware/auth.js';
 
 const router = Router();
-router.use(authMiddleware);
+router.use(optionalAuth);
 
 const PERIODS = ['day', 'week', 'month', 'year', 'all'];
 const LIMIT = 8;

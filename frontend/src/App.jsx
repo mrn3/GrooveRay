@@ -46,19 +46,19 @@ export default function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/" element={<Layout />}>
-          <Route index element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="songs" element={<ProtectedRoute><Songs /></ProtectedRoute>} />
-          <Route path="songs/:id" element={<ProtectedRoute><Song /></ProtectedRoute>} />
-          <Route path="artists" element={<ProtectedRoute><Artists /></ProtectedRoute>} />
-          <Route path="artists/:name" element={<ProtectedRoute><Artist /></ProtectedRoute>} />
+          <Route index element={<Dashboard />} />
+          <Route path="songs" element={<Songs />} />
+          <Route path="songs/:id" element={<Song />} />
+          <Route path="artists" element={<Artists />} />
+          <Route path="artists/:name" element={<Artist />} />
           <Route path="upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
           <Route path="youtube" element={<ProtectedRoute><YouTube /></ProtectedRoute>} />
-          <Route path="playlists" element={<ProtectedRoute><Playlists /></ProtectedRoute>} />
+          <Route path="playlists" element={<Playlists />} />
           <Route path="playlists/by/:slug" element={<Playlist />} />
-          <Route path="playlists/:id" element={<ProtectedRoute><Playlist /></ProtectedRoute>} />
+          <Route path="playlists/:id" element={<Playlist />} />
           <Route path="stations" element={<Stations />} />
-          <Route path="stations/:slugOrId" element={<ProtectedRoute><Station /></ProtectedRoute>} />
-          <Route path="groovers" element={<ProtectedRoute><Groovers /></ProtectedRoute>} />
+          <Route path="stations/:slugOrId" element={<Station />} />
+          <Route path="groovers" element={<Groovers />} />
           <Route path="groovers/:username" element={<Groover />} />
           <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         </Route>

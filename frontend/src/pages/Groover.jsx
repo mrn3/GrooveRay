@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useRequireLogin } from '../context/ToastContext';
 import { groovers as grooversApi } from '../api';
 import { selfHostedImageUrl } from '../utils/images';
 
@@ -31,6 +32,7 @@ export default function Groover() {
   const [messageText, setMessageText] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
 
+  const requireLogin = useRequireLogin();
   const isSelf = user && profile && user.id === profile.id;
 
   const fetchProfile = useCallback(() => {
@@ -52,7 +54,8 @@ export default function Groover() {
   }, [fetchProfile]);
 
   const handleConnect = async () => {
-    if (!user || !profile || isSelf) return;
+    if (!profile || isSelf) return;
+    if (!requireLogin()) return;
     setConnecting(true);
     try {
       await grooversApi.connect(profile.username);
@@ -83,6 +86,7 @@ export default function Groover() {
   }, [user, profile]);
 
   const openMessage = () => {
+    if (!requireLogin()) return;
     setMessageOpen(true);
     loadMessages();
   };

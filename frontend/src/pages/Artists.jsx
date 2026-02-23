@@ -1,15 +1,21 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { artists as artistsApi } from '../api';
+import { useAuth } from '../context/AuthContext';
 import { selfHostedImageUrl } from '../utils/images';
 
-const TABS = [
+const TABS_ALL = [
   { id: 'all', label: 'All Artists' },
   { id: 'mine', label: 'My Artists' },
 ];
 
 export default function Artists() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
+
+  useEffect(() => {
+    if (!user && activeTab === 'mine') setActiveTab('all');
+  }, [user, activeTab]);
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -47,7 +53,7 @@ export default function Artists() {
       setPage(1);
     }
     const params = buildParams({ page: pageToUse });
-    const promise = activeTab === 'mine' ? artistsApi.listMine(params) : artistsApi.list(params);
+    const promise = activeTab === 'mine' && user ? artistsApi.listMine(params) : artistsApi.list(params);
     promise
       .then((data) => {
         setList(data?.items ?? []);
@@ -55,7 +61,7 @@ export default function Artists() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [activeTab, buildParams, page]);
+  }, [activeTab, buildParams, page, user]);
 
   useEffect(() => {
     fetchList();
@@ -81,7 +87,7 @@ export default function Artists() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold text-white">Artists</h1>
         <nav className="flex rounded-lg bg-groove-800/80 p-1" aria-label="Artist tabs">
-          {TABS.map((tab) => (
+          {(user ? TABS_ALL : TABS_ALL.filter((t) => t.id === 'all')).map((tab) => (
             <button
               key={tab.id}
               type="button"

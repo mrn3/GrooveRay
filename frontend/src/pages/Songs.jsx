@@ -3,13 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { songs as songsApi, youtube as youtubeApi } from '../api';
 import { usePlayer } from '../context/PlayerContext';
 import { useAuth } from '../context/AuthContext';
+import { useRequireLogin } from '../context/ToastContext';
 import { useListUpdates } from '../context/ListUpdatesContext';
 import { selfHostedImageUrl } from '../utils/images';
 import ArtistLink from '../components/ArtistLink';
 import GrooverLink from '../components/GrooverLink';
 import { YouTubeCookiesInstructions } from '../content/youtubeCookiesInstructions';
 
-const TABS = [
+const TABS_ALL = [
   { id: 'all', label: 'All Songs' },
   { id: 'mine', label: 'My Songs' },
 ];
@@ -72,7 +73,12 @@ export default function Songs() {
   const [totalCount, setTotalCount] = useState(0);
   const { play, toggle, current, playing } = usePlayer();
   const { user } = useAuth();
+  const requireLogin = useRequireLogin();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user && activeTab === 'mine') setActiveTab('all');
+  }, [user, activeTab]);
 
   const buildSearchParams = useCallback((overrides = {}) => {
     const p = {};
@@ -129,7 +135,7 @@ export default function Songs() {
       setPage(1);
     }
     const params = buildSearchParams({ page: pageToUse });
-    const promise = activeTab === 'mine'
+    const promise = activeTab === 'mine' && user
       ? songsApi.listMine(params)
       : songsApi.listPublic(params);
     promise
@@ -139,7 +145,7 @@ export default function Songs() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [activeTab, buildSearchParams, page]);
+  }, [activeTab, buildSearchParams, page, user]);
 
   // Refetch when tab, sort, filters, or page change (title/artist applied via Search button)
   useEffect(() => {
@@ -183,6 +189,7 @@ export default function Songs() {
 
   const startRename = (e, song) => {
     e.stopPropagation();
+    if (!requireLogin()) return;
     setEditingId(song.id);
     setEditTitle(song.title ?? '');
     setEditArtists(parseArtistString(song.artist));
@@ -307,6 +314,7 @@ export default function Songs() {
 
   const handleSetPublic = async (e, song) => {
     e.stopPropagation();
+    if (!requireLogin()) return;
     const next = !song.is_public;
     setTogglingId(song.id);
     try {
@@ -342,10 +350,12 @@ export default function Songs() {
 
   const handleDelete = (e, song) => {
     e.stopPropagation();
+    if (!requireLogin()) return;
     openDeleteConfirm(e, song);
   };
 
   const openAddModal = () => {
+    if (!requireLogin()) return;
     setAddModalOpen(true);
     setAddMode(null);
     setAddMessage('');
@@ -505,7 +515,7 @@ export default function Songs() {
         <h1 className="text-2xl font-semibold text-white">Songs</h1>
         <div className="flex items-center gap-2">
           <nav className="flex rounded-lg bg-groove-800/80 p-1" aria-label="Song tabs">
-            {TABS.map((tab) => (
+            {(user ? TABS_ALL : TABS_ALL.filter((t) => t.id === 'all')).map((tab) => (
               <button
                 key={tab.id}
                 type="button"

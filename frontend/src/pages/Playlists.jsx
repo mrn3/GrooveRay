@@ -2,19 +2,25 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { playlists as playlistsApi } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { useRequireLogin } from '../context/ToastContext';
 import { useListUpdates } from '../context/ListUpdatesContext';
 import { usePlayer } from '../context/PlayerContext';
 import { selfHostedImageUrl } from '../utils/images';
 import GrooverLink from '../components/GrooverLink';
 
-const TABS = [
+const TABS_ALL = [
   { id: 'all', label: 'All Playlists' },
   { id: 'mine', label: 'My Playlists' },
 ];
 
 export default function Playlists() {
   const { user } = useAuth();
+  const requireLogin = useRequireLogin();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user && activeTab === 'mine') setActiveTab('all');
+  }, [user, activeTab]);
   const { play } = usePlayer();
   const [activeTab, setActiveTab] = useState('all');
   const [list, setList] = useState([]);
@@ -95,7 +101,7 @@ export default function Playlists() {
     }
     const params = buildSearchParams({ page: pageToUse });
     const promise =
-      activeTab === 'all' ? playlistsApi.listPublic(params) : playlistsApi.list(params);
+      activeTab === 'all' || !user ? playlistsApi.listPublic(params) : playlistsApi.list(params);
     promise
       .then((data) => {
         setList(data?.items ?? []);
@@ -107,7 +113,7 @@ export default function Playlists() {
         setTotalCount(0);
       })
       .finally(() => setLoading(false));
-  }, [activeTab, buildSearchParams, page]);
+  }, [activeTab, buildSearchParams, page, user]);
 
   useEffect(() => {
     fetchList();
@@ -187,7 +193,7 @@ export default function Playlists() {
         <h1 className="text-2xl font-semibold text-white">Playlists</h1>
         <div className="flex items-center gap-2">
           <nav className="flex rounded-lg bg-groove-800/80 p-1" aria-label="Playlist tabs">
-            {TABS.map((tab) => (
+            {(user ? TABS_ALL : TABS_ALL.filter((t) => t.id === 'all')).map((tab) => (
               <button
                 key={tab.id}
                 type="button"
@@ -203,7 +209,7 @@ export default function Playlists() {
           {user && (
             <button
               type="button"
-              onClick={() => setCreateModalOpen(true)}
+              onClick={() => { if (requireLogin()) setCreateModalOpen(true); }}
               className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-ray-600 text-white transition hover:bg-ray-500 focus:outline-none focus:ring-2 focus:ring-ray-400 focus:ring-offset-2 focus:ring-offset-groove-900"
               aria-label="Create playlist"
             >

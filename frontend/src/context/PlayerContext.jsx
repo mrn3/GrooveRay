@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 import { streamUrl, songs as songsApi } from '../api';
+import { useAuth } from './AuthContext';
 
 const PlayerContext = createContext(null);
 
@@ -42,9 +43,10 @@ export function PlayerProvider({ children }) {
     return () => clearInterval(interval);
   }, [stationMode]);
 
+  const { user } = useAuth();
   const play = useCallback((song, options = {}) => {
     if (!song?.id) return;
-    songsApi.recordPlay(song.id).catch(() => {});
+    if (user) songsApi.recordPlay(song.id).catch(() => {});
     // Use stream URL for all tracks
     const url = song.file_path?.startsWith('http') ? song.file_path : streamUrl(song.id);
     const audio = audioRef.current;
@@ -62,7 +64,7 @@ export function PlayerProvider({ children }) {
     audio.play().catch(() => setPlaying(false));
     setCurrent(song);
     setPlaying(true);
-  }, []);
+  }, [user]);
 
   const pause = useCallback(() => {
     audioRef.current.pause();

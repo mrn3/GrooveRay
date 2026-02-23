@@ -6,6 +6,7 @@ import { selfHostedImageUrl } from '../utils/images';
 import ArtistLink from '../components/ArtistLink';
 import GrooverLink from '../components/GrooverLink';
 import { useAuth } from '../context/AuthContext';
+import { useRequireLogin } from '../context/ToastContext';
 import { usePlayer } from '../context/PlayerContext';
 
 function serverPosition(startedAt, durationSeconds) {
@@ -59,6 +60,7 @@ export default function Station() {
   const youtubePlayerRef = useRef(null);
   const [youtubeApiReady, setYoutubeApiReady] = useState(false);
   const { user } = useAuth();
+  const requireLogin = useRequireLogin();
   const { play, setStationMode, setStationVideoDisplay } = usePlayer();
   const isOwner = user?.id === station?.owner_id;
   const isMusicVideo = station?.type === 'music_video';
@@ -132,6 +134,7 @@ export default function Station() {
 
   const handleVote = (queueId) => {
     if (!station) return;
+    if (!requireLogin()) return;
     stationsApi.vote(station.id, queueId).then((updated) => {
       setQueue((prev) => prev.map((q) => (q.id === queueId ? updated : q)).sort((a, b) => (b.votes || 0) - (a.votes || 0)));
     }).catch(() => {});
@@ -140,6 +143,7 @@ export default function Station() {
   const handleNowPlayingRating = async (e, rating) => {
     if (!nowPlaying?.item?.song_id || !nowPlayingDetails) return;
     e.stopPropagation();
+    if (!requireLogin()) return;
     setRatingId(nowPlaying.item.song_id);
     try {
       await songsApi.setRating(nowPlaying.item.song_id, rating);
@@ -153,6 +157,7 @@ export default function Station() {
   const handleStationRating = async (e, rating) => {
     if (!station) return;
     e.stopPropagation();
+    if (!requireLogin()) return;
     setStationRatingSaving(true);
     try {
       await stationsApi.setRating(station.id, rating);
@@ -167,7 +172,7 @@ export default function Station() {
     e.preventDefault();
     const msg = chatInput.trim();
     if (!msg || !station?.id || !socketRef.current) return;
-    if (!user) return;
+    if (!requireLogin()) return;
     socketRef.current.emit('station:chat', { stationId: station.id, message: msg });
     setChatInput('');
     setMentionAt(null);
@@ -208,6 +213,7 @@ export default function Station() {
   const handleAddToQueue = async (e) => {
     e.preventDefault();
     if (!station || !addSongId) return;
+    if (!requireLogin()) return;
     setAddToQueueError('');
     try {
       await stationsApi.addToQueue(station.id, addSongId);
