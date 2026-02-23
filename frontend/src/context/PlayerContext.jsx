@@ -9,9 +9,17 @@ export function PlayerProvider({ children }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [stationMode, setStationModeState] = useState(null);
+  const [volume, setVolumeState] = useState(1);
+  const [muted, setMutedState] = useState(false);
   const [, setTick] = useState(0);
   const audioRef = useRef(new Audio());
   const pendingSeekRef = useRef(null);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    audio.volume = volume;
+    audio.muted = muted;
+  }, [volume, muted]);
 
   const setStationMode = useCallback((mode) => {
     setStationModeState(mode);
@@ -109,6 +117,35 @@ export function PlayerProvider({ children }) {
     setProgress(t);
   }, []);
 
+  const setVolume = useCallback((v) => {
+    const val = Math.max(0, Math.min(1, Number(v)));
+    setVolumeState(val);
+    if (val > 0) setMutedState(false);
+  }, []);
+
+  const setMuted = useCallback((m) => {
+    setMutedState(!!m);
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    setMutedState((m) => !m);
+  }, []);
+
+  const skipBack = useCallback(() => {
+    const audio = audioRef.current;
+    const t = Math.max(0, (audio.currentTime || 0) - 10);
+    audio.currentTime = t;
+    setProgress(t);
+  }, []);
+
+  const skipForward = useCallback(() => {
+    const audio = audioRef.current;
+    const dur = audio.duration || 0;
+    const t = Math.min(dur, (audio.currentTime || 0) + 10);
+    audio.currentTime = t;
+    setProgress(t);
+  }, []);
+
   const effectiveProgress = stationMode ? (() => {
     const start = new Date(stationMode.startedAt).getTime() / 1000;
     const elapsed = Date.now() / 1000 - start;
@@ -126,10 +163,17 @@ export function PlayerProvider({ children }) {
         progress: effectiveProgress,
         duration: effectiveDuration,
         stationMode,
+        volume,
+        muted,
+        setVolume,
+        setMuted,
+        toggleMute,
         play,
         pause,
         toggle,
         seek,
+        skipBack,
+        skipForward,
         setStationMode,
         setStationVideoDisplay,
       }}
