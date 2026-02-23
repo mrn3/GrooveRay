@@ -45,8 +45,10 @@ export default function Station() {
   const chatInputRef = useRef(null);
   const [editImageOpen, setEditImageOpen] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   const [editError, setEditError] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [savingDescription, setSavingDescription] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [savingImage, setSavingImage] = useState(false);
   const [findingImage, setFindingImage] = useState(false);
@@ -385,6 +387,7 @@ export default function Station() {
                 onClick={() => {
                   setImageFile(null);
                   setEditName(station?.name ?? '');
+                  setEditDescription(station?.description ?? '');
                   setEditError('');
                   setEditImageOpen(true);
                 }}
@@ -415,6 +418,7 @@ export default function Station() {
                   onClick={() => {
                     setImageFile(null);
                     setEditName(station?.name ?? '');
+                    setEditDescription(station?.description ?? '');
                     setEditError('');
                     setEditImageOpen(true);
                   }}
@@ -482,7 +486,7 @@ export default function Station() {
 
           {/* Edit modal (station image) */}
           {editImageOpen && isOwner && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !savingImage && !savingName && setEditImageOpen(false)}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => !savingImage && !savingName && !savingDescription && setEditImageOpen(false)}>
               <div className="w-full max-w-md rounded-xl border border-groove-700 bg-groove-900 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
                 <h2 className="mb-4 text-lg font-semibold text-white">Edit</h2>
                 {editError && (
@@ -518,6 +522,38 @@ export default function Station() {
                         className="rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50"
                       >
                         {savingName ? 'Saving…' : 'Save name'}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm text-gray-400">Station description</label>
+                    <div className="flex flex-wrap items-start gap-2">
+                      <textarea
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        rows={3}
+                        className="min-w-0 flex-1 rounded-lg border border-groove-600 bg-groove-800 px-4 py-2 text-white placeholder-gray-500 focus:border-ray-500 focus:outline-none focus:ring-1 focus:ring-ray-500"
+                        placeholder="Describe your station…"
+                      />
+                      <button
+                        type="button"
+                        disabled={savingDescription || editDescription === (station?.description ?? '')}
+                        onClick={async () => {
+                          if (!station?.id) return;
+                          setEditError('');
+                          setSavingDescription(true);
+                          try {
+                            const updated = await stationsApi.update(station.id, { description: editDescription.trim() || null });
+                            setStation(updated);
+                          } catch (err) {
+                            setEditError(err.message || 'Failed to update description');
+                          } finally {
+                            setSavingDescription(false);
+                          }
+                        }}
+                        className="rounded-lg bg-ray-600 px-4 py-2 font-medium text-white hover:bg-ray-500 disabled:opacity-50"
+                      >
+                        {savingDescription ? 'Saving…' : 'Save description'}
                       </button>
                     </div>
                   </div>
@@ -608,12 +644,13 @@ export default function Station() {
                   <div className="flex justify-end gap-2">
                     <button
                       type="button"
+                      disabled={savingName || savingImage || savingDescription}
                       onClick={() => {
                         setEditImageOpen(false);
                         setImageFile(null);
                         setEditError('');
                       }}
-                      className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700"
+                      className="rounded-lg border border-groove-600 px-4 py-2 text-gray-300 hover:bg-groove-700 disabled:opacity-50"
                     >
                       Close
                     </button>
