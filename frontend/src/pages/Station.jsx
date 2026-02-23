@@ -284,6 +284,8 @@ export default function Station() {
         autoplay: 1,
         start: Math.floor(startSec),
         origin: typeof window !== 'undefined' ? window.location.origin : '',
+        playsinline: 1, // Required for iOS to play inline; avoids "Video unavailable" in many cases
+        rel: 0,
       },
       events: {
         onReady(ev) {
@@ -343,6 +345,17 @@ export default function Station() {
             <div className="aspect-video w-full overflow-hidden rounded-xl bg-black shadow-2xl" style={{ minHeight: 320 }}>
               <div id="station-youtube-embed" className="h-full w-full" />
             </div>
+            <p className="mt-2 text-center text-sm text-gray-400">
+              Video not playing on your phone?{' '}
+              <a
+                href={`https://www.youtube.com/watch?v=${nowPlaying?.item?.youtube_id ?? ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-ray-400 underline hover:text-ray-300"
+              >
+                Watch on YouTube
+              </a>
+            </p>
             {nowPlaying?.item && (
               <div className="mt-3 flex flex-wrap items-center gap-4">
                 <div className="flex h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-groove-700">
