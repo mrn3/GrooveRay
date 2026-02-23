@@ -88,7 +88,7 @@ When `NODE_ENV=production`, the backend applies:
 - **IP blocklist** — Requests from banned IPs get 403. Configure via:
   - `backend/banned-ips.txt` (one IP per line; copy from `backend/banned-ips.txt.example`), or
   - env `BANNED_IPS=1.2.3.4,5.6.7.8`.
-- **Rate limiting** — 120 requests/min per IP overall; 20 attempts per 15 min on `/api/auth` (login/register).
+- **Rate limiting** — 400 requests/min per IP overall; 120 attempts per 15 min on `/api/auth` (login/register).
 
 To **ban an IP on the server** (with `ssh shared` and app at `~/GrooveRay`):
 

@@ -42,11 +42,11 @@ The server blocks include:
 
 1. In the main nginx config (e.g. `/opt/bitnami/nginx/conf/nginx.conf`), inside the `http { }` block, add:
    ```nginx
-   limit_req_zone $binary_remote_addr zone=grooveray:10m rate=30r/m;
+   limit_req_zone $binary_remote_addr zone=grooveray:10m rate=200r/m;
    ```
 2. In the GrooveRay server block(s), uncomment the line:
    ```nginx
-   limit_req zone=grooveray burst=40 nodelay;
+   limit_req zone=grooveray burst=100 nodelay;
    ```
 3. Restart nginx: `sudo /opt/bitnami/ctlscript.sh restart nginx`
 

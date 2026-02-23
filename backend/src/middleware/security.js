@@ -58,7 +58,7 @@ export function blockBannedIps(req, res, next) {
 /** Options for express-rate-limit (production-safe). */
 export const rateLimitOptions = {
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 120, // general API: 120 req/min per IP
+  max: 400, // general API: 400 req/min per IP (dashboard + normal use)
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => getClientIp(req),
@@ -68,7 +68,7 @@ export const rateLimitOptions = {
 /** Stricter rate limit for auth routes (login/register). GET /google and /google/callback are skipped so "Sign in with Google" doesn't burn the bucket. */
 export const authRateLimitOptions = {
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 60, // 60 attempts per 15 min per IP (login/register/me; Google redirects are skipped)
+  max: 120, // 120 attempts per 15 min per IP (login/register/me; Google redirects are skipped)
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => getClientIp(req),
