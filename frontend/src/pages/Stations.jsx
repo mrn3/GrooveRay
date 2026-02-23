@@ -14,11 +14,11 @@ const TABS_ALL = [
 export default function Stations() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
     if (!user && activeTab === 'mine') setActiveTab('all');
   }, [user, activeTab]);
-  const [activeTab, setActiveTab] = useState('all');
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

@@ -17,12 +17,12 @@ export default function Playlists() {
   const { user } = useAuth();
   const requireLogin = useRequireLogin();
   const navigate = useNavigate();
+  const { play } = usePlayer();
+  const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
     if (!user && activeTab === 'mine') setActiveTab('all');
   }, [user, activeTab]);
-  const { play } = usePlayer();
-  const [activeTab, setActiveTab] = useState('all');
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
