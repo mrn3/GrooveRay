@@ -18,6 +18,7 @@ export default function PlayerBar() {
     toggleMute,
     skipBack,
     skipForward,
+    exit,
   } = usePlayer();
 
   useEffect(() => {
@@ -44,6 +45,14 @@ export default function PlayerBar() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-groove-700 bg-groove-900/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
+        <button
+          type="button"
+          onClick={exit}
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-groove-600 hover:text-white"
+          aria-label="Close player"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700 text-ray-400">
           {selfHostedImageUrl(current.thumbnail_url) ? (
             <img src={selfHostedImageUrl(current.thumbnail_url)} alt="" className="h-full w-full object-cover" />

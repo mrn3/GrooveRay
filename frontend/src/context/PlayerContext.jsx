@@ -146,6 +146,20 @@ export function PlayerProvider({ children }) {
     setProgress(t);
   }, []);
 
+  /** Stop playback, clear audio source, and reset all player state (e.g. for exit). */
+  const exit = useCallback(() => {
+    const audio = audioRef.current;
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+    pendingSeekRef.current = null;
+    setCurrent(null);
+    setPlaying(false);
+    setProgress(0);
+    setDuration(0);
+    setStationModeState(null);
+  }, []);
+
   const effectiveProgress = stationMode ? (() => {
     const start = new Date(stationMode.startedAt).getTime() / 1000;
     const elapsed = Date.now() / 1000 - start;
@@ -174,6 +188,7 @@ export function PlayerProvider({ children }) {
         seek,
         skipBack,
         skipForward,
+        exit,
         setStationMode,
         setStationVideoDisplay,
       }}
