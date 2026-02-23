@@ -65,12 +65,18 @@ export const rateLimitOptions = {
   skip: (req) => process.env.NODE_ENV !== 'production',
 };
 
-/** Stricter rate limit for auth routes (login/register). */
+/** Stricter rate limit for auth routes (login/register). GET /google and /google/callback are skipped so "Sign in with Google" doesn't burn the bucket. */
 export const authRateLimitOptions = {
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // 20 attempts per 15 min per IP
+  max: 60, // 60 attempts per 15 min per IP (login/register/me; Google redirects are skipped)
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => getClientIp(req),
-  skip: (req) => process.env.NODE_ENV !== 'production',
+  message: 'Too many login attempts. Please try again in 15 minutes.',
+  skip: (req) => {
+    if (process.env.NODE_ENV !== 'production') return true;
+    // Don't count GET redirects to Google OAuth — they don't expose credentials; only limit POST login/register
+    if (req.method === 'GET' && (req.path === '/google' || req.path === '/google/callback')) return true;
+    return false;
+  },
 };
