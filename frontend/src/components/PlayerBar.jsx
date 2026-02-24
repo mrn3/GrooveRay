@@ -12,12 +12,15 @@ export default function PlayerBar() {
     toggle,
     seek,
     stationMode,
+    playlistContext,
     volume,
     muted,
     setVolume,
     toggleMute,
     skipBack,
     skipForward,
+    playNext,
+    playPrevious,
     exit,
   } = usePlayer();
 
@@ -65,22 +68,53 @@ export default function PlayerBar() {
           <p className="truncate text-sm text-gray-400"><ArtistLink artist={current.artist} className="text-sm" /></p>
         </div>
         <div className="flex flex-1 flex-col items-center gap-1">
-          {!isStationSync && (
-            <button
-              type="button"
-              onClick={toggle}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-ray-500 text-white transition hover:bg-ray-400"
-              aria-label={playing ? 'Pause' : 'Play'}
-            >
-              {playing ? (
-                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
-              ) : (
-                <svg className="ml-0.5 h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-              )}
-            </button>
-          )}
+          <div className="flex items-center gap-1">
+            {playlistContext && (
+              <button
+                type="button"
+                onClick={playPrevious}
+                disabled={!playlistContext.currentIndex}
+                className="flex h-10 w-10 items-center justify-center rounded-full text-gray-400 transition hover:bg-groove-600 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400"
+                aria-label="Previous track"
+              >
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg>
+              </button>
+            )}
+            {!isStationSync && (
+              <button
+                type="button"
+                onClick={toggle}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-ray-500 text-white transition hover:bg-ray-400"
+                aria-label={playing ? 'Pause' : 'Play'}
+              >
+                {playing ? (
+                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
+                ) : (
+                  <svg className="ml-0.5 h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                )}
+              </button>
+            )}
+            {playlistContext && (
+              <button
+                type="button"
+                onClick={playNext}
+                disabled={playlistContext.currentIndex >= (playlistContext.tracks?.length ?? 0) - 1}
+                className="flex h-10 w-10 items-center justify-center rounded-full text-gray-400 transition hover:bg-groove-600 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400"
+                aria-label="Next track"
+              >
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18V6l2 1.2v9.6L6 18zm3.5-6l8.5-6v12l-8.5-6z" /></svg>
+              </button>
+            )}
+          </div>
           {isStationSync && (
             <span className="text-xs text-ray-400">Live · synced</span>
+          )}
+          {playlistContext?.tracks?.length > 0 && (
+            <div className="text-xs text-gray-500">
+              Track {((playlistContext.currentIndex ?? 0) + 1)} of {playlistContext.tracks.length}
+              {' · '}
+              {formatPlaylistTime(playlistContext, progress, duration)}
+            </div>
           )}
           <div className="flex w-full max-w-md items-center gap-2 text-xs text-gray-500">
             {!isStationSync && (
@@ -158,4 +192,20 @@ function formatTime(s) {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+function formatPlaylistTime(ctx, currentProgress, currentDuration) {
+  const tracks = ctx?.tracks ?? [];
+  const idx = ctx?.currentIndex ?? 0;
+  let elapsed = 0;
+  for (let i = 0; i < idx; i++) {
+    elapsed += Number(tracks[i]?.duration_seconds) || 0;
+  }
+  elapsed += currentProgress;
+  let total = 0;
+  for (const t of tracks) {
+    total += Number(t?.duration_seconds) || 0;
+  }
+  if (total <= 0) total = 1;
+  return `${formatTime(elapsed)} / ${formatTime(total)}`;
 }

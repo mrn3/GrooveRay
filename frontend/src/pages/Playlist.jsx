@@ -1,5 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  TouchSensor,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { playlists as playlistsApi, songs as songsApi, images as imagesApi } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useRequireLogin } from '../context/ToastContext';
@@ -12,6 +29,198 @@ function formatRatingDate(updatedAt) {
   if (!updatedAt) return '—';
   const d = new Date(updatedAt);
   return d.toLocaleDateString(undefined, { dateStyle: 'medium' });
+}
+
+function formatDuration(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '—';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function SortableTrack({
+  track,
+  index,
+  current,
+  playing,
+  isOwner,
+  onPlayTrack,
+  onRemoveTrack,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
+  selfHostedImageUrl,
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: track.song_id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex flex-wrap items-center gap-2 border-b border-groove-700 px-4 py-3 last:border-0 hover:bg-groove-800/50 sm:gap-4 ${
+        current?.id === track.song_id ? 'bg-groove-800/80' : ''
+      } ${isDragging ? 'opacity-70' : ''}`}
+    >
+      {isOwner && (
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => onMoveUp(index)}
+            disabled={!canMoveUp}
+            className="rounded p-1.5 text-gray-500 hover:bg-groove-600 hover:text-white disabled:opacity-30 sm:hidden"
+            aria-label="Move up"
+          >
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M7 14l5-5 5 5z" /></svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => onMoveDown(index)}
+            disabled={!canMoveDown}
+            className="rounded p-1.5 text-gray-500 hover:bg-groove-600 hover:text-white disabled:opacity-30 sm:hidden"
+            aria-label="Move down"
+          >
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z" /></svg>
+          </button>
+          <div
+            {...attributes}
+            {...listeners}
+            className="hidden cursor-grab touch-none select-none rounded p-1.5 text-gray-500 hover:bg-groove-600 hover:text-white active:cursor-grabbing sm:block"
+            aria-label="Drag to reorder"
+          >
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M7 10h10v2H7zm0 4h10v2H7zm0-8h10v2H7z" />
+            </svg>
+          </div>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => onPlayTrack(track, index)}
+        className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-groove-700 text-ray-400 hover:bg-ray-600"
+      >
+        {current?.id === track.song_id && playing ? (
+          <span className="text-sm">⏸</span>
+        ) : (
+          <span className="text-sm">▶</span>
+        )}
+      </button>
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700">
+        {selfHostedImageUrl(track.thumbnail_url) ? (
+          <img src={selfHostedImageUrl(track.thumbnail_url)} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span className="text-ray-400">◇</span>
+        )}
+      </div>
+      <Link
+        to={`/songs/${track.song_id}`}
+        className="min-w-0 flex-1 hover:opacity-90"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="font-medium text-white">{track.title}</p>
+        <p className="text-sm text-gray-400"><ArtistLink artist={track.artist} className="text-sm" /></p>
+        {track.contributor_username && (
+          <p className="text-xs text-gray-500">
+            {track.source === 'youtube' ? 'YouTube' : track.source || 'Upload'}{' '}
+            <GrooverLink username={track.contributor_username} className="text-xs" />
+          </p>
+        )}
+      </Link>
+      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+        <span className="font-mono">{formatDuration(track.duration_seconds)}</span>
+        <span title="My listens">
+          <span className="sr-only">My listens: </span>👁 {track.listen_count ?? '—'}
+        </span>
+        <span title="Everyone&apos;s listens">
+          <span className="sr-only">Everyone&apos;s listens: </span>👤 {track.total_listen_count ?? '—'}
+        </span>
+        <span title="My rating">
+          <span className="sr-only">My rating: </span>
+          {track.rating != null ? `${track.rating}★` : '—'}
+        </span>
+        <span title="Community rating">
+          <span className="sr-only">Community: </span>
+          {track.community_rating_count > 0
+            ? `${Number(track.community_avg_rating).toFixed(1)} (${track.community_rating_count})`
+            : '—'}
+        </span>
+      </div>
+      {isOwner && (
+        <button
+          type="button"
+          onClick={() => onRemoveTrack(track.song_id)}
+          className="rounded p-2 text-gray-400 hover:bg-red-900/30 hover:text-red-300"
+          title="Remove from playlist"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function TrackList({
+  tracks,
+  current,
+  playing,
+  isOwner,
+  onPlayTrack,
+  onRemoveTrack,
+  onReorder,
+  onMoveTrack,
+  selfHostedImageUrl,
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = tracks.findIndex((t) => t.song_id === active.id);
+    const newIndex = tracks.findIndex((t) => t.song_id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newTracks = arrayMove(tracks, oldIndex, newIndex);
+    onReorder(newTracks);
+  };
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={tracks.map((t) => t.song_id)} strategy={verticalListSortingStrategy}>
+        {tracks.map((track, index) => (
+          <SortableTrack
+            key={track.song_id}
+            track={track}
+            index={index}
+            current={current}
+            playing={playing}
+            isOwner={isOwner}
+            onPlayTrack={onPlayTrack}
+            onRemoveTrack={onRemoveTrack}
+            onMoveUp={() => onMoveTrack(index, -1)}
+            onMoveDown={() => onMoveTrack(index, 1)}
+            canMoveUp={index > 0}
+            canMoveDown={index < tracks.length - 1}
+            selfHostedImageUrl={selfHostedImageUrl}
+          />
+        ))}
+      </SortableContext>
+    </DndContext>
+  );
 }
 
 function ListenChart({ buckets, scope, hoverBucket, onHover, onHoverScope, onHoverEnd }) {
@@ -137,11 +346,12 @@ export default function Playlist() {
       thumbnail_url: first.thumbnail_url,
       duration_seconds: first.duration_seconds,
     };
-    play(song);
+    const playlistContext = { playlistId: playlist.id, tracks: playlist.tracks, currentIndex: 0 };
+    play(song, { playlistContext });
     if (user && playlist.id) playlistsApi.recordPlay(playlist.id).catch(() => {});
   };
 
-  const handlePlayTrack = (track) => {
+  const handlePlayTrack = (track, index) => {
     const song = {
       id: track.song_id,
       title: track.title,
@@ -151,7 +361,8 @@ export default function Playlist() {
       thumbnail_url: track.thumbnail_url,
       duration_seconds: track.duration_seconds,
     };
-    play(song);
+    const playlistContext = { playlistId: playlist?.id, tracks: playlist?.tracks ?? [], currentIndex: index };
+    play(song, { playlistContext });
     if (user && playlist?.id) playlistsApi.recordPlay(playlist.id).catch(() => {});
   };
 
@@ -196,6 +407,25 @@ export default function Playlist() {
       await playlistsApi.removeTrack(playlist.id, songId);
       setPlaylist((p) => (p ? { ...p, tracks: p.tracks.filter((t) => t.song_id !== songId) } : null));
     } catch (_) {}
+  };
+
+  const handleReorder = async (newTracks) => {
+    if (!playlist?.id || !isOwner) return;
+    try {
+      await playlistsApi.reorderTracks(playlist.id, newTracks.map((t) => t.song_id));
+      setPlaylist((p) => (p ? { ...p, tracks: newTracks } : null));
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const handleMoveTrack = async (index, direction) => {
+    if (!playlist?.id || !isOwner || !tracks.length) return;
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= tracks.length) return;
+    const newTracks = [...tracks];
+    [newTracks[index], newTracks[newIndex]] = [newTracks[newIndex], newTracks[index]];
+    await handleReorder(newTracks);
   };
 
   const handleSaveEdit = async (e) => {
@@ -481,60 +711,31 @@ export default function Playlist() {
 
       {/* Tracks */}
       <section>
-        <h2 className="mb-3 text-lg font-medium text-white">Tracks ({tracks.length})</h2>
+        <div className="mb-3 flex flex-wrap items-center gap-4">
+          <h2 className="text-lg font-medium text-white">Tracks ({tracks.length})</h2>
+          {tracks.length > 0 && (
+            <span className="text-sm text-gray-500">
+              Total duration: {formatDuration(tracks.reduce((sum, t) => sum + (Number(t.duration_seconds) || 0), 0))}
+            </span>
+          )}
+        </div>
         <div className="space-y-1 rounded-xl border border-groove-700 bg-groove-900/50 overflow-hidden">
           {tracks.length === 0 ? (
             <p className="px-6 py-12 text-center text-gray-500">
               No tracks yet.{isOwner && ' Use the search above to add songs.'}
             </p>
           ) : (
-            tracks.map((track, index) => (
-              <div
-                key={`${track.song_id}-${index}`}
-                className={`flex items-center gap-4 border-b border-groove-700 px-4 py-3 last:border-0 hover:bg-groove-800/50 ${
-                  current?.id === track.song_id ? 'bg-groove-800/80' : ''
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => handlePlayTrack(track)}
-                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-groove-700 text-ray-400 hover:bg-groove-600"
-                >
-                  {current?.id === track.song_id && playing ? (
-                    <span className="text-sm">⏸</span>
-                  ) : (
-                    <span className="text-sm">▶</span>
-                  )}
-                </button>
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-groove-700">
-{selfHostedImageUrl(track.thumbnail_url) ? (
-                  <img src={selfHostedImageUrl(track.thumbnail_url)} alt="" className="h-full w-full object-cover" />
-                ) : (
-                    <span className="text-ray-400">◇</span>
-                  )}
-                </div>
-                <Link
-                  to={`/songs/${track.song_id}`}
-                  className="min-w-0 flex-1 hover:opacity-90"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <p className="font-medium text-white">{track.title}</p>
-                  <p className="text-sm text-gray-400"><ArtistLink artist={track.artist} className="text-sm" /></p>
-                </Link>
-                {isOwner && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveTrack(track.song_id)}
-                    className="rounded p-2 text-gray-400 hover:bg-red-900/30 hover:text-red-300"
-                    title="Remove from playlist"
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            ))
+            <TrackList
+              tracks={tracks}
+              current={current}
+              playing={playing}
+              isOwner={isOwner}
+              onPlayTrack={handlePlayTrack}
+              onRemoveTrack={handleRemoveTrack}
+              onReorder={handleReorder}
+              onMoveTrack={handleMoveTrack}
+              selfHostedImageUrl={selfHostedImageUrl}
+            />
           )}
         </div>
       </section>

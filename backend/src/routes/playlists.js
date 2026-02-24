@@ -44,15 +44,58 @@ async function getPlaylistWithMeta(playlistId, userId) {
   const [tracks] = await Promise.all([
     db.all(
       `SELECT pt.playlist_id, pt.song_id, pt.position, pt.added_at,
-        s.title, s.artist, s.source, s.duration_seconds, s.thumbnail_url
+        s.title, s.artist, s.source, s.duration_seconds, s.thumbnail_url, s.file_path,
+        u.username as contributor_username
        FROM playlist_tracks pt
        JOIN songs s ON s.id = pt.song_id
+       LEFT JOIN users u ON u.id = s.user_id
        WHERE pt.playlist_id = ?
        ORDER BY pt.position ASC, pt.added_at ASC`,
       [playlistId]
     ),
   ]);
   p.tracks = tracks;
+
+  if (tracks.length > 0) {
+    const songIds = tracks.map((t) => t.song_id);
+    const placeholders = songIds.map(() => '?').join(',');
+    const [listenRows, ratingRows, myListens, myRatings] = await Promise.all([
+      db.all(
+        `SELECT song_id, COALESCE(SUM(listen_count), 0) as total_listen_count
+         FROM user_song_listens WHERE song_id IN (${placeholders}) GROUP BY song_id`,
+        songIds
+      ),
+      db.all(
+        `SELECT song_id, AVG(rating) as avg_rating, COUNT(*) as rating_count
+         FROM user_song_ratings WHERE song_id IN (${placeholders}) GROUP BY song_id`,
+        songIds
+      ),
+      userId
+        ? db.all(
+            `SELECT song_id, listen_count FROM user_song_listens WHERE user_id = ? AND song_id IN (${placeholders})`,
+            [userId, ...songIds]
+          )
+        : [],
+      userId
+        ? db.all(
+            `SELECT song_id, rating FROM user_song_ratings WHERE user_id = ? AND song_id IN (${placeholders})`,
+            [userId, ...songIds]
+          )
+        : [],
+    ]);
+    const listenMap = Object.fromEntries(listenRows.map((r) => [r.song_id, r.total_listen_count]));
+    const ratingMap = Object.fromEntries(ratingRows.map((r) => [r.song_id, { avg: r.avg_rating, count: r.rating_count }]));
+    const myListenMap = Object.fromEntries((myListens || []).map((r) => [r.song_id, r.listen_count]));
+    const myRatingMap = Object.fromEntries((myRatings || []).map((r) => [r.song_id, r.rating]));
+    p.tracks = tracks.map((t) => ({
+      ...t,
+      total_listen_count: listenMap[t.song_id] ?? 0,
+      community_avg_rating: ratingMap[t.song_id]?.avg ?? null,
+      community_rating_count: ratingMap[t.song_id]?.count ?? 0,
+      listen_count: myListenMap[t.song_id] ?? 0,
+      rating: myRatingMap[t.song_id] ?? null,
+    }));
+  }
 
   const ratingRows = await db.all(
     `SELECT AVG(rating) as avg_rating, COUNT(*) as rating_count FROM user_playlist_ratings WHERE playlist_id = ?`,

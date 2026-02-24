@@ -15,6 +15,9 @@ export function PlayerProvider({ children }) {
   const [, setTick] = useState(0);
   const audioRef = useRef(new Audio());
   const pendingSeekRef = useRef(null);
+  const [playlistContext, setPlaylistContext] = useState(null);
+  const playlistContextRef = useRef(null);
+  playlistContextRef.current = playlistContext;
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -47,6 +50,7 @@ export function PlayerProvider({ children }) {
   const play = useCallback((song, options = {}) => {
     if (!song?.id) return;
     if (user) songsApi.recordPlay(song.id).catch(() => {});
+    setPlaylistContext(options.playlistContext ?? null);
     // Use stream URL for all tracks
     const url = song.file_path?.startsWith('http') ? song.file_path : streamUrl(song.id);
     const audio = audioRef.current;
@@ -86,13 +90,59 @@ export function PlayerProvider({ children }) {
     audio.play().then(() => setPlaying(true)).catch(() => {});
   }, [current, playing, pause]);
 
+  const trackToSong = useCallback((track) => ({
+    id: track.song_id,
+    title: track.title,
+    artist: track.artist,
+    source: track.source,
+    file_path: track.file_path,
+    thumbnail_url: track.thumbnail_url,
+    duration_seconds: track.duration_seconds,
+  }), []);
+
+  const playNext = useCallback(() => {
+    const ctx = playlistContext;
+    if (!ctx?.tracks?.length || ctx.currentIndex == null) return;
+    const nextIdx = ctx.currentIndex + 1;
+    if (nextIdx >= ctx.tracks.length) return;
+    const track = ctx.tracks[nextIdx];
+    const nextContext = { ...ctx, currentIndex: nextIdx };
+    setPlaylistContext(nextContext);
+    play(trackToSong(track), { playlistContext: nextContext });
+  }, [playlistContext, play, trackToSong]);
+
+  const playPrevious = useCallback(() => {
+    const ctx = playlistContext;
+    if (!ctx?.tracks?.length || ctx.currentIndex == null) return;
+    const prevIdx = ctx.currentIndex - 1;
+    if (prevIdx < 0) return;
+    const track = ctx.tracks[prevIdx];
+    const nextContext = { ...ctx, currentIndex: prevIdx };
+    setPlaylistContext(nextContext);
+    play(trackToSong(track), { playlistContext: nextContext });
+  }, [playlistContext, play, trackToSong]);
+
   React.useEffect(() => {
     const audio = audioRef.current;
     const onTimeUpdate = () => setProgress(audio.currentTime);
     const onDurationChange = () => setDuration(audio.duration || 0);
     const onEnded = () => {
-      setPlaying(false);
-      setProgress(0);
+      const ctx = playlistContextRef.current;
+      if (!ctx?.tracks?.length || ctx.currentIndex == null) {
+        setPlaying(false);
+        setProgress(0);
+        return;
+      }
+      const nextIdx = ctx.currentIndex + 1;
+      if (nextIdx >= ctx.tracks.length) {
+        setPlaying(false);
+        setProgress(0);
+        return;
+      }
+      const track = ctx.tracks[nextIdx];
+      const nextContext = { ...ctx, currentIndex: nextIdx };
+      setPlaylistContext(nextContext);
+      play(trackToSong(track), { playlistContext: nextContext });
     };
     const onCanPlay = () => {
       const t = pendingSeekRef.current;
@@ -112,7 +162,7 @@ export function PlayerProvider({ children }) {
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('canplay', onCanPlay);
     };
-  }, []);
+  }, [play, trackToSong]);
 
   const seek = useCallback((t) => {
     audioRef.current.currentTime = t;
@@ -160,6 +210,7 @@ export function PlayerProvider({ children }) {
     setProgress(0);
     setDuration(0);
     setStationModeState(null);
+    setPlaylistContext(null);
   }, []);
 
   const effectiveProgress = stationMode ? (() => {
@@ -179,6 +230,7 @@ export function PlayerProvider({ children }) {
         progress: effectiveProgress,
         duration: effectiveDuration,
         stationMode,
+        playlistContext,
         volume,
         muted,
         setVolume,
@@ -190,6 +242,8 @@ export function PlayerProvider({ children }) {
         seek,
         skipBack,
         skipForward,
+        playNext,
+        playPrevious,
         exit,
         setStationMode,
         setStationVideoDisplay,
