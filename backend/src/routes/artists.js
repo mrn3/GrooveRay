@@ -84,13 +84,19 @@ async function attachArtistAggregates(artistRows, userId) {
   const songIds = songRows.map((r) => r.id);
   if (songIds.length === 0) return artistRows.map((r) => ({ ...r, total_listen_count: 0, community_avg_rating: null, community_rating_count: 0 }));
 
-  const totals = await db.all(
-    `SELECT song_id, SUM(listen_count) as total_listen_count
-     FROM user_song_listens WHERE song_id IN (${songIds.map(() => '?').join(',')})
-     GROUP BY song_id`,
-    songIds
+  // Sum of all listens for each artist's songs (one query, no JS aggregation)
+  const listenTotals = await db.all(
+    `SELECT TRIM(s.artist) as artist, COALESCE(SUM(l.listen_count), 0) as total_listen_count
+     FROM songs s
+     LEFT JOIN user_song_listens l ON l.song_id = s.id
+     WHERE TRIM(s.artist) IN (${namePlaceholders}) AND (s.is_public = 1 ${userId ? 'OR s.user_id = ?' : ''})
+     GROUP BY TRIM(s.artist)`,
+    userId ? [...names, userId] : names
   );
-  const totalMap = Object.fromEntries(totals.map((r) => [r.song_id, r.total_listen_count]));
+  const artistListenMap = Object.fromEntries(
+    listenTotals.map((r) => [r.artist, Number(r.total_listen_count)])
+  );
+
   const ratingRows = await db.all(
     `SELECT song_id, AVG(rating) as avg_rating, COUNT(*) as rating_count
      FROM user_song_ratings WHERE song_id IN (${songIds.map(() => '?').join(',')})
@@ -107,7 +113,7 @@ async function attachArtistAggregates(artistRows, userId) {
 
   let withAgg = artistRows.map((r) => {
     const ids = artistToSongs[r.artist] || [];
-    const total_listen_count = ids.reduce((sum, id) => sum + (totalMap[id] ?? 0), 0);
+    const total_listen_count = artistListenMap[r.artist] ?? 0;
     const ratings = ids.map((id) => ratingMap[id]).filter(Boolean);
     const community_rating_count = ratings.reduce((s, x) => s + (x.rating_count ?? 0), 0);
     const community_avg_rating =
