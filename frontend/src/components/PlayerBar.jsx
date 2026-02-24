@@ -102,7 +102,7 @@ export default function PlayerBar() {
                 className="flex h-10 w-10 items-center justify-center rounded-full text-gray-400 transition hover:bg-groove-600 hover:text-white disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400"
                 aria-label="Next track"
               >
-                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18V6l2 1.2v9.6L6 18zm3.5-6l8.5-6v12l-8.5-6z" /></svg>
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6v12l8.5-6zM16 6h2v12h-2z" /></svg>
               </button>
             )}
           </div>
