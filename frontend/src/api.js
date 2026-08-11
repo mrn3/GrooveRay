@@ -29,6 +29,11 @@ export function streamUrl(songId) {
   return typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
 }
 
+export function downloadUrl(songId) {
+  const path = `${API}/songs/${songId}/stream?download=1${getToken() ? `&token=${getToken()}` : ''}`;
+  return typeof window !== 'undefined' ? `${window.location.origin}${path}` : path;
+}
+
 // Auth
 const apiBase = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL ? import.meta.env.VITE_API_URL : '';
 export const auth = {

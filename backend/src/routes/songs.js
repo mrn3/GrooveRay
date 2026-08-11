@@ -98,6 +98,12 @@ router.get('/:id/stream', async (req, res) => {
   }
   const filePath = path.join(uploadsDir, song.file_path);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  if (req.query.download != null) {
+    const ext = path.extname(song.file_path) || '.mp3';
+    const base = [song.title, song.artist].filter(Boolean).join(' - ') || 'song';
+    const filename = `${base.replace(/[/\\?%*:|"<>]/g, '_')}${ext}`;
+    return res.download(filePath, filename);
+  }
   res.sendFile(filePath);
 });
 

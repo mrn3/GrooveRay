@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { songs as songsApi, images as imagesApi } from '../api';
+import { songs as songsApi, images as imagesApi, downloadUrl } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useRequireLogin } from '../context/ToastContext';
 import { usePlayer } from '../context/PlayerContext';
@@ -272,6 +272,13 @@ export default function Song() {
             >
               <span className="text-lg">▶</span> Play
             </button>
+            <a
+              href={song.file_path?.startsWith('http') ? song.file_path : downloadUrl(song.id)}
+              download
+              className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
+            >
+              Download MP3
+            </a>
             {isOwner && (
               <button
                 type="button"
