@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { songs as songsApi, images as imagesApi, downloadUrl } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useRequireLogin } from '../context/ToastContext';
@@ -62,6 +62,7 @@ function LyricsWithKaraoke({ lyrics, currentTime }) {
 
 export default function Song() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const requireLogin = useRequireLogin();
   const { play, current, playing, progress } = usePlayer();
@@ -91,6 +92,7 @@ export default function Song() {
   const [editLyrics, setEditLyrics] = useState('');
   const [editGuitarTab, setEditGuitarTab] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
   const [findingThumbnail, setFindingThumbnail] = useState(false);
@@ -235,6 +237,19 @@ export default function Song() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!song?.id || !isOwner) return;
+    if (!window.confirm(`Delete "${song.title}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await songsApi.delete(song.id);
+      navigate('/songs');
+    } catch (e) {
+      setError(e.message || 'Failed to delete song');
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -280,13 +295,23 @@ export default function Song() {
               Download MP3
             </a>
             {isOwner && (
-              <button
-                type="button"
-                onClick={openEditModal}
-                className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
-              >
-                Edit
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={openEditModal}
+                  className="rounded-lg border border-groove-600 px-4 py-2 text-sm text-gray-300 hover:bg-groove-700"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="rounded-lg border border-red-900/60 px-4 py-2 text-sm text-red-400 hover:bg-red-900/30 disabled:opacity-50"
+                >
+                  {deleting ? 'Deleting…' : 'Delete'}
+                </button>
+              </>
             )}
           </div>
 

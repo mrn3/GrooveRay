@@ -746,6 +746,14 @@ router.delete('/:id', async (req, res) => {
   const songId = req.params.id;
 
   // Remove all references so we can delete the song (FK constraints)
+  await db.run(
+    'DELETE FROM station_votes WHERE queue_id IN (SELECT id FROM station_queue WHERE song_id = ?)',
+    [songId]
+  );
+  await db.run(
+    'DELETE FROM station_now_playing WHERE queue_id IN (SELECT id FROM station_queue WHERE song_id = ?)',
+    [songId]
+  );
   await db.run('DELETE FROM station_queue WHERE song_id = ?', [songId]);
   await db.run('DELETE FROM playlist_tracks WHERE song_id = ?', [songId]);
   await db.run('DELETE FROM user_song_favorites WHERE song_id = ?', [songId]);
@@ -767,6 +775,20 @@ router.delete('/:id', async (req, res) => {
     } catch (err) {
       console.error('Failed to delete song file:', filePath, err);
       // Still return success; DB row is already removed
+    }
+  }
+
+  // Delete self-hosted thumbnail if it exists
+  const thumbPrefix = '/api/uploads/thumbnails/';
+  if (typeof song.thumbnail_url === 'string' && song.thumbnail_url.startsWith(thumbPrefix)) {
+    const thumbName = path.basename(song.thumbnail_url.slice(thumbPrefix.length));
+    const thumbPath = path.join(thumbnailsDir, thumbName);
+    try {
+      if (fs.existsSync(thumbPath)) {
+        fs.unlinkSync(thumbPath);
+      }
+    } catch (err) {
+      console.error('Failed to delete song thumbnail:', thumbPath, err);
     }
   }
 
